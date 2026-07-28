@@ -1,0 +1,3 @@
+https://github.com/luizpestana/raylib-nx/tree/master/projects/switch-nx
+https://github.com/luizpestana/raylib-nx
+https://github.com/luizpestana/raylib-nx/wiki/Working-on-Switch
