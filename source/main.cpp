@@ -1,36 +1,116 @@
 #include "raylib.h"
-#include <iostream>
+#include "rlgl.h"
+#include "Terrain.h"
+#include "Skybox.h"
+#include "FreeCamera.h"
+#include <cstdio>
 
-int main(void)
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
+
+int main()
 {
-    std::cout << "Initializing 3D Project..." << std::endl;
-
-    InitWindow(1280, 720, "Raylib 3D C++ - Win/Switch Homebrew");
-    
-    Camera3D camera = { 0 };
-    camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;
-
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sunday Panzers - Terrain Test");
     SetTargetFPS(60);
+
+    DisableCursor();
+
+    Terrain terrain;
+    terrain.generate(1);
+
+    // Создание Skybox (небо)
+    Skybox skybox;
+    skybox.load(1);
+
+    // Камера стартует ВЫШЕ ландшафта и смотрит вниз
+    FreeCamera camera;
+    // Камера стартует ВЫШЕ центра ландшафта и смотрит вниз
+    camera.init((Vector3){2500.0f, 500.0f, 2500.0f});
+
+    bool showDebug = true;
 
     while (!WindowShouldClose())
     {
-        UpdateCamera(&camera, CAMERA_ORBITAL);
+        float deltaTime = GetFrameTime();
+
+        if (IsKeyPressed(KEY_B))
+        {
+            int newBiome = terrain.getCurrentBiome() + 1;
+            if (newBiome > 6)
+                newBiome = 1;
+            terrain.generate(newBiome);
+            skybox.load(newBiome);
+        }
+
+        if (IsKeyPressed(KEY_F1))
+            showDebug = !showDebug;
+
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            if (IsCursorHidden())
+                EnableCursor();
+            else
+                DisableCursor();
+        }
+
+        camera.update(deltaTime);
+
+        Vector3 camPos = camera.getPosition();
+        float groundH = terrain.getHeight(camPos.x, camPos.z);
 
         BeginDrawing();
-            ClearBackground(RAYWHITE);
+        ClearBackground(terrain.getBackdropColor());
 
-            BeginMode3D(camera);
-                DrawCube((Vector3){ 0, 1, 0 }, 2.0f, 2.0f, 2.0f, RED);
-                DrawCubeWires((Vector3){ 0, 1, 0 }, 2.0f, 2.0f, 2.0f, MAROON);
-                DrawGrid(10, 1.0f);
-            EndMode3D();
+        BeginMode3D(camera.getCamera());
 
-            DrawText("3D Project C++ (Win/Switch)", 10, 10, 20, DARKGRAY);
-            DrawFPS(10, 40);
+        // Устанавливаем дальность отрисовки через низкоуровневые функции rlgl
+        // Аналог set camera range 6,7450 в DBP
+        {
+            float nearPlane = 0.1f;
+            float farPlane = camera.getFarPlane();
+            float fovy = camera.getCamera().fovy * DEG2RAD;
+            float aspect = (float)SCREEN_WIDTH / SCREEN_HEIGHT;
+
+            float top = nearPlane * tanf(fovy / 2.0f);
+            float bottom = -top;
+            float right = top * aspect;
+            float left = -right;
+
+            rlMatrixMode(RL_PROJECTION);
+            rlLoadIdentity();
+            rlFrustum(left, right, bottom, top, nearPlane, farPlane);
+            rlMatrixMode(RL_MODELVIEW);
+        }
+
+        // 1. Отрисовка неба (фон)
+        skybox.render();
+
+        // 2. Отрисовка ландшафта
+        terrain.render();
+
+        EndMode3D();
+
+        // UI
+        const char *biomeNames[] = {"", "GRASS", "MOUNTAINS", "DESERT", "FROZEN", "TUNDRA", "MOON"};
+        DrawText(TextFormat("BIOME: %s", biomeNames[terrain.getCurrentBiome()]),
+                 20, 20, 30, WHITE);
+        DrawText("[B] Change Biome  [F1] Debug  [ESC] Toggle Cursor", 20, 60, 20, LIGHTGRAY);
+        DrawText("WASD - Move | Mouse - Look | Q/E - Down/Up | Shift - Fast",
+                 20, SCREEN_HEIGHT - 40, 18, LIGHTGRAY);
+        DrawFPS(20, SCREEN_HEIGHT - 70);
+
+        if (showDebug)
+        {
+            DrawText(TextFormat("Camera: %.1f, %.1f, %.1f", camPos.x, camPos.y, camPos.z),
+                     20, 100, 18, YELLOW);
+            DrawText(TextFormat("Ground height under camera: %.1f", groundH),
+                     20, 125, 18, YELLOW);
+            DrawText(TextFormat("Height above ground: %.1f", camPos.y - groundH),
+                     20, 150, 18, YELLOW);
+            DrawText(TextFormat("Cursor Hidden: %s", IsCursorHidden() ? "YES" : "NO"),
+                     20, 175, 18, YELLOW);
+        }
+
         EndDrawing();
     }
 
