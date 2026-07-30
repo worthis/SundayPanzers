@@ -2,6 +2,7 @@
 #include "rlgl.h"
 #include "Terrain.h"
 #include "Skybox.h"
+#include "TreeSystem.h"
 #include "FreeCamera.h"
 #include <cstdio>
 
@@ -22,6 +23,14 @@ int main()
     Skybox skybox;
     skybox.load(1);
 
+    // Система деревьев
+    TreeSystem treeSystem;
+    treeSystem.init(&terrain);
+    treeSystem.placeTrees(1);  // Размещаем деревья для биома 1
+
+    // Строим меш ландшафта
+    terrain.buildMesh();
+
     // Камера стартует ВЫШЕ ландшафта и смотрит вниз
     FreeCamera camera;
     // Камера стартует ВЫШЕ центра ландшафта и смотрит вниз
@@ -39,7 +48,9 @@ int main()
             if (newBiome > 6)
                 newBiome = 1;
             terrain.generate(newBiome);
+            treeSystem.placeTrees(newBiome);
             skybox.load(newBiome);
+            terrain.buildMesh();
         }
 
         if (IsKeyPressed(KEY_F1))
@@ -87,6 +98,9 @@ int main()
 
         // 2. Отрисовка ландшафта
         terrain.render();
+
+        // 3. Отрисовка деревьев
+        treeSystem.render();
 
         EndMode3D();
 

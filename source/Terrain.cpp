@@ -68,6 +68,18 @@ static float wrapValue(float angle)
     return angle;
 }
 
+/*
+Изменение тайла террейна
+Строго до buildMesh
+*/
+void Terrain::setTile(int x, int z, int tileIndex)
+{
+    if (x >= 0 && x < 50 && z >= 0 && z < 50)
+    {
+        tileIndices[z][x] = tileIndex;
+    }
+}
+
 // === ГЕНЕРАЦИЯ БИОМОВ (ТОЧНО ПО DBP) ===
 
 void Terrain::generateGrass()
@@ -553,7 +565,8 @@ void Terrain::generateMoon()
 //       ... формула зависит от биома ...
 //       set matrix tile 1,xm,zm,nt
 //   Затем отдельно устанавливаются границы (borders)
-void Terrain::calculateTileIndices() {
+void Terrain::calculateTileIndices()
+{
     // === ФАЗА 1: Основной цикл по всем клеткам ===
     for (int xm = 0; xm < 50; xm++)
     {
@@ -599,31 +612,28 @@ void Terrain::calculateTileIndices() {
             }
 
             // Вычисление номера тайла
-            float nt = 1.0f + hForCalc / dv;
+            // DBP: nt = 1 + h/dv  (nt — integer, truncation)
+            int nt = (int)(1.0f + hForCalc / dv);
+            
+            // DBP: if nt > 9 then nt = 9
+            if (nt > 9) nt = 9;
 
-            // Ограничения (точно по DBP)
-            if (nt > 9)
-                nt = 9;
-            if (nt == 8)
-                nt = 23; // Тайл 8 заменяется на 23
-            if (nt == 9)
-                nt = 24; // Тайл 9 заменяется на 24
+            // DBP: if nt = 8 then nt = 23
+            if (nt == 8) nt = 23;
+
+            // DBP: if nt = 9 then nt = 24
+            if (nt == 9) nt = 24;
 
             // 20% шанс получить "альтернативный" тайл (ряд 2)
             if (GetRandomValue(0, 99) > 80 && nt < 8)
-            {
                 nt = nt + 8;
-            }
 
-            int tileIndex = (int)nt;
-            if (tileIndex < 1)
-                tileIndex = 1;
-            if (tileIndex > 24)
-                tileIndex = 24;
+            if (nt < 1) nt = 1;
+            if (nt > 24) nt = 24;
 
             // ВАЖНО: в DBP set matrix tile 1,xm,zm,nt
             // где xm - это колонка (X), zm - это строка (Z)
-            tileIndices[zm][xm] = tileIndex;
+            tileIndices[zm][xm] = nt;
         }
     }
 
@@ -642,20 +652,23 @@ void Terrain::calculateTileIndices() {
     // Левая и правая границы (x=3 и x=46)
     for (int z = 3; z <= 46; z++)
     {
-        int v1 = 22; // стандартный тайл границы
+        // стандартный тайл границы
+        int v1 = 22;
         int v2 = 22;
 
         // Углы имеют специальные тайлы
+        // верхние углы
         if (z == 3)
         {
             v1 = 20;
             v2 = 19;
-        } // верхние углы
+        }
+        // нижние углы
         if (z == 46)
         {
             v1 = 17;
             v2 = 18;
-        } // нижние углы
+        }
 
         tileIndices[z][3] = v1;  // левая граница
         tileIndices[z][46] = v2; // правая граница
@@ -930,7 +943,7 @@ void Terrain::generate(int biome)
         break;
     }
 
-    buildMesh();
+    calculateTileIndices();
 }
 
 // === ПОСТРОЕНИЕ MESH ===
@@ -980,7 +993,7 @@ void Terrain::buildMesh()
         .format = PIXELFORMAT_UNCOMPRESSED_GRAYSCALE};
 
     // Вычисляем номера тайлов для каждой клетки
-    calculateTileIndices();
+    //calculateTileIndices();
 
     // Создаем кастомный mesh с правильными UV-координатами
     Mesh mesh = createTerrainMesh();

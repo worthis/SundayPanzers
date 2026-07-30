@@ -28,6 +28,9 @@ public:
     // Аналог maketerrain(l) из DBP
     void generate(int biome);
 
+    // Построение mesh из массива высот
+    void buildMesh();
+
     // Отрисовка ландшафта
     void render() const;
 
@@ -43,6 +46,7 @@ public:
     // Доступ к массиву ter() для других систем (деревья, танки)
     TerrainCell &getCell(int x, int z) { return ter[x][z]; }
     const TerrainCell &getCell(int x, int z) const { return ter[x][z]; }
+    void setTile(int x, int z, int tileIndex);
 
 private:
     // ter(2,50,50) из DBP - массив клеток ландшафта
@@ -65,11 +69,6 @@ private:
     void generateFrozen();    // case 4
     void generateTundra();    // case 5
     void generateMoon();      // case 6
-
-    // Построение mesh из массива высот
-    void buildMesh();
-
-    void generateTerrainTexture();
 
     void calculateTileIndices();
     Mesh createTerrainMesh();
