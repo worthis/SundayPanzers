@@ -1,9 +1,7 @@
 TARGET		:=	my_game
 BUILD		:=	build
 SOURCES		:=	source
-DATA		:=	data
 INCLUDES	:=	include
-ROMFS		:=	romfs
 
 include $(DEVKITPRO)/libnx/switch_rules
 
@@ -30,15 +28,13 @@ ifneq ($(BUILD),$(notdir $(CURDIR)))
 export OUTPUT := $(CURDIR)/$(TARGET)
 export TOPDIR := $(CURDIR)
 
-export VPATH := $(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-                 $(foreach dir,$(DATA),$(CURDIR)/$(dir))
+export VPATH := $(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
 
 export DEPSDIR := $(CURDIR)/$(BUILD)
 
 CFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
-BINFILES := $(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
 export LD := $(CXX)
 
@@ -56,9 +52,6 @@ export LIBPATHS := -L/opt/raylib/switch/lib $(foreach dir,$(LIBDIRS),-L$(dir)/li
 
 export NROFLAGS += --icon=$(DEVKITPRO)/libnx/default_icon.jpg
 export NROFLAGS += --nacp=$(CURDIR)/$(TARGET).nacp
-ifneq ($(ROMFS),)
-export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
-endif
 
 .PHONY: $(BUILD) clean all
 

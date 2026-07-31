@@ -1,4 +1,5 @@
 #include "CloudSystem.h"
+#include "Utils.h"
 #include <cstdio>
 #include <cmath>
 
@@ -122,18 +123,18 @@ void CloudSystem::updateCloudPosition(int index)
     float rad = c.angle * DEG2RAD;
 
     // DBP: xc#=2500+cl#(o,1)*cos(cl#(o,2))
-    float xc = 2500.0f + c.radius * cosf(rad);
-    float zc = 2500.0f + c.radius * sinf(rad);
+    float xc = MAP_CENTER + c.radius * cosf(rad);
+    float zc = MAP_CENTER + c.radius * sinf(rad);
 
     // DBP: limit map
-    if (xc < 470.0f)
-        xc = 470.0f;
-    if (xc > 4530.0f)
-        xc = 4530.0f;
-    if (zc < 470.0f)
-        zc = 470.0f;
-    if (zc > 4530.0f)
-        zc = 4530.0f;
+    if (xc < MAP_LIMIT_MIN)
+        xc = MAP_LIMIT_MIN;
+    if (xc > MAP_LIMIT_MAX)
+        xc = MAP_LIMIT_MAX;
+    if (zc < MAP_LIMIT_MIN)
+        zc = MAP_LIMIT_MIN;
+    if (zc > MAP_LIMIT_MAX)
+        zc = MAP_LIMIT_MAX;
 
     // DBP: hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
     float h = terrain->getHeight(xc, zc);
@@ -149,7 +150,7 @@ void CloudSystem::generate(int biome)
         return;
 
     // DBP: cln=3+rnd(3)
-    cloudCount = 3 + GetRandomValue(0, 3);
+    cloudCount = 3 + rnd(4);
 
     // DBP: выбор модели
     // биомы 1,2,5 → cloud1 (индекс 1)
@@ -177,30 +178,30 @@ void CloudSystem::generate(int biome)
         clouds[i].model = cloudModels[modelIdx];
 
         // DBP: cl#(o,1)=rnd(2400)+400
-        clouds[i].radius = 400.0f + (float)GetRandomValue(0, 2400);
+        clouds[i].radius = 400.0f + (float)rnd(2401);
 
         // DBP: cl#(o,2)=rnd(359)
-        clouds[i].angle = (float)GetRandomValue(0, 359);
+        clouds[i].angle = (float)rnd(360);
 
         // DBP: cl#(o,4)=rnd(10)/900.0 при ~100 FPS
         // Переводим в градусы/сек: * 100 (эмуляция 100 FPS из DBP)
-        clouds[i].speed = ((float)GetRandomValue(0, 10) / 900.0f) * 100.0f;
+        clouds[i].speed = ((float)rnd(11) / 900.0f) * 100.0f;
 
         // DBP: масштаб
         if (biome == 6)
         {
             // DBP: sc=190+rnd(55) : scale object ob,sc,sc,sc
-            float sc = (190.0f + (float)GetRandomValue(0, 55)) / 100.0f;
+            float sc = (190.0f + (float)rnd(56)) / 100.0f;
             clouds[i].scale = {sc, sc, sc};
         }
         else
         {
             // DBP: sc=230+rnd(85) : scale object ob,sc+rnd(10),sc+rnd(10),sc+rnd(10)
             // ВАЖНО: каждый rnd(10) — отдельный вызов, значения разные!
-            float sc = (230.0f + (float)GetRandomValue(0, 85)) / 100.0f;
-            float sx = sc + (float)GetRandomValue(0, 10) / 100.0f;
-            float sy = sc + (float)GetRandomValue(0, 10) / 100.0f;
-            float sz = sc + (float)GetRandomValue(0, 10) / 100.0f;
+            float sc = (230.0f + (float)rnd(86)) / 100.0f;
+            float sx = sc + (float)rnd(11) / 100.0f;
+            float sy = sc + (float)rnd(11) / 100.0f;
+            float sz = sc + (float)rnd(11) / 100.0f;
             clouds[i].scale = {sx, sy, sz};
         }
 
@@ -221,11 +222,7 @@ void CloudSystem::update(float deltaTime)
 
         // DBP: cl#(o,2)=wrapvalue(cl#(o,2)+cl#(o,4))
         // speed в градусах/сек, умножаем на deltaTime
-        clouds[i].angle += clouds[i].speed * deltaTime;
-        if (clouds[i].angle >= 360.0f)
-        {
-            clouds[i].angle -= 360.0f;
-        }
+        clouds[i].angle = wrapValue(clouds[i].angle + clouds[i].speed * deltaTime);
 
         updateCloudPosition(i);
     }
@@ -239,9 +236,7 @@ void CloudSystem::render() const
             continue;
 
         // DBP: yrotate object ob,wrapvalue(cl#(o,2)+90)
-        float rotY = clouds[i].angle + 90.0f;
-        if (rotY >= 360.0f)
-            rotY -= 360.0f;
+        float rotY = wrapValue(clouds[i].angle + 90.0f);
 
         DrawModelEx(
             clouds[i].model,

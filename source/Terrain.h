@@ -1,11 +1,6 @@
 #pragma once
 #include "raylib.h"
-#include "raymath.h"
-
-// Константы из DBP: make matrix 1,5000,5000,50,50
-#define MAP_SIZE 5000.0f
-#define MAP_SEGMENTS 50
-#define HEIGHTMAP_SIZE 51
+#include "GameConfig.h"
 
 // Точная копия структуры данных из DBP:
 // ter(2,50,50) - массив ландшафта

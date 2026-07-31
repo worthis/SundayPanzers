@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "Terrain.h"
+#include "GameConfig.h"
 
 struct Tree
 {
@@ -23,7 +24,6 @@ public:
     void reset();
 
 private:
-    static const int MAX_TREES = 75;
     Tree trees[MAX_TREES];
     Terrain *terrain;
 

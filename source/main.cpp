@@ -1,14 +1,13 @@
 #include "raylib.h"
 #include "rlgl.h"
+#include "GameConfig.h"
+#include "Utils.h"
 #include "Terrain.h"
 #include "Skybox.h"
 #include "CloudSystem.h"
 #include "TreeSystem.h"
 #include "FreeCamera.h"
 #include <cstdio>
-
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
 
 int main()
 {

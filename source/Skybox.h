@@ -1,5 +1,6 @@
 #pragma once
 #include "raylib.h"
+#include "GameConfig.h"
 
 class Skybox
 {

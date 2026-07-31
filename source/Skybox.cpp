@@ -1,4 +1,5 @@
 #include "Skybox.h"
+#include "Utils.h"
 #include <cstdio>
 #include "rlgl.h"
 #include "raymath.h"
@@ -94,9 +95,9 @@ void Skybox::load(int biome)
     }
 
     // Размеры скайбокса (как в DBP)
-    sizeX = 5000.0f;
+    sizeX = MAP_SIZE;
     sizeY = (biome == 6) ? 1680.0f : 1960.0f;
-    sizeZ = 5000.0f;
+    sizeZ = MAP_SIZE;
 
     wall = createPlane(sizeX, sizeY);
     ceiling = createPlane(sizeX + 4.0f, sizeZ + 4.0f);
@@ -130,7 +131,7 @@ void Skybox::render() const
         return;
 
     // Позиция из DBP: position object 1100,2500,-2,2500
-    Vector3 center = {2500.0f, -2.0f, 2500.0f};
+    Vector3 center = {MAP_CENTER, -2.0f, MAP_CENTER};
 
     float halfX = sizeX / 2.0f;
     float halfY = sizeY / 2.0f;
@@ -138,7 +139,6 @@ void Skybox::render() const
 
     // КРИТИЧЕСКИ ВАЖНО: отключаем отсечение задних граней
     rlDisableBackfaceCulling();
-    // rlDisableDepthTest();
 
     // Передняя стенка (Z+) — смотрит на север
     rlPushMatrix();
@@ -180,5 +180,4 @@ void Skybox::render() const
 
     // Возвращаем отсечение граней обратно
     rlEnableBackfaceCulling();
-    // rlEnableDepthTest();
 }

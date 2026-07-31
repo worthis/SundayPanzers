@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "Terrain.h"
+#include "GameConfig.h"
 
 struct Cloud
 {
@@ -26,7 +27,6 @@ public:
     void reset();
 
 private:
-    static const int MAX_CLOUDS = 10;
     Cloud clouds[MAX_CLOUDS];
     int cloudCount;
     Terrain *terrain;
