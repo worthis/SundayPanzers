@@ -25,54 +25,82 @@ void FreeCamera::setPosition(Vector3 pos)
     camera.position = pos;
 }
 
-void FreeCamera::update(float deltaTime)
+void FreeCamera::update(const InputSystem &input, float deltaTime)
 {
-    Vector2 delta = GetMouseDelta();
-
-    if (delta.x != 0 || delta.y != 0)
+    // === Вращение камеры ===
+    if (!input.isGamepadConnected())
     {
-        yaw += delta.x * mouseSensitivity;
-        pitch -= delta.y * mouseSensitivity;
+        Vector2 mouseDelta = GetMouseDelta();
+        yaw -= mouseDelta.x * mouseSensitivity;
+        pitch -= mouseDelta.y * mouseSensitivity;
+    }
+    else
+    {
+        yaw -= input.getLookX() * 2.0f;
+        pitch -= input.getLookY() * 2.0f;
+    }
 
-        if (pitch > 89.0f)
-            pitch = 89.0f;
-        if (pitch < -89.0f)
-            pitch = -89.0f;
+    // Ограничение pitch, чтобы камера не перевернулась
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+
+    // === Перемещение камеры ===
+    float speed = moveSpeed * deltaTime;
+
+    // Ускорение (Shift / левый триггер)
+    if (IsKeyDown(KEY_LEFT_SHIFT) ||
+        (IsGamepadAvailable(0) && IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_2)))
+    {
+        speed *= 3.0f;
     }
 
     float yawRad = yaw * DEG2RAD;
     float pitchRad = pitch * DEG2RAD;
 
+    // 1. Вектор "вперед" (направление взгляда, включая вертикальный наклон pitch)
+    // При yaw=0, pitch=0: forward = {0, 0, 1} (вдоль +Z)
     Vector3 forward = {
-        cosf(pitchRad) * cosf(yawRad),
+        cosf(pitchRad) * sinf(yawRad),
         sinf(pitchRad),
-        cosf(pitchRad) * sinf(yawRad)};
+        cosf(pitchRad) * cosf(yawRad)
+    };
 
+    // 2. Вектор "вправо" (строго горизонтальный, перпендикулярный направлению взгляда)
+    // При yaw=0: right = {1, 0, 0} (вдоль +X). При yaw=90: right = {0, 0, -1} (вдоль -Z).
     Vector3 right = {
-        cosf(yawRad - 3.14159265f / 2.0f),
+        cosf(yawRad),
         0.0f,
-        sinf(yawRad - 3.14159265f / 2.0f)};
+        -sinf(yawRad)
+    };
 
-    float speed = moveSpeed * deltaTime;
-    if (IsKeyDown(KEY_LEFT_SHIFT))
-        speed *= 3.0f;
+    float mx = input.getMoveX(); // A = -1, D = 1
+    float my = input.getMoveY(); // W = -1, S = 1
 
-    Vector3 movement = {0.0f, 0.0f, 0.0f};
+    // Движение вперед/назад (W/S) - теперь учитывает наклон камеры (pitch)
+    camera.position.x += forward.x * (-my) * speed;
+    camera.position.y += forward.y * (-my) * speed;
+    camera.position.z += forward.z * (-my) * speed;
 
-    if (IsKeyDown(KEY_W))
-        movement = Vector3Add(movement, Vector3Scale(forward, speed));
-    if (IsKeyDown(KEY_S))
-        movement = Vector3Subtract(movement, Vector3Scale(forward, speed));
-    if (IsKeyDown(KEY_D))
-        movement = Vector3Subtract(movement, Vector3Scale(right, speed));
-    if (IsKeyDown(KEY_A))
-        movement = Vector3Add(movement, Vector3Scale(right, speed));
-    if (IsKeyDown(KEY_E))
-        movement.y += speed;
-    if (IsKeyDown(KEY_Q))
-        movement.y -= speed;
+    // Движение влево/вправо (A/D) - строго горизонтально
+    camera.position.x += right.x * mx * speed;
+    camera.position.z += right.z * mx * speed;
 
-    camera.position = Vector3Add(camera.position, movement);
-    camera.target = Vector3Add(camera.position, forward);
-    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    // Вверх/вниз (E/Q на клавиатуре, D-pad на геймпаде)
+    if (IsKeyDown(KEY_E) ||
+        (IsGamepadAvailable(0) && IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_UP)))
+    {
+        camera.position.y += speed;
+    }
+    if (IsKeyDown(KEY_Q) ||
+        (IsGamepadAvailable(0) && IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
+    {
+        camera.position.y -= speed;
+    }
+
+    // Обновление target (точки, куда смотрит камера)
+    camera.target = {
+        camera.position.x + forward.x,
+        camera.position.y + forward.y,
+        camera.position.z + forward.z
+    };
 }

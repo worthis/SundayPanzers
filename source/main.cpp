@@ -2,6 +2,7 @@
 #include "rlgl.h"
 #include "GameConfig.h"
 #include "Utils.h"
+#include "InputSystem.h"
 #include "Terrain.h"
 #include "Skybox.h"
 #include "CloudSystem.h"
@@ -39,6 +40,7 @@ int main()
 
     // Камера стартует ВЫШЕ ландшафта и смотрит вниз
     FreeCamera camera;
+    InputSystem input;
     // Камера стартует ВЫШЕ центра ландшафта и смотрит вниз
     camera.init((Vector3){2500.0f, 500.0f, 2500.0f});
 
@@ -48,7 +50,8 @@ int main()
     {
         float deltaTime = GetFrameTime();
 
-        if (IsKeyPressed(KEY_B))
+        if (IsKeyPressed(KEY_B) ||
+            (input.isGamepadConnected() && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP)))
         {
             int newBiome = terrain.getCurrentBiome() + 1;
             if (newBiome > 6)
@@ -65,7 +68,8 @@ int main()
 
         cloudSystem.update(deltaTime);
 
-        camera.update(deltaTime);
+        input.update();
+        camera.update(input, deltaTime);
 
         Vector3 camPos = camera.getPosition();
         float groundH = terrain.getHeight(camPos.x, camPos.z);

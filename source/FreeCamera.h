@@ -1,6 +1,8 @@
 #pragma once
 #include "raylib.h"
 #include "raymath.h"
+#include "GameConfig.h"
+#include "InputSystem.h"
 
 class FreeCamera
 {
@@ -8,7 +10,7 @@ public:
     FreeCamera();
 
     void init(Vector3 position);
-    void update(float deltaTime);
+    void update(const InputSystem &input, float deltaTime);
     Camera3D getCamera() const { return camera; }
     float getFarPlane() const { return farPlane; }
 
