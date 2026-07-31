@@ -19,6 +19,11 @@ float cosDeg(float ang)
     return cosf(ang * DEG2RAD);
 }
 
+float atanDeg(float v)
+{
+    return atanf(v) * RAD2DEG;
+}
+
 float wrapValue(float angle)
 {
     angle = fmodf(angle, 360.0f);

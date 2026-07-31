@@ -7,6 +7,8 @@ int rnd(int n);
 float sinDeg(float ang);
 float cosDeg(float ang);
 
+float atanDeg(float v);
+
 // DBP: wrapvalue(angle) → 0..359
 float wrapValue(float angle);
 

@@ -7,7 +7,8 @@
 #include "Skybox.h"
 #include "CloudSystem.h"
 #include "TreeSystem.h"
-#include "FreeCamera.h"
+#include "TankSystem.h"
+#include "TankCamera.h"
 #include <cstdio>
 
 int main()
@@ -17,38 +18,50 @@ int main()
 
     DisableCursor();
 
-    // Создание ландшафта
+    // === Создание мира ===
     Terrain terrain;
     terrain.generate(1);
 
-    // Создание Skybox (небо)
     Skybox skybox;
     skybox.load(1);
 
-    // Система деревьев
     TreeSystem treeSystem;
     treeSystem.init(&terrain);
-    treeSystem.placeTrees(1); // Размещаем деревья для биома 1
+    treeSystem.placeTrees(1);
 
-    // Строим меш ландшафта
     terrain.buildMesh();
 
-    // Система облаков
     CloudSystem cloudSystem;
     cloudSystem.init(&terrain);
     cloudSystem.generate(1);
 
-    // Камера стартует ВЫШЕ ландшафта и смотрит вниз
-    FreeCamera camera;
+    // === Система танков ===
+    TankSystem tankSystem;
+    tankSystem.init(&terrain);
+
+    // Загружаем танк игрока (тип 1, команда 1)
+    tankSystem.loadTank(1, 1, 1);
+    tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);
+
+    // === Камера следует за танком (DBP: track) ===
+    TankCamera camera;
+    camera.init(MAP_CENTER, 500.0f, MAP_CENTER + 200.0f);
+
     InputSystem input;
-    // Камера стартует ВЫШЕ центра ландшафта и смотрит вниз
-    camera.init((Vector3){2500.0f, 500.0f, 2500.0f});
 
     bool showDebug = true;
 
+    // === Фиксированный timestep (DBP: sync rate 105 ≈ 100 FPS) ===
+    const float FIXED_DT = 1.0f / 100.0f; // 100 тиков в секунду, как в DBP
+    float accumulator = 0.0f;
+
     while (!WindowShouldClose())
     {
-        float deltaTime = GetFrameTime();
+        float frameTime = GetFrameTime();
+        if (frameTime > 0.1f)
+            frameTime = 0.1f;
+
+        input.update();
 
         if (IsKeyPressed(KEY_B) ||
             (input.isGamepadConnected() && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP)))
@@ -61,16 +74,49 @@ int main()
             skybox.load(newBiome);
             terrain.buildMesh();
             cloudSystem.generate(newBiome);
+            tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);
         }
 
         if (IsKeyPressed(KEY_F1))
             showDebug = !showDebug;
 
-        cloudSystem.update(deltaTime);
+        cloudSystem.update(frameTime);
 
-        input.update();
-        camera.update(input, deltaTime);
+        // ============================================================
+        // ИСПРАВЛЕНИЕ #3: Фиксированный timestep для физики
+        // DBP работает на sync rate 105 (~100 FPS), все инкременты
+        // (spin += 0.02, accel -= 0.028) рассчитаны на 1 тик = 1/100 сек
+        // ============================================================
+        accumulator += frameTime;
+        while (accumulator >= FIXED_DT)
+        {
+            for (int n = 1; n < MAX_TANKS; n++)
+            {
+                float xj = 0.0f, yj = 0.0f;
 
+                if (n == 1)
+                {
+                    xj = input.getTankX();
+                    yj = input.getTankY();
+                }
+
+                tankSystem.updateTank(n, xj, yj, FIXED_DT);
+            }
+            accumulator -= FIXED_DT;
+        }
+
+        // === ИНТЕРПОЛЯЦИЯ (ключевое исправление ряби) ===
+        float alpha = accumulator / FIXED_DT;  // 0.0 .. 1.0
+        tankSystem.interpolate(alpha);
+
+        // ============================================================
+        // ИСПРАВЛЕНИЕ #2: Камера следует за танком
+        // ============================================================
+        const TankData &playerTank = tankSystem.getTank(1);
+        bool rearView = input.isRearViewPressed();
+        camera.track(playerTank, terrain, rearView);
+
+        // === Отрисовка ===
         Vector3 camPos = camera.getPosition();
         float groundH = terrain.getHeight(camPos.x, camPos.z);
 
@@ -82,7 +128,7 @@ int main()
         // Устанавливаем дальность отрисовки через низкоуровневые функции rlgl
         // Аналог set camera range 6,7450 в DBP
         {
-            float nearPlane = 0.1f;
+            float nearPlane = CAMERA_NEAR;
             float farPlane = camera.getFarPlane();
             float fovy = camera.getCamera().fovy * DEG2RAD;
             float aspect = (float)SCREEN_WIDTH / SCREEN_HEIGHT;
@@ -98,38 +144,50 @@ int main()
             rlMatrixMode(RL_MODELVIEW);
         }
 
-        // 1. Отрисовка неба (фон)
         skybox.render();
-
-        // 2. Отрисовка ландшафта
         terrain.render();
-
-        // 3. Отрисовка деревьев
         treeSystem.render();
-
         cloudSystem.render();
+        tankSystem.render();
 
         EndMode3D();
 
-        // UI
-        const char *biomeNames[] = {"", "GRASS", "MOUNTAINS", "DESERT", "FROZEN", "TUNDRA", "MOON"};
+        // === UI ===
+        const char *biomeNames[] = {"", "GRASS", "MOUNTAINS", "DESERT",
+                                    "FROZEN", "TUNDRA", "MOON"};
         DrawText(TextFormat("BIOME: %s", biomeNames[terrain.getCurrentBiome()]),
                  20, 20, 30, WHITE);
-        DrawText("[B] Change Biome  [F1] Debug  [ESC] Toggle Cursor", 20, 60, 20, LIGHTGRAY);
-        DrawText("WASD - Move | Mouse - Look | Q/E - Down/Up | Shift - Fast",
+        DrawText("[B] Biome  [F1] Debug  [ESC] Quit", 20, 60, 20, LIGHTGRAY);
+        DrawText("W/S - Gas/Brake  A/D - Turn  SPACE - Fire  RCtrl - Rear",
                  20, SCREEN_HEIGHT - 40, 18, LIGHTGRAY);
         DrawFPS(20, SCREEN_HEIGHT - 70);
 
         if (showDebug)
         {
-            DrawText(TextFormat("Camera: %.1f, %.1f, %.1f", camPos.x, camPos.y, camPos.z),
-                     20, 100, 18, YELLOW);
-            DrawText(TextFormat("Ground height under camera: %.1f", groundH),
-                     20, 125, 18, YELLOW);
-            DrawText(TextFormat("Height above ground: %.1f", camPos.y - groundH),
-                     20, 150, 18, YELLOW);
-            DrawText(TextFormat("Cursor Hidden: %s", IsCursorHidden() ? "YES" : "NO"),
-                     20, 175, 18, YELLOW);
+            int y = 100;
+            DrawText(TextFormat("Tank pos: %.1f, %.1f, %.1f",
+                                playerTank.x, playerTank.y, playerTank.z),
+                     20, y, 18, YELLOW);
+            y += 25;
+            DrawText(TextFormat("Tank yaw: %.1f  spin: %.3f",
+                                playerTank.yaw, playerTank.spin),
+                     20, y, 18, YELLOW);
+            y += 25;
+            DrawText(TextFormat("Tank accel: %.3f  rpm: %.3f  onGround: %d",
+                                playerTank.accel, playerTank.rpm,
+                                (int)playerTank.onGround),
+                     20, y, 18, YELLOW);
+            y += 25;
+            DrawText(TextFormat("Input: tankX=%.1f tankY=%.1f",
+                                input.getTankX(), input.getTankY()),
+                     20, y, 18, GREEN);
+            y += 25;
+            DrawText(TextFormat("Camera: %.1f, %.1f, %.1f",
+                                camPos.x, camPos.y, camPos.z),
+                     20, y, 18, YELLOW);
+            y += 25;
+            DrawText(TextFormat("Ground under cam: %.1f", groundH),
+                     20, y, 18, YELLOW);
         }
 
         EndDrawing();

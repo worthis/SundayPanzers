@@ -756,21 +756,8 @@ void Terrain::buildMesh()
     if (range == 0.0f)
         range = 1.0f;
 
-    // Создание heightmap image (grayscale)
-    unsigned char *hd = (unsigned char *)RL_CALLOC(HEIGHTMAP_SIZE * HEIGHTMAP_SIZE, 1);
-    for (int z = 0; z < HEIGHTMAP_SIZE; z++)
-    {
-        for (int x = 0; x < HEIGHTMAP_SIZE; x++)
-        {
-            float normalized = (heights[z][x] - minH) / range;
-            hd[z * HEIGHTMAP_SIZE + x] = (unsigned char)(normalized * 255.0f);
-        }
-    }
-
     // Создаем кастомный mesh с правильными UV-координатами
     Mesh mesh = createTerrainMesh();
-    RL_FREE(hd);
-
     model = LoadModelFromMesh(mesh);
 
     // Загружаем текстуру для текущего биома

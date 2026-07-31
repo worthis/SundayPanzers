@@ -146,8 +146,11 @@ void CloudSystem::updateCloudPosition(int index)
 void CloudSystem::generate(int biome)
 {
     reset();
+
     if (!terrain)
         return;
+
+    // TODO. Перенести сюда загрузку облака биома и текстуру
 
     // DBP: cln=3+rnd(3)
     cloudCount = 3 + rnd(4);

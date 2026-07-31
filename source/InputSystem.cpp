@@ -2,10 +2,7 @@
 #include <cmath>
 
 InputSystem::InputSystem()
-    : moveX(0), moveY(0), lookX(0), lookY(0),
-      prevFire(false), prevRear(false), prevTurbo(false),
-      prevToggleId(false), prevNext(false), prevPrev(false),
-      prevQuit(false), prevMusic(false), prevFps(false)
+    : tankX(0), tankY(0), camX(0), camY(0), lookX(0), lookY(0)
 {
 }
 
@@ -18,145 +15,141 @@ float InputSystem::applyDeadzone(float value) const
 
 void InputSystem::update()
 {
-    moveX = 0.0f;
-    moveY = 0.0f;
+    tankX = 0.0f;
+    tankY = 0.0f;
+    camX = 0.0f;
+    camY = 0.0f;
     lookX = 0.0f;
     lookY = 0.0f;
 
-    // === Клавиатура ===
-    // Движение: WASD / стрелки
-    // Инвертировано: A = вправо, D = влево (согласовано с FreeCamera)
-    if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
-        moveX += 1.0f;
-    if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
-        moveX -= 1.0f;
-    if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
-        moveY -= 1.0f;
-    if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
-        moveY += 1.0f;
+    // === Танк: WASD ===
+    if (IsKeyDown(KEY_A))
+        tankX -= 1.0f;
+    if (IsKeyDown(KEY_D))
+        tankX += 1.0f;
+    if (IsKeyDown(KEY_W))
+        tankY -= 1.0f;
+    if (IsKeyDown(KEY_S))
+        tankY += 1.0f;
 
-    // === Геймпад (Switch) ===
+    // === Камера: стрелки ===
+    if (IsKeyDown(KEY_LEFT))
+        camX -= 1.0f;
+    if (IsKeyDown(KEY_RIGHT))
+        camX += 1.0f;
+    if (IsKeyDown(KEY_UP))
+        camY -= 1.0f;
+    if (IsKeyDown(KEY_DOWN))
+        camY += 1.0f;
+
+    // === Геймпад ===
     if (IsGamepadAvailable(0))
     {
-        // Левый стик — движение
-        // Инвертировано: X и Y оси на Switch имеют обратные знаки
-        float gx = applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
-        float gy = applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
-        moveX -= gx; // инвертировано
-        moveY -= gy; // инвертировано (на Switch вверх = +1)
+        // Левый стик → танк
+        tankX += applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
+        tankY += applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
 
-        // Правый стик — камера
+        // Правый стик → обзор камеры
         lookX = applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X));
-        lookY = -applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y)); // инвертировано
+        lookY = applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y));
+
+        // D-pad → камера
+        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT))
+            camX -= 1.0f;
+        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
+            camX += 1.0f;
+        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_UP))
+            camY -= 1.0f;
+        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN))
+            camY += 1.0f;
     }
 
-    // Клампим значения
-    if (moveX > 1.0f)
-        moveX = 1.0f;
-    if (moveX < -1.0f)
-        moveX = -1.0f;
-    if (moveY > 1.0f)
-        moveY = 1.0f;
-    if (moveY < -1.0f)
-        moveY = -1.0f;
+    // Клампим
+    if (tankX > 1.0f)
+        tankX = 1.0f;
+    if (tankX < -1.0f)
+        tankX = -1.0f;
+    if (tankY > 1.0f)
+        tankY = 1.0f;
+    if (tankY < -1.0f)
+        tankY = -1.0f;
 }
 
-float InputSystem::getMoveX() const { return moveX; }
-float InputSystem::getMoveY() const { return moveY; }
+float InputSystem::getTankX() const { return tankX; }
+float InputSystem::getTankY() const { return tankY; }
+float InputSystem::getCamX() const { return camX; }
+float InputSystem::getCamY() const { return camY; }
 float InputSystem::getLookX() const { return lookX; }
 float InputSystem::getLookY() const { return lookY; }
 
-// === Действия (edge-detection: срабатывают один раз при нажатии) ===
-
 bool InputSystem::isFirePressed() const
 {
-    bool current = IsKeyDown(KEY_SPACE);
+    bool c = IsKeyDown(KEY_SPACE);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // A
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
+    return c;
 }
 
 bool InputSystem::isRearViewPressed() const
 {
-    bool current = IsKeyDown(KEY_RIGHT_CONTROL);
+    bool c = IsKeyDown(KEY_RIGHT_CONTROL);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // B
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+    return c;
 }
 
 bool InputSystem::isTurboPressed() const
 {
-    bool current = IsKeyDown(KEY_LEFT_CONTROL);
+    bool c = IsKeyDown(KEY_LEFT_CONTROL);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // X
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT);
+    return c;
 }
 
 bool InputSystem::isToggleIdPressed() const
 {
-    bool current = IsKeyDown(KEY_T);
+    bool c = IsKeyDown(KEY_T);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP); // Y
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP);
+    return c;
 }
 
 bool InputSystem::isNextTankPressed() const
 {
-    bool current = false;
-    // F1-F10 на клавиатуре обрабатываются отдельно в main.cpp
     if (IsGamepadAvailable(0))
-    {
-        current = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1); // R
-    }
-    return current;
+        return IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
+    return false;
 }
 
 bool InputSystem::isPrevTankPressed() const
 {
-    bool current = false;
     if (IsGamepadAvailable(0))
-    {
-        current = IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1); // L
-    }
-    return current;
+        return IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1);
+    return false;
 }
 
 bool InputSystem::isQuitPressed() const
 {
-    bool current = IsKeyDown(KEY_Q);
+    bool c = IsKeyDown(KEY_Q);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_MIDDLE_RIGHT); // Plus
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_MIDDLE_RIGHT);
+    return c;
 }
 
 bool InputSystem::isMusicTogglePressed() const
 {
-    bool current = IsKeyDown(KEY_M);
+    bool c = IsKeyDown(KEY_M);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_2); // ZL
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_2);
+    return c;
 }
 
 bool InputSystem::isFpsTogglePressed() const
 {
-    bool current = IsKeyDown(KEY_F);
+    bool c = IsKeyDown(KEY_F);
     if (IsGamepadAvailable(0))
-    {
-        current = current || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2); // ZR
-    }
-    return current;
+        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
+    return c;
 }
 
 bool InputSystem::isGamepadConnected() const
