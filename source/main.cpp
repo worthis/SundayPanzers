@@ -2,6 +2,7 @@
 #include "rlgl.h"
 #include "Terrain.h"
 #include "Skybox.h"
+#include "CloudSystem.h"
 #include "TreeSystem.h"
 #include "FreeCamera.h"
 #include <cstdio>
@@ -16,6 +17,7 @@ int main()
 
     DisableCursor();
 
+    // Создание ландшафта
     Terrain terrain;
     terrain.generate(1);
 
@@ -26,10 +28,15 @@ int main()
     // Система деревьев
     TreeSystem treeSystem;
     treeSystem.init(&terrain);
-    treeSystem.placeTrees(1);  // Размещаем деревья для биома 1
+    treeSystem.placeTrees(1); // Размещаем деревья для биома 1
 
     // Строим меш ландшафта
     terrain.buildMesh();
+
+    // Система облаков
+    CloudSystem cloudSystem;
+    cloudSystem.init(&terrain);
+    cloudSystem.generate(1);
 
     // Камера стартует ВЫШЕ ландшафта и смотрит вниз
     FreeCamera camera;
@@ -51,18 +58,13 @@ int main()
             treeSystem.placeTrees(newBiome);
             skybox.load(newBiome);
             terrain.buildMesh();
+            cloudSystem.generate(newBiome);
         }
 
         if (IsKeyPressed(KEY_F1))
             showDebug = !showDebug;
 
-        if (IsKeyPressed(KEY_ESCAPE))
-        {
-            if (IsCursorHidden())
-                EnableCursor();
-            else
-                DisableCursor();
-        }
+        cloudSystem.update(deltaTime);
 
         camera.update(deltaTime);
 
@@ -101,6 +103,8 @@ int main()
 
         // 3. Отрисовка деревьев
         treeSystem.render();
+
+        cloudSystem.render();
 
         EndMode3D();
 

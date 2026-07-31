@@ -100,23 +100,10 @@ void TreeSystem::loadTreeModels()
             for (int m = 0; m < treeModels[i].materialCount; m++)
             {
                 Material *mat = &treeModels[i].materials[m];
-
-                // Specular = 0 (DBA: set object specular ob,0)
-                mat->maps[MATERIAL_MAP_SPECULAR].color = BLACK;
-
-                // Unlit: убираем влияние освещения
-                // Устанавливаем diffuse в белый, emissive в белый
                 mat->maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-                mat->maps[MATERIAL_MAP_EMISSION].color = WHITE;
-
                 mat->maps[MATERIAL_MAP_DIFFUSE].texture = tex;
-
-                // No mipmapping (DBA: set object texture ob,0,0)
-                if (mat->maps[MATERIAL_MAP_DIFFUSE].texture.id != 0)
-                {
-                    SetTextureFilter(mat->maps[MATERIAL_MAP_DIFFUSE].texture,
-                                     TEXTURE_FILTER_POINT);
-                }
+                SetTextureFilter(mat->maps[MATERIAL_MAP_DIFFUSE].texture,
+                                 TEXTURE_FILTER_POINT);
             }
 
             TraceLog(LOG_INFO, "Tree texture %d loaded: %s", i, textureFiles[i]);
