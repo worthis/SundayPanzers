@@ -9,6 +9,7 @@
 #include "TreeSystem.h"
 #include "TankSystem.h"
 #include "TankCamera.h"
+#include "BulletSystem.h"
 #include <cstdio>
 
 int main()
@@ -38,6 +39,10 @@ int main()
     // === Система танков ===
     TankSystem tankSystem;
     tankSystem.init(&terrain);
+
+    BulletSystem bulletSystem;
+    bulletSystem.init(&terrain, &tankSystem);
+    bulletSystem.loadAssets();
 
     // Загружаем танк игрока (тип 1, команда 1)
     tankSystem.loadTank(1, 1, 1);
@@ -90,18 +95,25 @@ int main()
         accumulator += frameTime;
         while (accumulator >= FIXED_DT)
         {
+            // Ввод
+            float xj = input.getTankX();
+            float yj = input.getTankY();
+            bool firePressed = IsKeyDown(KEY_SPACE);
+
             for (int n = 1; n < MAX_TANKS; n++)
             {
-                float xj = 0.0f, yj = 0.0f;
-
                 if (n == 1)
                 {
-                    xj = input.getTankX();
-                    yj = input.getTankY();
+                    tankSystem.updateTank(n, xj, yj, FIXED_DT);
+                    if (firePressed)
+                        bulletSystem.fireBullet(n);
                 }
-
-                tankSystem.updateTank(n, xj, yj, FIXED_DT);
+                else
+                    tankSystem.updateTank(n, 0, 0, FIXED_DT);  // AI позже
             }
+
+            bulletSystem.update();
+
             accumulator -= FIXED_DT;
         }
 
@@ -149,6 +161,7 @@ int main()
         treeSystem.render();
         cloudSystem.render();
         tankSystem.render();
+        bulletSystem.render();
 
         EndMode3D();
 

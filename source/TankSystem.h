@@ -7,22 +7,22 @@
 // === Параметры типа танка (из tankloader DBP) ===
 struct TankType
 {
-    float scale[3];        // scale object n,x,y,z (в процентах / 100)
-    float steering;        // tk#(n,7) — макс. скорость поворота
-    float maxSpeed;        // tk#(n,8) — макс. скорость
-    int fireLimb;          // tk#(n,16) — limb для стрельбы
-    int reloadTime;        // tk#(n,19) — время перезарядки
-    int bulletLength;      // tk#(n,20) — длительность полёта пули
-    float bulletPower;     // tk#(n,21) — урон пули
-    float collisionRange;  // tk#(n,33) — радиус коллизии (1/2 танка)
-    float shotAngle;       // tk#(n,36) — начальный угол выстрела
-    float energy;          // tk#(n,37) — энергия
-    float hitScale;        // tk#(n,39) — масштаб hitball
-    float soundStart;      // tk#(n,40) — базовая скорость звука двигателя
-    float collisionHeight; // tk#(n,41) — высота коллизии (1/2 высоты)
-    float bulletGravity;   // tk#(n,42) — гравитация пули
-    int turboTime;         // tk#(n,46) — длительность турбо
-    int turboReload;       // tk#(n,47) — перезарядка турбо
+    float scaleX, scaleY, scaleZ; // scale object n,x,y,z (в процентах / 100)
+    float steering;               // tk#(n,7) — макс. скорость поворота
+    float maxSpeed;               // tk#(n,8) — макс. скорость
+    int fireLimb;                 // tk#(n,16) — limb для стрельбы
+    int reloadTime;               // tk#(n,19) — время перезарядки
+    int bulletLength;             // tk#(n,20) — длительность полёта пули
+    float bulletPower;            // tk#(n,21) — урон пули
+    float collisionRange;         // tk#(n,33) — радиус коллизии (1/2 танка)
+    float shotAngle;              // tk#(n,36) — начальный угол выстрела
+    float energy;                 // tk#(n,37) — энергия
+    float hitScale;               // tk#(n,39) — масштаб hitball
+    float soundStart;             // tk#(n,40) — базовая скорость звука двигателя
+    float collisionHeight;        // tk#(n,41) — высота коллизии (1/2 высоты)
+    float bulletGravity;          // tk#(n,42) — гравитация пули
+    int turboTime;                // tk#(n,46) — длительность турбо
+    int turboReload;              // tk#(n,47) — перезарядка турбо
 };
 
 // === Состояние одного танка (аналог tk#(n,0..52)) ===
@@ -36,6 +36,8 @@ struct TankData
 
     // 4-6: углы (pitch, yaw, roll)
     float pitch, yaw, roll;
+
+    float scaleX, scaleY, scaleZ;
 
     // 7-8: параметры из TankType (копируются при загрузке)
     float steering;
@@ -174,25 +176,31 @@ public:
     void render() const;
 
     // Доступ к данным танка
-    TankData &getTank(int n) { return tanks[n]; }
+    const TankType &getTankType(int n) const { return tankTypes[n]; }
     const TankData &getTank(int n) const { return tanks[n]; }
     TankData &getTankMut(int n) { return tanks[n]; }
+    // Локальный центр меша-дула (в координатах модели, до масштаба)
+    Vector3 getMuzzleLocal(int type) const { return muzzleLocal[type]; }
 
     // Количество активных танков
     int getActiveCount() const;
 
 private:
     TankData tanks[MAX_TANKS];
-    TankType tankTypes[9]; // типы 1-8
+    TankType tankTypes[MAX_TANK_TYPES + 1]; // типы 1-8
 
-    Model tankModels[9]; // модели t1-t8
-    bool modelsLoaded[9];
+    Model tankModels[MAX_TANK_TYPES + 1]; // модели t1-t8
+    bool modelsLoaded[MAX_TANK_TYPES + 1];
 
     // Текстуры команд (DBP: 101-110 обычные, 111-120 повреждённые, 121-130 уничтоженные)
-    Texture2D squadNormal[11];    // t1.png - t10.png
-    Texture2D squadDamaged[11];   // td1.png - td10.png
-    Texture2D squadDestroyed[11]; // tw1.png - tw10.png
+    Texture2D squadTexNormal[11];    // t1.png - t10.png
+    Texture2D squadTexDamaged[11];   // td1.png - td10.png
+    Texture2D squadTexDestroyed[11]; // tw1.png - tw10.png
     bool squadTexLoaded[11];
+
+    // Локальный центр меша fireLimb для каждого типа танка
+    // Вычисляется один раз при загрузке модели
+    Vector3 muzzleLocal[MAX_TANK_TYPES + 1] = {};
 
     Terrain *terrain;
 
@@ -202,4 +210,7 @@ private:
     void loadSquadTextures();
     void unloadSquadTextures();
     void resetTank(int n);
+
+    // Вычисление центра меша (bounding box center)
+    static Vector3 computeMeshCenter(const Mesh &mesh);
 };

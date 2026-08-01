@@ -28,3 +28,8 @@
 
 // === Танки ===
 #define MAX_TANKS 56
+#define MAX_TANK_TYPES 8
+
+#define MAX_BULLETS     55
+#define MAX_HIT_EFFECTS 55
+#define MAX_EXPLOSIONS  4

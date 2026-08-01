@@ -70,12 +70,6 @@ void FreeCamera::update(const InputSystem &input, float deltaTime)
         sinf(pitchRad),
         cosf(pitchRad) * cosf(yawRad)};
 
-    // Вектор "вправо" (горизонтальный)
-    Vector3 right = {
-        cosf(yawRad),
-        0.0f,
-        -sinf(yawRad)};
-
     // Стрелки вверх/вниз = движение камеры вперёд/назад
     float my = input.getCamY();
 

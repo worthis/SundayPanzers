@@ -2,7 +2,41 @@
 #include "Utils.h"
 #include <cstdio>
 #include <cmath>
+#include <cfloat>
 #include "rlgl.h"
+#include "raymath.h"
+
+// Центр bounding box меша — локальная позиция дула
+Vector3 TankSystem::computeMeshCenter(const Mesh &mesh)
+{
+    if (mesh.vertexCount == 0)
+        return {0, 0, 0};
+
+    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
+    float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+
+    for (int i = 0; i < mesh.vertexCount; i++)
+    {
+        float x = mesh.vertices[i * 3 + 0];
+        float y = mesh.vertices[i * 3 + 1];
+        float z = mesh.vertices[i * 3 + 2];
+
+        if (x < minX)
+            minX = x;
+        if (x > maxX)
+            maxX = x;
+        if (y < minY)
+            minY = y;
+        if (y > maxY)
+            maxY = y;
+        if (z < minZ)
+            minZ = z;
+        if (z > maxZ)
+            maxZ = z;
+    }
+
+    return {(minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f};
+}
 
 TankSystem::TankSystem() : terrain(nullptr)
 {
@@ -11,18 +45,19 @@ TankSystem::TankSystem() : terrain(nullptr)
         tankModels[i] = {0};
         modelsLoaded[i] = false;
     }
+
     for (int i = 0; i < 11; i++)
     {
-        squadNormal[i] = {0};
-        squadDamaged[i] = {0};
-        squadDestroyed[i] = {0};
+        squadTexNormal[i] = {0};
+        squadTexDamaged[i] = {0};
+        squadTexDestroyed[i] = {0};
         squadTexLoaded[i] = false;
     }
+
     for (int i = 0; i < MAX_TANKS; i++)
     {
         resetTank(i);
     }
-    initTankTypes();
 }
 
 TankSystem::~TankSystem()
@@ -41,6 +76,9 @@ void TankSystem::resetTank(int n)
     t.pitch = 0;
     t.yaw = 0;
     t.roll = 0;
+    t.scaleX = 1;
+    t.scaleY = 1;
+    t.scaleZ = 1;
     t.steering = 0;
     t.maxSpeed = 0;
     t.spin = 0;
@@ -93,27 +131,31 @@ void TankSystem::initTankTypes()
 {
     // === Тип 1 (из DBP tankloader case 1) ===
     tankTypes[1] = {
-        {1.00f, 1.10f, 1.00f}, // scale 100,110,100
-        0.99f,                 // steering
-        4.0f,                  // maxSpeed
-        1,                     // fireLimb
-        80,                    // reloadTime
-        75,                    // bulletLength
-        6.0f,                  // bulletPower
-        15.0f,                 // collisionRange
-        0.0f,                  // shotAngle
-        35.0f,                 // energy
-        0.7f,                  // hitScale
-        22500.0f,              // soundStart
-        17.0f,                 // collisionHeight
-        0.025f,                // bulletGravity
-        350,                   // turboTime
-        800                    // turboReload
+        1.0f, // scale 100,110,100
+        1.1f,
+        1.0f,
+        0.99f,    // steering
+        4.0f,     // maxSpeed
+        1,        // fireLimb
+        80,       // reloadTime
+        75,       // bulletLength
+        6.0f,     // bulletPower
+        15.0f,    // collisionRange
+        0.0f,     // shotAngle
+        35.0f,    // energy
+        0.7f,     // hitScale
+        22500.0f, // soundStart
+        17.0f,    // collisionHeight
+        0.025f,   // bulletGravity
+        350,      // turboTime
+        800       // turboReload
     };
 
     // === Тип 2 ===
     tankTypes[2] = {
-        {1.02f, 1.05f, 1.00f},
+        1.02f,
+        1.05f,
+        1.00f,
         0.90f,
         3.75f,
         3,
@@ -132,7 +174,9 @@ void TankSystem::initTankTypes()
 
     // === Тип 3 ===
     tankTypes[3] = {
-        {1.02f, 1.05f, 1.00f},
+        1.02f,
+        1.05f,
+        1.00f,
         0.92f,
         3.65f,
         4,
@@ -151,7 +195,9 @@ void TankSystem::initTankTypes()
 
     // === Тип 4 ===
     tankTypes[4] = {
-        {1.00f, 0.98f, 1.00f},
+        1.00f,
+        0.98f,
+        1.00f,
         0.83f,
         3.0f,
         3,
@@ -170,7 +216,9 @@ void TankSystem::initTankTypes()
 
     // === Тип 5 ===
     tankTypes[5] = {
-        {1.00f, 0.95f, 1.00f},
+        1.00f,
+        0.95f,
+        1.00f,
         0.85f,
         3.4f,
         1,
@@ -189,7 +237,9 @@ void TankSystem::initTankTypes()
 
     // === Тип 6 ===
     tankTypes[6] = {
-        {1.00f, 0.99f, 1.01f},
+        1.00f,
+        0.99f,
+        1.01f,
         0.75f,
         2.7f,
         3,
@@ -208,7 +258,9 @@ void TankSystem::initTankTypes()
 
     // === Тип 7 ===
     tankTypes[7] = {
-        {1.00f, 1.01f, 1.01f},
+        1.00f,
+        1.01f,
+        1.01f,
         0.80f,
         3.9f,
         1,
@@ -227,7 +279,9 @@ void TankSystem::initTankTypes()
 
     // === Тип 8 ===
     tankTypes[8] = {
-        {1.05f, 1.01f, 1.01f},
+        1.05f,
+        1.01f,
+        1.01f,
         0.70f,
         3.1f,
         1,
@@ -248,6 +302,7 @@ void TankSystem::initTankTypes()
 void TankSystem::init(Terrain *t)
 {
     terrain = t;
+    initTankTypes();
     loadTankModels();
     loadSquadTextures();
 }
@@ -269,7 +324,7 @@ void TankSystem::loadTankModels()
 {
     unloadTankModels();
 
-    for (int i = 1; i <= 8; i++)
+    for (int i = 1; i <= MAX_TANK_TYPES; i++)
     {
         char path[64];
         snprintf(path, sizeof(path), "data/tanks/t%d.glb", i);
@@ -279,6 +334,23 @@ void TankSystem::loadTankModels()
         {
             tankModels[i] = m;
             modelsLoaded[i] = true;
+
+            // Вычисляем локальный центр меша-дула (fireLimb)
+            // нумерация мешей в DarkBasic начинается с последнего
+            int fl = tankTypes[i].fireLimb;
+            if (fl >= 0 && fl < m.meshCount)
+            {
+                muzzleLocal[i] = computeMeshCenter(m.meshes[m.meshCount - fl]);
+                TraceLog(LOG_INFO, "Tank %d: fireLimb mesh %d center = (%.1f, %.1f, %.1f)",
+                         i, fl, muzzleLocal[i].x, muzzleLocal[i].y, muzzleLocal[i].z);
+            }
+            else
+            {
+                // Fallback если fireLimb вне диапазона
+                muzzleLocal[i] = {0, 14, 22};
+                TraceLog(LOG_WARNING, "Tank %d: fireLimb %d out of range (meshCount=%d), using fallback",
+                         i, fl, m.meshCount);
+            }
 
             // DBP: set object specular n,0 : set object n,1,0,1,0,0,0,0
             // Отключаем освещение, ставим цвет WHITE
@@ -308,6 +380,7 @@ void TankSystem::loadTank(int n, int t, int c)
         return;
 
     resetTank(n);
+
     TankData &tk = tanks[n];
     TankType &tt = tankTypes[t];
 
@@ -317,6 +390,9 @@ void TankSystem::loadTank(int n, int t, int c)
     tk.squadId = c;
 
     // Копируем параметры типа
+    tk.scaleX = tt.scaleX;
+    tk.scaleY = tt.scaleY;
+    tk.scaleZ = tt.scaleZ;
     tk.steering = tt.steering;
     tk.maxSpeed = tt.maxSpeed;
     tk.fireLimb = tt.fireLimb;
@@ -627,8 +703,6 @@ void TankSystem::render() const
         if (!modelsLoaded[tk.type])
             continue;
 
-        TankType tt = tankTypes[tk.type];
-
         // Выбираем текстуру по состоянию
         Texture2D tex = {0};
         int sq = tk.squadId;
@@ -636,15 +710,15 @@ void TankSystem::render() const
         {
             if (tk.type < 0)
             {
-                tex = squadDestroyed[sq];
+                tex = squadTexDestroyed[sq];
             }
             else if (tk.damaged)
             {
-                tex = squadDamaged[sq];
+                tex = squadTexDamaged[sq];
             }
             else
             {
-                tex = squadNormal[sq];
+                tex = squadTexNormal[sq];
             }
         }
 
@@ -687,9 +761,20 @@ void TankSystem::render() const
         rlRotatef(finalPitch, 1.0f, 0.0f, 0.0f);
         // Roll: аналогично
         rlRotatef(finalRoll, 0.0f, 0.0f, 1.0f);
+        rlScalef(tk.scaleX, tk.scaleY, tk.scaleZ);
 
-        rlScalef(tt.scale[0], tt.scale[1], tt.scale[2]);
-        DrawModel(mdl, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+        // DrawModel(mdl, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+
+        // DBP: hide limb n, fireLimb — меш дула невидим
+        for (int i = 0; i < mdl.meshCount; i++)
+        {
+            if (i == mdl.meshCount - tk.fireLimb)
+                continue; // пропускаем меш дула
+
+            int matIdx = mdl.meshMaterial[i];
+            DrawMesh(mdl.meshes[i], mdl.materials[matIdx], MatrixIdentity());
+        }
+
         rlPopMatrix();
     }
 }
@@ -711,15 +796,15 @@ void TankSystem::unloadSquadTextures()
     {
         if (squadTexLoaded[i])
         {
-            if (squadNormal[i].id != 0)
-                UnloadTexture(squadNormal[i]);
-            if (squadDamaged[i].id != 0)
-                UnloadTexture(squadDamaged[i]);
-            if (squadDestroyed[i].id != 0)
-                UnloadTexture(squadDestroyed[i]);
-            squadNormal[i] = {0};
-            squadDamaged[i] = {0};
-            squadDestroyed[i] = {0};
+            if (squadTexNormal[i].id != 0)
+                UnloadTexture(squadTexNormal[i]);
+            if (squadTexDamaged[i].id != 0)
+                UnloadTexture(squadTexDamaged[i]);
+            if (squadTexDestroyed[i].id != 0)
+                UnloadTexture(squadTexDestroyed[i]);
+            squadTexNormal[i] = {0};
+            squadTexDamaged[i] = {0};
+            squadTexDestroyed[i] = {0};
             squadTexLoaded[i] = false;
         }
     }
@@ -735,23 +820,23 @@ void TankSystem::loadSquadTextures()
 
         // Обычная текстура: data/tanks/t1.png ... t10.png
         snprintf(path, sizeof(path), "data/tanks/t%d.png", i);
-        squadNormal[i] = LoadTexture(path);
+        squadTexNormal[i] = LoadTexture(path);
 
         // Повреждённая: data/tanks/td1.png ... td10.png
         snprintf(path, sizeof(path), "data/tanks/td%d.png", i);
-        squadDamaged[i] = LoadTexture(path);
+        squadTexDamaged[i] = LoadTexture(path);
 
         // Уничтоженная: data/tanks/tw1.png ... tw10.png
         snprintf(path, sizeof(path), "data/tanks/tw%d.png", i);
-        squadDestroyed[i] = LoadTexture(path);
+        squadTexDestroyed[i] = LoadTexture(path);
 
-        if (squadNormal[i].id != 0)
+        if (squadTexNormal[i].id != 0)
         {
             squadTexLoaded[i] = true;
             // DBP: set object texture n,0,0 — отключаем mipmapping
-            SetTextureFilter(squadNormal[i], TEXTURE_FILTER_POINT);
-            SetTextureFilter(squadDamaged[i], TEXTURE_FILTER_POINT);
-            SetTextureFilter(squadDestroyed[i], TEXTURE_FILTER_POINT);
+            SetTextureFilter(squadTexNormal[i], TEXTURE_FILTER_POINT);
+            SetTextureFilter(squadTexDamaged[i], TEXTURE_FILTER_POINT);
+            SetTextureFilter(squadTexDestroyed[i], TEXTURE_FILTER_POINT);
             TraceLog(LOG_INFO, "Squad textures %d loaded (normal/damaged/destroyed)", i);
         }
         else
