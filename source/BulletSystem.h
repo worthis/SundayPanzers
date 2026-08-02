@@ -3,6 +3,7 @@
 #include "GameConfig.h"
 #include "Terrain.h"
 #include "TankSystem.h"
+#include "TreeSystem.h"
 #include "Utils.h"
 #include <cmath>
 
@@ -62,7 +63,7 @@ public:
     BulletSystem();
     ~BulletSystem();
 
-    void init(Terrain *terrain, TankSystem *tankSystem);
+    void init(Terrain *terrain, TankSystem *tankSystem, TreeSystem* treeSystem);
     void fireBullet(int n);
     void update();
     void render() const;
@@ -75,6 +76,7 @@ private:
 
     Terrain *terrain = nullptr;
     TankSystem *tankSystem = nullptr;
+    TreeSystem *treeSystem = nullptr;
 
     // Модели пуль
     Model bulletModel1;
@@ -102,7 +104,7 @@ private:
     Texture2D loadTextureColorKey(const char* path);
 
     bool checkGroundCollision(const BulletData &b) const;
-    bool checkTreeCollision(BulletData &b, int &treeIndex) const;
+    bool checkTreeCollision(BulletData& b, int& treeIndex, float& hitAngle) const;
     bool checkMapBounds(const BulletData &b) const;
     int checkTankCollision(const BulletData &b) const;
 

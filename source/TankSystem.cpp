@@ -38,7 +38,7 @@ Vector3 TankSystem::computeMeshCenter(const Mesh &mesh)
     return {(minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f};
 }
 
-TankSystem::TankSystem() : terrain(nullptr)
+TankSystem::TankSystem() : terrain(nullptr), treeSystem(nullptr)
 {
     for (int i = 0; i < 9; i++)
     {
@@ -315,9 +315,10 @@ void TankSystem::initTankTypes()
         2};
 }
 
-void TankSystem::init(Terrain *t)
+void TankSystem::init(Terrain *terrain, TreeSystem *treeSystem)
 {
-    terrain = t;
+    this->terrain = terrain;
+    this->treeSystem = treeSystem;
     initTankTypes();
     loadTankModels();
     loadSquadTextures();
@@ -519,6 +520,22 @@ void TankSystem::placeTank(int n, float x, float z, float yaw)
     tk.onGround = true;
 }
 
+void TankSystem::applyBounce(int n)
+{
+    if (n < 1 || n >= MAX_TANKS)
+        return;
+    TankData &tk = tanks[n];
+
+    if (tk.bounceForce > 0.0f)
+    {
+        tk.x = newXValue(tk.x, tk.bounceAngle, tk.bounceForce);
+        tk.z = newZValue(tk.z, tk.bounceAngle, tk.bounceForce);
+        tk.bounceForce /= 1.05f;
+        if (tk.bounceForce < 0.3f)
+            tk.bounceForce = -1.0f; // DBP: -1 = сброс
+    }
+}
+
 void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
 {
     if (n < 1 || n >= MAX_TANKS)
@@ -683,6 +700,129 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
         tk.onGround = true;
         // DBP не сбрасывает bounce явно, но при onGround
         // танк больше не падает. Оставляем как в оригинале.
+    }
+
+    // ================================================================
+    // 7. BOUNCE (DBP: bounce tank vs tree / vs tank collision routine)
+    //    if tk#(n,15)>0
+    //      tk#(n,1)=newxvalue(tk#(n,1),tk#(n,14),tk#(n,15))
+    //      tk#(n,3)=newzvalue(tk#(n,3),tk#(n,14),tk#(n,15))
+    //      tk#(n,15)=tk#(n,15)/1.05
+    //      if tk#(n,15)<0.3 then tk#(n,15)=-1
+    // ================================================================
+    applyBounce(n);
+}
+
+#include "TreeSystem.h" // в начало TankSystem.cpp
+
+void TankSystem::updateCollisions()
+{
+    if (!terrain)
+        return;
+
+    // ================================================================
+    // A. TANK ↔ TREE  (DBP: ter(0,xm,zm)=1 check)
+    // ================================================================
+    for (int n = 1; n < MAX_TANKS; n++)
+    {
+        TankData &tk = tanks[n];
+        if (tk.type == 0)
+            continue;
+
+        int xm = (int)(tk.x / 100.0f);
+        int zm = (int)(tk.z / 100.0f);
+
+        if (xm < 0 || xm >= HEIGHTMAP_SIZE ||
+            zm < 0 || zm >= HEIGHTMAP_SIZE)
+            continue;
+
+        if (terrain->getCell(xm, zm).objectType != 1)
+            continue;
+
+        float cex = xm * 100.0f + 50.0f;
+        float cez = zm * 100.0f + 50.0f;
+
+        // DBP: if tk#(n,1)<cex+tk#(n,33) and ...
+        if (tk.x >= cex - tk.collisionRange &&
+            tk.x <= cex + tk.collisionRange &&
+            tk.z >= cez - tk.collisionRange &&
+            tk.z <= cez + tk.collisionRange)
+        {
+            // Угол от дерева к танку (DBP: point object 65000 → angle y)
+            float angle = atan2f(tk.x - cex, tk.z - cez) * RAD2DEG;
+            if (angle < 0.0f)
+                angle += 360.0f;
+
+            // DBP: tk#(n,14) = angle - 10 + rnd(20)  — irregular bounce
+            tk.bounceAngle = angle - 10.0f + (float)rnd(20);
+            // DBP: tk#(n,15) = 0.8 + abs(f#)*1.5
+            tk.bounceForce = 0.8f + fabsf(tk.rpm) * 1.5f;
+
+            // DBP: tk#(n,22) = abs(tk#(n,10))/1.425 : tk#(n,23)=0
+            tk.bounce = fabsf(tk.accel) / 1.425f;
+            tk.onGround = false;
+            // DBP: tk#(n,24)=rnd(20)-10 : tk#(n,25)=rnd(20)-10
+            tk.bounceRoll = (float)(rnd(20) - 10);
+            tk.bouncePitch = (float)(rnd(20) - 10);
+
+            // Урон дереву
+            if (treeSystem)
+                treeSystem->hitTree(xm, zm, angle);
+        }
+    }
+
+    // ================================================================
+    // B. TANK ↔ TANK  (DBP: for c=n+1 to obmax)
+    // ================================================================
+    for (int n = 1; n < MAX_TANKS - 1; n++)
+    {
+        TankData &tkN = tanks[n];
+        if (tkN.type == 0)
+            continue;
+
+        for (int c = n + 1; c < MAX_TANKS; c++)
+        {
+            TankData &tkC = tanks[c];
+            if (tkC.type == 0)
+                continue;
+
+            float dx = tkN.x - tkC.x;
+            float dz = tkN.z - tkC.z;
+            float dy = tkN.y - tkC.y;
+            float r = sqrtf(dx * dx + dz * dz);
+            float rcol = tkN.collisionRange + tkC.collisionRange;
+
+            // DBP: if r<rcol and abs(dy#)<rcol
+            if (r < rcol && fabsf(dy) < rcol)
+            {
+                // Угол от N к C
+                // DBP: point object 65000, tk#(c,1), 0, tk#(c,3)
+                float angleNtoC = atan2f(tkC.x - tkN.x,
+                                         tkC.z - tkN.z) *
+                                  RAD2DEG;
+                if (angleNtoC < 0.0f)
+                    angleNtoC += 360.0f;
+
+                // DBP: fce# = (abs(tk#(n,10))+abs(tk#(c,10)))/4 + 2.5
+                float fce = (fabsf(tkN.accel) + fabsf(tkC.accel)) / 4.0f + 2.5f;
+
+                // DBP: tk#(n,14) = wrapvalue(angle - 180)
+                tkN.bounceAngle = wrapValue(angleNtoC + 180.0f);
+                tkN.bounceForce = fce;
+                tkN.accel /= 2.0f;
+
+                // DBP: tk#(c,14) = angle
+                tkC.bounceAngle = angleNtoC;
+                tkC.bounceForce = fce;
+                tkC.accel /= 2.0f;
+
+                // DBP: если wreck → половина силы
+                if (tkC.type < 0)
+                    tkC.bounceForce /= 2.0f;
+                if (tkN.type < 0)
+                    tkN.bounceForce /= 2.0f;
+            }
+        }
     }
 }
 

@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "GameConfig.h"
 #include "Terrain.h"
+#include "TreeSystem.h"
 #include "Utils.h"
 
 // === Параметры типа танка (из tankloader DBP) ===
@@ -161,7 +162,7 @@ public:
     TankSystem();
     ~TankSystem();
 
-    void init(Terrain *terrain);
+    void init(Terrain *terrain, TreeSystem *treeSystem);
 
     // Загрузка танка (аналог tankloader(n,t,c))
     // n = индекс (1-55), t = тип (1-8), c = команда (1-10)
@@ -173,6 +174,9 @@ public:
     // Обновление физики одного танка (аналог цикла в tanks())
     // xj = -1..1 (поворот), yj = -1..1 (газ/тормоз)
     void updateTank(int n, float xj, float yj, float deltaTime);
+
+    // Вызывается ОДИН раз за тик ПОСЛЕ updateTank для всех танков
+    void updateCollisions();
 
     // Интерполяция между prev и current (вызывается перед рендером)
     void interpolate(float alpha);
@@ -207,7 +211,8 @@ private:
     // Вычисляется один раз при загрузке модели
     Vector3 muzzleLocal[MAX_TANK_TYPES + 1] = {};
 
-    Terrain *terrain;
+    Terrain *terrain = nullptr;
+    TreeSystem *treeSystem = nullptr;
 
     void initTankTypes();
     void loadTankModels();
@@ -215,6 +220,7 @@ private:
     void loadSquadTextures();
     void unloadSquadTextures();
     void resetTank(int n);
+    void applyBounce(int n);
 
     // Вычисление центра меша (bounding box center)
     static Vector3 computeMeshCenter(const Mesh &mesh);

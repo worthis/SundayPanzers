@@ -38,10 +38,10 @@ int main()
 
     // === Система танков ===
     TankSystem tankSystem;
-    tankSystem.init(&terrain);
+    tankSystem.init(&terrain, &treeSystem);
 
     BulletSystem bulletSystem;
-    bulletSystem.init(&terrain, &tankSystem);
+    bulletSystem.init(&terrain, &tankSystem, &treeSystem);
     bulletSystem.loadAssets();
 
     // Загружаем танк игрока (тип 1, команда 1)
@@ -105,22 +105,26 @@ int main()
 
             for (int n = 1; n < MAX_TANKS; n++)
             {
+                if (tankSystem.getTank(n).type == 0) continue;
+
                 if (n == 1)
-                {
                     tankSystem.updateTank(n, xj, yj, FIXED_DT);
-                    if (firePressed)
-                        bulletSystem.fireBullet(n);
-                }
                 else
                     tankSystem.updateTank(n, 0, 0, FIXED_DT); // AI позже
             }
+
+            tankSystem.updateCollisions();
+            treeSystem.update();
+
+            if (firePressed)
+                bulletSystem.fireBullet(1);
 
             bulletSystem.update();
 
             accumulator -= FIXED_DT;
         }
 
-        // === ИНТЕРПОЛЯЦИЯ (ключевое исправление ряби) ===
+        // === ИНТЕРПОЛЯЦИЯ ===
         float alpha = accumulator / FIXED_DT; // 0.0 .. 1.0
         tankSystem.interpolate(alpha);
 
@@ -181,29 +185,19 @@ int main()
         if (showDebug)
         {
             int y = 100;
-            DrawText(TextFormat("Tank pos: %.1f, %.1f, %.1f",
-                                playerTank.x, playerTank.y, playerTank.z),
-                     20, y, 18, YELLOW);
-            y += 25;
-            DrawText(TextFormat("Tank yaw: %.1f  spin: %.3f",
-                                playerTank.yaw, playerTank.spin),
-                     20, y, 18, YELLOW);
-            y += 25;
-            DrawText(TextFormat("Tank accel: %.3f  rpm: %.3f  onGround: %d",
-                                playerTank.accel, playerTank.rpm,
-                                (int)playerTank.onGround),
-                     20, y, 18, YELLOW);
-            y += 25;
-            DrawText(TextFormat("Input: tankX=%.1f tankY=%.1f",
-                                input.getTankX(), input.getTankY()),
-                     20, y, 18, GREEN);
-            y += 25;
-            DrawText(TextFormat("Camera: %.1f, %.1f, %.1f",
-                                camPos.x, camPos.y, camPos.z),
-                     20, y, 18, YELLOW);
-            y += 25;
-            DrawText(TextFormat("Ground under cam: %.1f", groundH),
-                     20, y, 18, YELLOW);
+            DrawText(TextFormat("Tank: %.1f, %.1f, %.1f  yaw=%.1f",
+                     playerTank.x, playerTank.y, playerTank.z, playerTank.yaw),
+                     20, y, 18, YELLOW); y += 25;
+            DrawText(TextFormat("accel=%.3f rpm=%.3f bounce=%.3f onGround=%d",
+                     playerTank.accel, playerTank.rpm,
+                     playerTank.bounceForce, (int)playerTank.onGround),
+                     20, y, 18, YELLOW); y += 25;
+            DrawText(TextFormat("energy=%.1f/%.1f reload=%d bullet=%d",
+                     playerTank.energy, playerTank.originalEnergy,
+                     playerTank.reloadCounter, playerTank.bulletCounter),
+                     20, y, 18, GREEN); y += 25;
+            DrawText(TextFormat("Trees: %d active", treeSystem.getTreeCount()),
+                     20, y, 18, LIGHTGRAY);
         }
 
         EndDrawing();

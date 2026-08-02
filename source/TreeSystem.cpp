@@ -2,6 +2,8 @@
 #include "Utils.h"
 #include <cstdio>
 #include <cmath>
+#include "rlgl.h"
+#include "raymath.h"
 
 TreeSystem::TreeSystem() : terrain(nullptr)
 {
@@ -10,7 +12,9 @@ TreeSystem::TreeSystem() : terrain(nullptr)
         treeModels[i] = {0};
         treeTextures[i] = {0};
         modelLoaded[i] = false;
+        textureLoaded[i] = false;
     }
+
     reset();
 }
 
@@ -23,8 +27,10 @@ void TreeSystem::reset()
 {
     for (int i = 0; i < MAX_TREES; i++)
     {
-        trees[i].active = false;
+        trees[i] = Tree{};
     }
+
+    treeCount = 0;
 }
 
 void TreeSystem::init(Terrain *t)
@@ -35,7 +41,7 @@ void TreeSystem::init(Terrain *t)
 
 void TreeSystem::unloadTreeModels()
 {
-    for (int i = 1; i <= 6; i++)
+    for (int i = 1; i < 7; i++)
     {
         if (modelLoaded[i] && treeModels[i].meshCount > 0)
         {
@@ -76,14 +82,13 @@ void TreeSystem::loadTreeModels()
         "data/trees/moon.png"   // биом 6 - Moon
     };
 
-    for (int i = 1; i <= 6; i++)
+    for (int i = 1; i < 7; i++)
     {
         Model m = LoadModel(treeFiles[i]);
         if (m.meshCount > 0)
         {
             treeModels[i] = m;
             modelLoaded[i] = true;
-            TraceLog(LOG_INFO, "Tree model %d loaded: %s", i, treeFiles[i]);
         }
         else
         {
@@ -91,23 +96,19 @@ void TreeSystem::loadTreeModels()
             continue;
         }
 
-        // Загрузка текстуры
         Texture2D tex = LoadTexture(textureFiles[i]);
         if (tex.id != 0)
         {
             treeTextures[i] = tex;
             textureLoaded[i] = true;
+            SetTextureFilter(tex, TEXTURE_FILTER_POINT);
 
             for (int m = 0; m < treeModels[i].materialCount; m++)
             {
                 Material *mat = &treeModels[i].materials[m];
-                mat->maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
                 mat->maps[MATERIAL_MAP_DIFFUSE].texture = tex;
-                SetTextureFilter(mat->maps[MATERIAL_MAP_DIFFUSE].texture,
-                                 TEXTURE_FILTER_POINT);
+                mat->maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
             }
-
-            TraceLog(LOG_INFO, "Tree texture %d loaded: %s", i, textureFiles[i]);
         }
         else
         {
@@ -125,7 +126,7 @@ void TreeSystem::placeTrees(int biome)
 
     // TODO. Перенести сюда загрузку дерева для биома и текстуру
 
-    int treeCount = 0;
+    treeCount = 0;
 
     for (int t = 0; t < MAX_TREES; t++)
     {
@@ -148,23 +149,16 @@ void TreeSystem::placeTrees(int biome)
 
         switch (biome)
         {
-        case 1: // Grass
+            // Grass, Mountains, Desert, Tundra
+        case 1:
+        case 2:
+        case 3:
+        case 5:
             canPlace = (h < 40.0f);
             break;
-        case 2: // Mountains
-            canPlace = (h < 40.0f);
-            break;
-        case 3: // Desert
-            canPlace = (h < 40.0f);
-            break;
-        case 4: // Frozen
-            hForCheck = fabsf(h);
-            canPlace = (hForCheck < 20.0f);
-            break;
-        case 5: // Tundra
-            canPlace = (h < 40.0f);
-            break;
-        case 6: // Moon
+        // Frozen, Moon
+        case 4:
+        case 6:
             hForCheck = fabsf(h);
             canPlace = (hForCheck < 20.0f);
             break;
@@ -182,15 +176,10 @@ void TreeSystem::placeTrees(int biome)
         terrain->setTile(x, z, tileIndex);
 
         // Помечаем клетку как занятую
-        terrain->getCell(x, z).objectType = 1; // 1 = дерево
-
-        // Вычисляем позицию дерева (точно по DBP)
-        float posX = worldX;
-        float posY = h - 2.0f; // на 1 единицу ниже поверхности
-        float posZ = worldZ;
-
-        // Поворот (точно по DBP: rnd(359))
-        float rotY = (float)rnd(360);
+        TerrainCell &cell = terrain->getCell(x, z);
+        cell.objectType = 1;          // 1 - дерево
+        cell.energy = 2;              // DBP: ter(1,x,z)=2 (прочность)
+        cell.objectValue = treeCount; // индекс в trees[]
 
         // Масштаб (точно по DBP, конвертируем проценты в множители)
         float sc = (95.0f + rnd(11)) / 100.0f; // 0.95 - 1.05
@@ -201,41 +190,34 @@ void TreeSystem::placeTrees(int biome)
         // Специфичные масштабы для разных биомов
         switch (biome)
         {
-        case 2:                                            // Mountains: вытянуты по Y
-            sc = (95.0f + rnd(16)) / 100.0f; // 0.95 - 1.10
+        case 2:
+            sc = (95.0f + rnd(16)) / 100.0f;
             scaleX = sc;
-            scaleY = 0.05f + sc; // 5 + sc в DBP = 0.05 + sc в Raylib
+            scaleY = 0.05f + sc;
             scaleZ = sc;
             break;
-
-        case 3: // Desert: случайная высота
-            sc = (95.0f + rnd(11)) / 100.0f;
+        case 3:
+        case 5:
             scaleX = sc;
             scaleY = sc + (rnd(41) - 20) / 100.0f;
             scaleZ = sc;
             break;
-
-        case 5: // Tundra: случайная высота
-            sc = (95.0f + rnd(11)) / 100.0f;
+        case 6:
             scaleX = sc;
-            scaleY = sc + (rnd(41) - 20) / 100.0f;
-            scaleZ = sc;
-            break;
-
-        case 6: // Moon: сильно варьируется высота
-            sc = (95.0f + rnd(11)) / 100.0f;
-            scaleX = sc;
-            scaleY = sc - 0.30f + rnd(61) / 100.0f; // 0.65 - 1.25
+            scaleY = sc - 0.30f + rnd(61) / 100.0f;
             scaleZ = sc;
             break;
         }
 
         // Сохраняем дерево в массиве
         trees[treeCount].active = true;
-        trees[treeCount].position = {posX, posY, posZ};
-        trees[treeCount].rotationY = rotY;
+        trees[treeCount].position = {worldX, h - 2.0f, worldZ};
+        trees[treeCount].rotationY = (float)rnd(360);
         trees[treeCount].scale = {scaleX, scaleY, scaleZ};
         trees[treeCount].biome = biome;
+        trees[treeCount].cellX = x;
+        trees[treeCount].cellZ = z;
+        trees[treeCount].anim = TreeAnim{};
 
         treeCount++;
     }
@@ -243,24 +225,152 @@ void TreeSystem::placeTrees(int biome)
     TraceLog(LOG_INFO, "Placed %d trees for biome %d", treeCount, biome);
 }
 
+// ============================================================
+// NEW: Попадание в дерево
+// DBP:
+//   if ter(1,xm,zm)<=0  >  дерево умирает (state=2)
+//   else                >  качание (state=1), ter(1)--
+//   tree(...,1) = anb#+180   (направление падения)
+//   tree(...,2) = 35         (начальная скорость)
+// ============================================================
+void TreeSystem::hitTree(int cellX, int cellZ, float angleFromSource)
+{
+    if (!terrain)
+        return;
+    if (cellX < 0 || cellX >= HEIGHTMAP_SIZE ||
+        cellZ < 0 || cellZ >= HEIGHTMAP_SIZE)
+        return;
+
+    TerrainCell &cell = terrain->getCell(cellX, cellZ);
+    if (cell.objectType != 1)
+        return;
+
+    int idx = cell.objectValue;
+    if (idx < 0 || idx >= MAX_TREES || !trees[idx].active)
+        return;
+
+    TreeAnim &a = trees[idx].anim;
+    if (a.state != 0)
+        return; // уже анимируется
+
+    // DBP: tree(...,1) = anb#+180  — направление падения
+    a.angleY = wrapValue(angleFromSource + 180.0f);
+    // DBP: tree(...,2) = 35
+    a.swingSpeed = 35.0f;
+
+    if (cell.energy <= 0)
+    {
+        // Дерево умирает — падает
+        a.state = 2;
+        a.tilt = 0.0f;
+        // DBP: ter(0,xm,zm)=0  — клетка свободна
+        cell.objectType = 0;
+    }
+    else
+    {
+        // Качание
+        a.state = 1;
+        a.tilt = 0.0f;
+        cell.energy--;
+    }
+}
+
+// ============================================================
+// NEW: Тик анимации (100 Гц)
+// DBP:
+//   state=1 (bounce):
+//     tree(t,2) -= 1
+//     tree(t,3) += tree(t,2)
+//     if tree(t,3)<=0 > reset
+//   state=2 (fall):
+//     tree(t,3) += tree(t,2)
+//     if tree(t,3)>=1700 > delete
+// ============================================================
+void TreeSystem::update()
+{
+    for (int i = 0; i < treeCount; i++)
+    {
+        Tree &tr = trees[i];
+        if (!tr.active)
+            continue;
+
+        TreeAnim &a = tr.anim;
+
+        if (a.state == 1) // качание
+        {
+            a.swingSpeed -= 1.0f;
+            a.tilt += a.swingSpeed;
+
+            if (a.tilt <= 0.0f)
+            {
+                a.tilt = 0.0f;
+                a.state = 0;
+            }
+        }
+        else if (a.state == 2) // падение
+        {
+            a.tilt += a.swingSpeed;
+
+            if (a.tilt >= 1700.0f)
+            {
+                // DBP: delete object 1000+t
+                tr.active = false;
+                a.state = 0;
+                a.tilt = 0.0f;
+            }
+        }
+    }
+}
+
 void TreeSystem::render() const
 {
     for (int i = 0; i < MAX_TREES; i++)
     {
-        if (!trees[i].active)
+        const Tree &tr = trees[i];
+        if (!tr.active)
             continue;
 
-        int biome = trees[i].biome;
-        if (!modelLoaded[biome])
+        int b = tr.biome;
+        if (!modelLoaded[b])
             continue;
 
-        // Отрисовка дерева с поворотом и масштабом
-        DrawModelEx(
-            treeModels[biome],
-            trees[i].position,
-            (Vector3){0.0f, 1.0f, 0.0f}, // ось вращения Y
-            trees[i].rotationY,
-            trees[i].scale,
-            WHITE);
+        const TreeAnim &a = tr.anim;
+
+        if (a.state == 0)
+        {
+            // Статичное дерево
+            DrawModelEx(
+                treeModels[b],
+                tr.position,
+                (Vector3){0, 1, 0},
+                tr.rotationY,
+                tr.scale,
+                WHITE);
+        }
+        else
+        {
+            // Анимированное: Y-поворот (направление) + X-наклон
+            // DBP: rotate object, tilt/10, angleY, 0
+            // OpenGL: Y-up, модель направлена вверх
+            float tiltDeg = a.tilt / 10.0f;
+
+            rlPushMatrix();
+            rlTranslatef(tr.position.x, tr.position.y, tr.position.z);
+            // Yaw: направление наклона
+            // DBP>OpenGL: инвертируем Y-поворот
+            rlRotatef(-a.angleY, 0, 1, 0);
+            // Pitch: наклон дерева
+            rlRotatef(tiltDeg, 1, 0, 0);
+            rlScalef(tr.scale.x, tr.scale.y, tr.scale.z);
+
+            // Отрисовка мешей модели
+            const Model &mdl = treeModels[b];
+            for (int m = 0; m < mdl.meshCount; m++)
+            {
+                int matIdx = mdl.meshMaterial[m];
+                DrawMesh(mdl.meshes[m], mdl.materials[matIdx], MatrixIdentity());
+            }
+            rlPopMatrix();
+        }
     }
 }

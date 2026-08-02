@@ -44,10 +44,11 @@ BulletSystem::~BulletSystem()
     }
 }
 
-void BulletSystem::init(Terrain *terrain, TankSystem *tankSystem)
+void BulletSystem::init(Terrain *terrain, TankSystem *tankSystem, TreeSystem *treeSystem)
 {
     this->terrain = terrain;
     this->tankSystem = tankSystem;
+    this->treeSystem = treeSystem;
 }
 
 // ============================================================
@@ -336,7 +337,8 @@ void BulletSystem::update()
         if (dead == 0 && checkGroundCollision(b))
             dead = 1;
 
-        if (dead == 0 && checkTreeCollision(b, treeIdx))
+        float treeHitAngle = 0.0f;
+        if (dead == 0 && checkTreeCollision(b, treeIdx, treeHitAngle))
             dead = 1;
 
         if (dead == 0 && checkMapBounds(b))
@@ -416,7 +418,7 @@ bool BulletSystem::checkGroundCollision(const BulletData &b) const
     return h > b.y;
 }
 
-bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex) const
+bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex, float& hitAngle) const
 {
     int xm = (int)(b.x / 100.0f);
     int zm = (int)(b.z / 100.0f);
@@ -437,6 +439,8 @@ bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex) const
     float cez = zm * 100.0f + 50.0f;
 
     bool col = false;
+
+    // DBP: контроль — попадание в крону или в ствол
     if (dh > 37.0f)
     {
         if (fabsf(b.x - cex) < 40.0f && fabsf(b.z - cez) < 40.0f)
@@ -449,7 +453,19 @@ bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex) const
     }
 
     if (col)
+    {
         treeIndex = terrain->getCell(xm, zm).objectValue;
+
+        // DBP: position object 65000, cex, 0, cez
+        //      point object 65000, bul#(n,1), 0, bul#(n,3)
+        //      anb# = object angle y(65000)
+        hitAngle = atan2f(b.x - cex, b.z - cez) * RAD2DEG;
+        if (hitAngle < 0.0f) hitAngle += 360.0f;
+
+        // DBP: damage tree — вызываем TreeSystem
+        if (treeSystem)
+            treeSystem->hitTree(xm, zm, hitAngle);
+    }
 
     return col;
 }
