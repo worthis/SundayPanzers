@@ -24,9 +24,9 @@ void InputSystem::update()
 
     // === Танк: WASD ===
     if (IsKeyDown(KEY_A))
-        tankX -= 1.0f;
-    if (IsKeyDown(KEY_D))
         tankX += 1.0f;
+    if (IsKeyDown(KEY_D))
+        tankX -= 1.0f;
     if (IsKeyDown(KEY_W))
         tankY -= 1.0f;
     if (IsKeyDown(KEY_S))

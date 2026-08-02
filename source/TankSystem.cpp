@@ -579,7 +579,7 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
             tk.spin = 0.0f;
     }
 
-    tk.yaw = wrapValue(tk.yaw - tk.spin);
+    tk.yaw = wrapValue(tk.yaw + tk.spin);
 
     // ================================================================
     // 2. УСКОРЕНИЕ (DBP: accelleration, only if on ground)
@@ -665,21 +665,33 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
     {
         tk.x = TANK_LIMIT_MIN;
         tk.accel /= 1.015f;
+        tk.aiState     = 0;
+        tk.escapeAngle = 0.0f;
+        tk.target      = 51;
     }
     if (tk.z < TANK_LIMIT_MIN)
     {
         tk.z = TANK_LIMIT_MIN;
         tk.accel /= 1.015f;
+        tk.aiState     = 0;
+        tk.escapeAngle = 0.0f;
+        tk.target      = 51;
     }
     if (tk.x > TANK_LIMIT_MAX)
     {
         tk.x = TANK_LIMIT_MAX;
         tk.accel /= 1.015f;
+        tk.aiState     = 0;
+        tk.escapeAngle = 0.0f;
+        tk.target      = 51;
     }
     if (tk.z > TANK_LIMIT_MAX)
     {
         tk.z = TANK_LIMIT_MAX;
         tk.accel /= 1.015f;
+        tk.aiState     = 0;
+        tk.escapeAngle = 0.0f;
+        tk.target      = 51;
     }
 
     // ================================================================

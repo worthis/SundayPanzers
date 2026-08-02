@@ -10,6 +10,7 @@
 #include "TankSystem.h"
 #include "TankCamera.h"
 #include "BulletSystem.h"
+#include "AISystem.h"
 #include <cstdio>
 
 int main()
@@ -44,12 +45,35 @@ int main()
     bulletSystem.init(&terrain, &tankSystem, &treeSystem);
     bulletSystem.loadAssets();
 
+    // === AI ===
+    AISystem aiSystem;
+    aiSystem.init(&tankSystem);
+    aiSystem.setPowupSearchFactor(90); // DBP: 96 - level(10) ≈ 86..90
+
+    // Загружаем вражеские танки для теста
+    // DBP: tankloader(e, tipe, se)
+    // Enemy squad: индексы 13-40, тип 1-8, команда 2
+    tankSystem.loadTank(13, 3, 2);
+    tankSystem.placeTank(13, 2500.0f, 4500.0f, 180.0f);
+    tankSystem.getTankMut(13).aiType = 3;      // AI tipology
+    tankSystem.getTankMut(13).aimRatio = 20;   // spec(l,3)
+    tankSystem.getTankMut(13).fireRatio = 985; // spec(l,4)
+
+    tankSystem.loadTank(14, 5, 2);
+    tankSystem.placeTank(14, 3000.0f, 4500.0f, 180.0f);
+    tankSystem.getTankMut(14).aiType = 5;
+    tankSystem.getTankMut(14).aimRatio = 18;
+    tankSystem.getTankMut(14).fireRatio = 980;
+
+    tankSystem.loadTank(15, 7, 2);
+    tankSystem.placeTank(15, 2000.0f, 4500.0f, 180.0f);
+    tankSystem.getTankMut(15).aiType = 7;
+    tankSystem.getTankMut(15).aimRatio = 16;
+    tankSystem.getTankMut(15).fireRatio = 975;
+
     // Загружаем танк игрока (тип 1, команда 1)
     tankSystem.loadTank(1, 8, 1);
     tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);
-
-    tankSystem.loadTank(13, 4, 3);
-    tankSystem.placeTank(13, 2500.0f, 2700.0f, 180.0f);
 
     // === Камера следует за танком (DBP: track) ===
     TankCamera camera;
@@ -98,6 +122,9 @@ int main()
         accumulator += frameTime;
         while (accumulator >= FIXED_DT)
         {
+            // AI глобальный тик
+            aiSystem.update();
+
             // Ввод
             float xj = input.getTankX();
             float yj = input.getTankY();
@@ -105,20 +132,34 @@ int main()
 
             for (int n = 1; n < MAX_TANKS; n++)
             {
-                if (tankSystem.getTank(n).type == 0) continue;
+                if (tankSystem.getTank(n).type == 0)
+                    continue;
+
+                float xj = 0, yj = 0;
+                bool fire = false;
 
                 if (n == 1)
-                    tankSystem.updateTank(n, xj, yj, FIXED_DT);
-                else
-                    tankSystem.updateTank(n, 0, 0, FIXED_DT); // AI позже
+                {
+                    xj = input.getTankX();
+                    yj = input.getTankY();
+                    fire = input.isFirePressed();
+                }
+                else // AI
+                {
+                    AIOutput ai = aiSystem.computeInput(n);
+                    xj = ai.xj;
+                    yj = ai.yj;
+                    fire = ai.fire;
+                }
+
+                tankSystem.updateTank(n, xj, yj, FIXED_DT);
+
+                if (fire)
+                    bulletSystem.fireBullet(n);
             }
 
             tankSystem.updateCollisions();
             treeSystem.update();
-
-            if (firePressed)
-                bulletSystem.fireBullet(1);
-
             bulletSystem.update();
 
             accumulator -= FIXED_DT;
@@ -186,16 +227,19 @@ int main()
         {
             int y = 100;
             DrawText(TextFormat("Tank: %.1f, %.1f, %.1f  yaw=%.1f",
-                     playerTank.x, playerTank.y, playerTank.z, playerTank.yaw),
-                     20, y, 18, YELLOW); y += 25;
+                                playerTank.x, playerTank.y, playerTank.z, playerTank.yaw),
+                     20, y, 18, YELLOW);
+            y += 25;
             DrawText(TextFormat("accel=%.3f rpm=%.3f bounce=%.3f onGround=%d",
-                     playerTank.accel, playerTank.rpm,
-                     playerTank.bounceForce, (int)playerTank.onGround),
-                     20, y, 18, YELLOW); y += 25;
+                                playerTank.accel, playerTank.rpm,
+                                playerTank.bounceForce, (int)playerTank.onGround),
+                     20, y, 18, YELLOW);
+            y += 25;
             DrawText(TextFormat("energy=%.1f/%.1f reload=%d bullet=%d",
-                     playerTank.energy, playerTank.originalEnergy,
-                     playerTank.reloadCounter, playerTank.bulletCounter),
-                     20, y, 18, GREEN); y += 25;
+                                playerTank.energy, playerTank.originalEnergy,
+                                playerTank.reloadCounter, playerTank.bulletCounter),
+                     20, y, 18, GREEN);
+            y += 25;
             DrawText(TextFormat("Trees: %d active", treeSystem.getTreeCount()),
                      20, y, 18, LIGHTGRAY);
         }
