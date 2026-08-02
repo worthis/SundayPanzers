@@ -148,7 +148,9 @@ void TankSystem::initTankTypes()
         17.0f,    // collisionHeight
         0.025f,   // bulletGravity
         350,      // turboTime
-        800       // turboReload
+        800,      // turboReload
+        1.0f,
+        1
     };
 
     // === Тип 2 ===
@@ -170,7 +172,10 @@ void TankSystem::initTankTypes()
         17.5f,
         0.033f,
         300,
-        600};
+        600,
+        1.3f,
+        1
+    };
 
     // === Тип 3 ===
     tankTypes[3] = {
@@ -191,7 +196,10 @@ void TankSystem::initTankTypes()
         19.5f,
         0.030f,
         300,
-        700};
+        700,
+        1.3f,
+        1
+    };
 
     // === Тип 4 ===
     tankTypes[4] = {
@@ -212,7 +220,10 @@ void TankSystem::initTankTypes()
         20.0f,
         0.03f,
         450,
-        1500};
+        1500,
+        1.4f,
+        1
+    };
 
     // === Тип 5 ===
     tankTypes[5] = {
@@ -233,7 +244,10 @@ void TankSystem::initTankTypes()
         20.0f,
         0.033f,
         450,
-        1000};
+        1000,
+        1.5f,
+        1
+    };
 
     // === Тип 6 ===
     tankTypes[6] = {
@@ -254,7 +268,10 @@ void TankSystem::initTankTypes()
         20.0f,
         0.033f,
         310,
-        1100};
+        1100,
+        1.8f,
+        1
+    };
 
     // === Тип 7 ===
     tankTypes[7] = {
@@ -275,7 +292,10 @@ void TankSystem::initTankTypes()
         21.0f,
         0.01f,
         600,
-        3000};
+        3000,
+        2.0f,
+        2
+    };
 
     // === Тип 8 ===
     tankTypes[8] = {
@@ -296,7 +316,10 @@ void TankSystem::initTankTypes()
         21.0f,
         0.008f,
         2000,
-        5000};
+        5000,
+        2.1f,
+        2
+    };
 }
 
 void TankSystem::init(Terrain *t)
@@ -410,6 +433,8 @@ void TankSystem::loadTank(int n, int t, int c)
     tk.canFire = true;
     tk.turboTime = tt.turboTime;
     tk.turboReload = tt.turboReload;
+    tk.bulletScale = tt.bulletScale;
+    tk.hitModelType = tt.hitModelType;
 
     // DBP: модификаторы команды (select c)
     // Применяем бонусы/штрафы команды

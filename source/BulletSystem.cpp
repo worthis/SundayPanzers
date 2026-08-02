@@ -23,15 +23,16 @@ BulletSystem::~BulletSystem()
         UnloadModel(bulletModel1);
         UnloadModel(bulletModel2);
     }
-    for (int i = 1; i <= MAX_HIT_EFFECTS; i++)
-        if (hits[i].modelLoaded)
-            UnloadModel(hits[i].model);
-    for (int i = 0; i < MAX_EXPLOSIONS; i++)
-        if (explosions[i].modelsLoaded)
-        {
-            UnloadModel(explosions[i].ringModel);
-            UnloadModel(explosions[i].ballModel);
-        }
+    if (hitModelsLoaded)
+    {
+        UnloadModel(hitModel1);
+        UnloadModel(hitModel2);
+    }
+    if (explosionModelsLoaded)
+    {
+        UnloadModel(ringModel);
+        UnloadModel(ballModel);
+    }
 }
 
 void BulletSystem::init(Terrain *terrain, TankSystem *tankSystem)
@@ -46,22 +47,32 @@ void BulletSystem::loadAssets()
     bulletModel2 = LoadModel("data/bullets/bullet2.glb");
     bulletModelsLoaded = true;
 
-    for (int i = 1; i <= MAX_HIT_EFFECTS; i++)
-    {
-        hits[i].model = LoadModel("data/bullets/hit.glb");
-        hits[i].modelLoaded = true;
-    }
+    hitModel1 = LoadModel("data/bullets/hit.glb");
+    hitModel2 = LoadModel("data/bullets/hit2.glb");
+    hitModelsLoaded = true;
 
-    for (int i = 0; i < MAX_EXPLOSIONS; i++)
-    {
-        explosions[i].ringModel = LoadModel("data/bullets/ring.glb");
-        explosions[i].ballModel = LoadModel("data/bullets/ball.glb");
-        explosions[i].modelsLoaded = true;
-    }
+    ringModel = LoadModel("data/bullets/ring.glb");
+    ballModel = LoadModel("data/bullets/ball.glb");
+    explosionModelsLoaded = true;
+
+    // DBP: set object specular 0, отключаем освещение,
+    //      ghost object on → аддитивное смешивание для взрывов
+    // Для ring/ball устанавливаем emissive-жёлтый через материал
+    auto setupExplosionMaterial = [](Model& m) {
+        for (int j = 0; j < m.materialCount; j++)
+        {
+            m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color =
+                Color{255, 255, 20, 255};
+        }
+    };
+    setupExplosionMaterial(ringModel);
+    setupExplosionMaterial(ballModel);
 }
 
 // ============================================================
-// Позиция дула
+// Позиция дула:
+//   1) Используется muzzleLocal из TankSystem (реальный меш)
+//   2) Порядок вращений: Rz → Rx → Ry (совпадает с рендером)
 // ============================================================
 void BulletSystem::getMuzzlePosition(int n, float &mx, float &my, float &mz) const
 {
@@ -78,42 +89,38 @@ void BulletSystem::getMuzzlePosition(int n, float &mx, float &my, float &mz) con
     float lx = local.x * tk.scaleX;
     float ly = local.y * tk.scaleY;
     float lz = local.z * tk.scaleZ;
+    
+    // Углы танка (DBP: pitch object up = tk#(n,4)+sin(walk)*2)
+    float yaw   = tk.yaw;
+    float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f;
+    float roll  = tk.roll;
 
-    // === Трансформация через матрицу танка ===
-    // Порядок совпадает с TankSystem::render():
-    //   rlRotatef(-yaw,   0,1,0)   → Ry(-yaw)
-    //   rlRotatef(-pitch, 1,0,0)   → Rx(-pitch)
-    //   rlRotatef(-roll,  0,0,1)   → Rz(-roll)
-    // Итого: M = Ry(-yaw) * Rx(-pitch) * Rz(-roll)
-    // Применяем в обратном порядке: Rz → Rx → Ry
+    // Порядок: Scale → Rz(roll) → Rx(pitch) → Ry(yaw+180) → Translate
+    // Это совпадает с матрицей рендера: T * Ry * Rx * Rz * S
 
-    float pitch = tk.pitch + sinf(tk.walkSine * DEG2RAD) * 2.0f;
-    float roll = tk.roll + tk.spin * 3.0f;
-
-    // Шаг 1: Rz(-roll)
-    float cr = cosf(-roll * DEG2RAD);
-    float sr = sinf(-roll * DEG2RAD);
+    // 1) Rz (roll)
+    float cr = cosDeg(roll), sr = sinDeg(roll);
     float x1 = lx * cr - ly * sr;
     float y1 = lx * sr + ly * cr;
     float z1 = lz;
 
-    // Шаг 2: Rx(-pitch)
-    float cp = cosf(-pitch * DEG2RAD);
-    float sp = sinf(-pitch * DEG2RAD);
+    // 2) Rx (pitch)
+    float pitchRad = pitch * DEG2RAD;
+    float cp = cosf(pitchRad), sp = sinf(pitchRad);
     float x2 = x1;
     float y2 = y1 * cp - z1 * sp;
     float z2 = y1 * sp + z1 * cp;
 
-    // Шаг 3: Ry(-yaw)
-    float cy = cosf(-tk.yaw * DEG2RAD);
-    float sy = sinf(-tk.yaw * DEG2RAD);
-    float x3 = x2 * cy + z2 * sy;
-    float y3 = y2;
+    // 3) Ry (yaw + 180 для OpenGL)
+    float yawRad = (yaw + 180.0f) * DEG2RAD;
+    float cy = cosf(yawRad), sy = sinf(yawRad);
+    float x3 =  x2 * cy + z2 * sy;
+    float y3 =  y2;
     float z3 = -x2 * sy + z2 * cy;
 
-    // Мировая позиция = позиция танка + повёрнутое смещение
+    // 4) Translate
     mx = tk.x + x3;
-    my = tk.y + 3.3f + y3;
+    my = tk.y + 3.3f + y3;   // DBP: position object n,...,tk#(n,2)+3.3,...
     mz = tk.z + z3;
 }
 
@@ -155,6 +162,7 @@ void BulletSystem::fireBullet(int n)
 
     TankData &tk = tankSystem->getTankMut(n);
 
+    // DBP: if fire=1 and tk#(n,18)=0 and tk#(n,17)=0
     if (tk.reloadCounter > 0 || tk.bulletCounter > 0)
         return;
     if (!tk.canFire)
@@ -190,7 +198,10 @@ void BulletSystem::fireBullet(int n)
     b.superBullet = (tk.bulletFlag > 0);
     // ИСПРАВЛЕНО: hitMagnifier → hitScale
     b.hitScale = tk.hitScale;
+    b.bulletScale   = tk.bulletScale;     // ← НОВОЕ
+    b.hitModelType  = tk.hitModelType;    // ← НОВОЕ
 
+    // DBP: tk#(n,17)=tk#(n,20) : tk#(n,18)=tk#(n,19)
     tk.bulletCounter = tk.bulletLength;
     tk.reloadCounter = tk.reloadTime;
     tk.hitCounter = 0;
@@ -205,7 +216,7 @@ void BulletSystem::update()
         return;
 
     // === Перезарядка танков ===
-    for (int n = 1; n <= 55; n++)
+    for (int n = 1; n < MAX_TANKS; n++)
     {
         TankData &tk = tankSystem->getTankMut(n);
         if (tk.type == 0)
@@ -262,7 +273,7 @@ void BulletSystem::update()
         if (dead > 0)
         {
             b.active = false;
-            spawnHitEffect(b.x, b.y, b.z, b.hitScale);
+            spawnHitEffect(b.x, b.y, b.z, b.hitScale, b.hitModelType);
 
             if (dead == 2 && hitTank > 0)
             {
@@ -367,7 +378,7 @@ bool BulletSystem::checkMapBounds(const BulletData &b) const
 
 int BulletSystem::checkTankCollision(const BulletData &b) const
 {
-    for (int c = 1; c <= 50; c++)
+    for (int c = 1; c < MAX_TANKS; c++)
     {
         if (c == b.owner)
             continue;
@@ -404,6 +415,7 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
     tk.bounceAngle = collAngle;
     tk.bounceForce = 2.0f;
     tk.accel /= 2.0f;
+
     if (tk.type < 0)
         tk.bounceForce = 1.0f;
 
@@ -456,7 +468,11 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
 
         float h = terrain->getHeight(tk.x, tk.z);
         float range = 35.0f + tk.collisionRange * 3.0f;
-        spawnExplosion(tk.x, h + 10.0f, tk.z, range);
+        
+        // DBP: gam(4)=55, gam(5)=range, gam(6)=-1
+        // Кольцо ориентируется по танку, шар — случайный Y
+        spawnExplosion(tk.x, h + 10.0f, tk.z, range,
+                       tk.yaw, tk.pitch, tk.roll);
     }
 }
 
@@ -464,37 +480,48 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
 // Эффекты
 // ============================================================
 
-void BulletSystem::spawnHitEffect(float x, float y, float z, float magnifier)
+void BulletSystem::spawnHitEffect(float x, float y, float z,
+                                  float magnifier, int modelType)
 {
     for (int i = 1; i <= MAX_HIT_EFFECTS; i++)
     {
         if (!hits[i].active)
         {
-            hits[i].active = true;
-            hits[i].x = x;
-            hits[i].y = y;
-            hits[i].z = z;
-            hits[i].counter = 100;
-            hits[i].angleY = (float)(rnd(360));
+            hits[i].active    = true;
+            hits[i].x         = x;
+            hits[i].y         = y;
+            hits[i].z         = z;
+            hits[i].counter   = 100;
+            hits[i].angleY    = (float)rnd(360);
             hits[i].magnifier = magnifier;
+            hits[i].modelType = modelType;
             return;
         }
     }
 }
 
-void BulletSystem::spawnExplosion(float x, float y, float z, float range)
+void BulletSystem::spawnExplosion(float x, float y, float z, float range,
+                                  float yaw, float pitch, float roll)
 {
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
     {
         if (!explosions[i].active)
         {
-            explosions[i].active = true;
-            explosions[i].x = x;
-            explosions[i].y = y;
-            explosions[i].z = z;
-            explosions[i].counter = 55;
+            explosions[i].active    = true;
+            explosions[i].x         = x;
+            explosions[i].y         = y;
+            explosions[i].z         = z;
+            explosions[i].counter   = 55;
             explosions[i].direction = -1;
-            explosions[i].range = range;
+            explosions[i].range     = range;
+
+            // DBP: ring ориентируется по танку
+            explosions[i].ringYaw   = yaw;
+            explosions[i].ringPitch = pitch;
+            explosions[i].ringRoll  = roll + 4.0f - (float)rnd(8);
+
+            // DBP: rotate object 402,0,rnd(359),0
+            explosions[i].ballYaw   = (float)rnd(360);
             return;
         }
     }
@@ -513,16 +540,20 @@ void BulletSystem::render() const
         if (!b.active)
             continue;
 
-        const TankData &owner = tankSystem->getTank(b.owner);
-        const Model &mdl = (owner.type >= 7) ? bulletModel2 : bulletModel1;
+        // Выбор модели: типы 7-8 → bullet2
+        const Model& mdl = (b.hitModelType == 2) ? bulletModel2 : bulletModel1;
 
-        float yaw = atan2f(b.dirX, b.dirZ) * RAD2DEG;
+        // Направление → углы для рендера
+        float yaw   = atan2f(b.dirX, b.dirZ) * RAD2DEG;
         float pitch = asinf(b.dirY) * RAD2DEG;
+
+        float sc = b.bulletScale;
 
         rlPushMatrix();
         rlTranslatef(b.x, b.y, b.z);
-        rlRotatef(yaw + 180.0f, 0, 1, 0);
-        rlRotatef(-pitch, 1, 0, 0);
+        rlRotatef(yaw + 180.0f, 0, 1, 0);   // DBP→OpenGL
+        rlRotatef(pitch, 1, 0, 0);           // +pitch = нос вверх
+        rlScalef(sc, sc, sc);
         DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
         rlPopMatrix();
     }
@@ -530,45 +561,56 @@ void BulletSystem::render() const
     // === Эффекты попадания ===
     for (int i = 1; i <= MAX_HIT_EFFECTS; i++)
     {
-        const HitEffect &h = hits[i];
-        if (!h.active)
-            continue;
+        const HitEffect& h = hits[i];
+        if (!h.active) continue;
 
+        // DBP: sc=(20+(100-hit(n))/1.25)*tk#(n,39)
         float sc = (20.0f + (100.0f - h.counter) / 1.25f) * h.magnifier;
+
+        const Model& mdl = (h.modelType == 2) ? hitModel2 : hitModel1;
 
         rlPushMatrix();
         rlTranslatef(h.x, h.y, h.z);
         rlRotatef(h.angleY, 0, 1, 0);
         rlScalef(sc, sc, sc);
-        DrawModel(h.model, {0, 0, 0}, 1.0f, WHITE);
+        DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
         rlPopMatrix();
     }
 
     // === Взрывы ===
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
     {
-        const ExplosionData &e = explosions[i];
-        if (!e.active)
-            continue;
+        const ExplosionData& e = explosions[i];
+        if (!e.active) continue;
 
         float r1 = (1.8f * (95.0f - e.counter * 1.1f) * e.range) / 100.0f;
         float r2 = (1.9f * (95.0f - e.counter / 1.1f) * e.range) / 100.0f;
 
-        if (r1 < 0.1f)
-            r1 = 0.1f;
-        if (r2 < 0.1f)
-            r2 = 0.1f;
+        if (r1 < 0.1f) r1 = 0.1f;
+        if (r2 < 0.1f) r2 = 0.1f;
 
+        // Включаем аддитивное смешивание (DBP: ghost object on)
+        BeginBlendMode(BLEND_ADDITIVE);
+
+        // Кольцо — ориентация по уничтоженному танку
         rlPushMatrix();
         rlTranslatef(e.x, e.y, e.z);
+        rlRotatef(e.ringYaw + 180.0f, 0, 1, 0);
+        rlRotatef(e.ringPitch, 1, 0, 0);
+        rlRotatef(e.ringRoll, 0, 0, 1);
         rlScalef(r1, r1, r1);
-        DrawModel(e.ringModel, {0, 0, 0}, 1.0f, YELLOW);
+        DrawModel(ringModel, {0, 0, 0}, 1.0f, Color{255, 255, 20, 255});
         rlPopMatrix();
 
+        // Шар — случайный Y-поворот
         rlPushMatrix();
         rlTranslatef(e.x, e.y, e.z);
+        rlRotatef(e.ballYaw, 0, 1, 0);
         rlScalef(r2, r2, r2);
-        DrawModel(e.ballModel, {0, 0, 0}, 1.0f, YELLOW);
+        DrawModel(ballModel, {0, 0, 0}, 1.0f, Color{255, 255, 20, 255});
         rlPopMatrix();
+
+        // Возвращаем стандартный alpha blending
+        EndBlendMode();
     }
 }

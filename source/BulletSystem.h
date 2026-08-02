@@ -25,6 +25,8 @@ struct BulletData
     int ownerSquadId = 0;
     bool superBullet = false;
     float hitScale = 1.0f;
+    float bulletScale = 1.0f; // ← НОВОЕ: масштаб модели пули
+    int hitModelType = 1;     // ← НОВОЕ: 1=hit, 2=hit2
 };
 
 // ============================================================
@@ -37,8 +39,7 @@ struct HitEffect
     int counter = 0;
     float angleY = 0;
     float magnifier = 1.0f;
-    Model model;
-    bool modelLoaded = false;
+    int modelType = 1; // ← НОВОЕ: 1=hit, 2=hit2
 };
 
 // ============================================================
@@ -51,9 +52,10 @@ struct ExplosionData
     int counter = 0;
     int direction = -1;
     float range = 35.0f;
-    Model ringModel;
-    Model ballModel;
-    bool modelsLoaded = false;
+    float ringYaw = 0;
+    float ringPitch = 0;
+    float ringRoll = 0;
+    float ballYaw = 0; // случайный Y для шара
 };
 
 class BulletSystem
@@ -76,9 +78,20 @@ private:
     Terrain *terrain = nullptr;
     TankSystem *tankSystem = nullptr;
 
+    // Модели пуль
     Model bulletModel1;
     Model bulletModel2;
     bool bulletModelsLoaded = false;
+
+    // Модели эффектов попадания
+    Model hitModel1; // hit.glb
+    Model hitModel2; // hit2.glb
+    bool hitModelsLoaded = false;
+
+    // Модели взрыва (одна пара, переиспользуется)
+    Model ringModel;
+    Model ballModel;
+    bool explosionModelsLoaded = false;
 
     bool checkGroundCollision(const BulletData &b) const;
     bool checkTreeCollision(BulletData &b, int &treeIndex) const;
@@ -86,8 +99,9 @@ private:
     int checkTankCollision(const BulletData &b) const;
 
     void applyDamage(int targetIdx, const BulletData &b, float collAngle);
-    void spawnHitEffect(float x, float y, float z, float magnifier);
-    void spawnExplosion(float x, float y, float z, float range);
+    void spawnHitEffect(float x, float y, float z, float magnifier, int modelType);
+    void spawnExplosion(float x, float y, float z, float range,
+                        float yaw, float pitch, float roll);
 
     void getMuzzlePosition(int n, float &mx, float &my, float &mz) const;
     void getMuzzleDirection(int n, float &dx, float &dy, float &dz) const;

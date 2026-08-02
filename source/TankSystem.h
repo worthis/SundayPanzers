@@ -23,6 +23,8 @@ struct TankType
     float bulletGravity;          // tk#(n,42) — гравитация пули
     int turboTime;                // tk#(n,46) — длительность турбо
     int turboReload;              // tk#(n,47) — перезарядка турбо
+    float bulletScale;            // масштаб модели пули (DBP: scale object n+100,...)
+    int   hitModelType;           // 1 = hit.glb, 2 = hit2.glb (DBP: типы 7-8 → hit2.x)
 };
 
 // === Состояние одного танка (аналог tk#(n,0..52)) ===
@@ -71,6 +73,8 @@ struct TankData
     int reloadTime;
     int bulletLength;
     float bulletPower;
+    float bulletScale;            // масштаб модели пули (DBP: scale object n+100,...)
+    int   hitModelType;           // 1 = hit.glb, 2 = hit2.glb (DBP: типы 7-8 → hit2.x)
 
     // 22-23: отскок и "на земле"
     float bounce;
