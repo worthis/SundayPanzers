@@ -69,6 +69,7 @@ struct TankData
 
     // 17-18: пуля и перезарядка
     int bulletCounter;
+    int superBulletCounter;
     int reloadCounter;
 
     // 19-21: параметры стрельбы

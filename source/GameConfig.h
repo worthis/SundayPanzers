@@ -30,6 +30,20 @@
 #define MAX_TANKS 56
 #define MAX_TANK_TYPES 8
 
-#define MAX_BULLETS     55
+#define MAX_BULLETS 55
 #define MAX_HIT_EFFECTS 55
-#define MAX_EXPLOSIONS  4
+#define MAX_EXPLOSIONS 4
+
+// === Подразделения (DBP: индексация tk#) ===
+#define PLAYER_MIN 1
+#define PLAYER_MAX 12
+#define ENEMY_MIN 13
+#define ENEMY_MAX 40
+#define GUEST_MIN 41
+#define GUEST_MAX 45
+#define EXTRA_MIN 46
+#define EXTRA_MAX 50
+#define POWERUP_MIN 51
+#define POWERUP_MAX 55
+#define COMBAT_MAX 50 // макс. объект для коллизий (DBP: obmax=50)
+#define NUM_PUP 5

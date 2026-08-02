@@ -11,6 +11,7 @@
 #include "TankCamera.h"
 #include "BulletSystem.h"
 #include "AISystem.h"
+#include "PowerUpSystem.h"
 #include <cstdio>
 
 int main()
@@ -45,6 +46,10 @@ int main()
     bulletSystem.init(&terrain, &tankSystem, &treeSystem);
     bulletSystem.loadAssets();
 
+    PowerUpSystem powerUpSystem;
+    powerUpSystem.init(&terrain, &tankSystem);
+    powerUpSystem.loadAssets();
+
     // === AI ===
     AISystem aiSystem;
     aiSystem.init(&tankSystem);
@@ -53,19 +58,19 @@ int main()
     // Загружаем вражеские танки для теста
     // DBP: tankloader(e, tipe, se)
     // Enemy squad: индексы 13-40, тип 1-8, команда 2
-    tankSystem.loadTank(13, 3, 2);
+    tankSystem.loadTank(13, 1, 2);
     tankSystem.placeTank(13, 2500.0f, 4500.0f, 180.0f);
     tankSystem.getTankMut(13).aiType = 3;      // AI tipology
     tankSystem.getTankMut(13).aimRatio = 20;   // spec(l,3)
     tankSystem.getTankMut(13).fireRatio = 985; // spec(l,4)
 
-    tankSystem.loadTank(14, 5, 2);
+    tankSystem.loadTank(14, 1, 2);
     tankSystem.placeTank(14, 3000.0f, 4500.0f, 180.0f);
     tankSystem.getTankMut(14).aiType = 5;
     tankSystem.getTankMut(14).aimRatio = 18;
     tankSystem.getTankMut(14).fireRatio = 980;
 
-    tankSystem.loadTank(15, 7, 2);
+    tankSystem.loadTank(15, 1, 2);
     tankSystem.placeTank(15, 2000.0f, 4500.0f, 180.0f);
     tankSystem.getTankMut(15).aiType = 7;
     tankSystem.getTankMut(15).aimRatio = 16;
@@ -125,12 +130,7 @@ int main()
             // AI глобальный тик
             aiSystem.update();
 
-            // Ввод
-            float xj = input.getTankX();
-            float yj = input.getTankY();
-            bool firePressed = IsKeyDown(KEY_SPACE);
-
-            for (int n = 1; n < MAX_TANKS; n++)
+            for (int n = 1; n <= COMBAT_MAX; n++)
             {
                 if (tankSystem.getTank(n).type == 0)
                     continue;
@@ -144,7 +144,7 @@ int main()
                     yj = input.getTankY();
                     fire = input.isFirePressed();
                 }
-                else // AI
+                else if (n >= ENEMY_MIN && n <= EXTRA_MAX) // AI
                 {
                     AIOutput ai = aiSystem.computeInput(n);
                     xj = ai.xj;
@@ -157,6 +157,13 @@ int main()
                 if (fire)
                     bulletSystem.fireBullet(n);
             }
+
+            // PowerUp pickup + counters (DBP: PowUpPicker)
+            for (int n = 1; n <= COMBAT_MAX; n++)
+                powerUpSystem.checkPickup(n);
+
+            // PowerUp rotation + spawn timer (DBP: managing powup)
+            powerUpSystem.update();
 
             tankSystem.updateCollisions();
             treeSystem.update();
@@ -209,6 +216,7 @@ int main()
         treeSystem.render();
         cloudSystem.render();
         tankSystem.render();
+        powerUpSystem.render();
         bulletSystem.render();
 
         EndMode3D();
@@ -239,9 +247,32 @@ int main()
                                 playerTank.energy, playerTank.originalEnergy,
                                 playerTank.reloadCounter, playerTank.bulletCounter),
                      20, y, 18, GREEN);
-            y += 25;
-            DrawText(TextFormat("Trees: %d active", treeSystem.getTreeCount()),
-                     20, y, 18, LIGHTGRAY);
+            y += 10;
+            DrawText("--- POWERUPS ---", 20, y, 18, WHITE);
+            y += 22;
+
+            const char *pupNames[] = {"BARRIER", "SUPERBUL", "REPAIR"};
+            for (int i = 0; i < powerUpSystem.getCount(); i++)
+            {
+                const PowerUpData &p = powerUpSystem.getPup(i);
+                Color col = p.active ? GREEN : GRAY;
+
+                DrawText(TextFormat("P%d(%s): %s pos=%.0f,%.0f,%.0f timer=%d model=%s",
+                                    POWERUP_MIN + i,
+                                    pupNames[p.type],
+                                    p.active ? "ACTIVE" : "waiting",
+                                    p.x, p.y, p.z,
+                                    p.spawnTimer,
+                                    powerUpSystem.isModelLoaded(p.type) ? "OK" : "MISSING"),
+                         20, y, 14, col);
+                y += 18;
+            }
+
+            // Barrier/SuperBullet counters игрока
+            y += 5;
+            DrawText(TextFormat("Player barrier=%d superbullet=%d",
+                                playerTank.barrierCounter, playerTank.superBulletCounter),
+                     20, y, 16, GREEN);
         }
 
         EndDrawing();

@@ -91,6 +91,7 @@ void TankSystem::resetTank(int n)
     t.bounceForce = 0;
     t.fireLimb = 0;
     t.bulletCounter = 0;
+    t.superBulletCounter = 0;
     t.reloadCounter = 0;
     t.reloadTime = 0;
     t.bulletLength = 0;
@@ -538,7 +539,7 @@ void TankSystem::applyBounce(int n)
 
 void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
 {
-    if (n < 1 || n >= MAX_TANKS)
+    if (n < 1 || n > COMBAT_MAX)
         return;
 
     TankData &tk = tanks[n];
