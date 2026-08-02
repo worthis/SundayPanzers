@@ -45,8 +45,11 @@ int main()
     bulletSystem.loadAssets();
 
     // Загружаем танк игрока (тип 1, команда 1)
-    tankSystem.loadTank(1, 1, 1);
+    tankSystem.loadTank(1, 8, 1);
     tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);
+
+    tankSystem.loadTank(13, 4, 3);
+    tankSystem.placeTank(13, 2500.0f, 2700.0f, 180.0f);
 
     // === Камера следует за танком (DBP: track) ===
     TankCamera camera;
@@ -109,7 +112,7 @@ int main()
                         bulletSystem.fireBullet(n);
                 }
                 else
-                    tankSystem.updateTank(n, 0, 0, FIXED_DT);  // AI позже
+                    tankSystem.updateTank(n, 0, 0, FIXED_DT); // AI позже
             }
 
             bulletSystem.update();
@@ -118,7 +121,7 @@ int main()
         }
 
         // === ИНТЕРПОЛЯЦИЯ (ключевое исправление ряби) ===
-        float alpha = accumulator / FIXED_DT;  // 0.0 .. 1.0
+        float alpha = accumulator / FIXED_DT; // 0.0 .. 1.0
         tankSystem.interpolate(alpha);
 
         // ============================================================

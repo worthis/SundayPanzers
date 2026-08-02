@@ -33,12 +33,70 @@ BulletSystem::~BulletSystem()
         UnloadModel(ringModel);
         UnloadModel(ballModel);
     }
+    if (texturesLoaded)
+    {
+        UnloadTexture(bulletTex1);
+        UnloadTexture(bulletTex2);
+        UnloadTexture(hitTex1);
+        UnloadTexture(hitTex2);
+        UnloadTexture(ringTex);
+        UnloadTexture(exploTex);
+    }
 }
 
 void BulletSystem::init(Terrain *terrain, TankSystem *tankSystem)
 {
     this->terrain = terrain;
     this->tankSystem = tankSystem;
+}
+
+// ============================================================
+// Привязка текстуры к модели + unlit-настройка
+// DBP: set object specular n,0
+//      set object n,1,0,0,0,0,0,0   (unlit, no fog)
+//      set object texture n,0,0      (no mipmapping)
+// ============================================================
+void BulletSystem::bindTexture(Model &m, const Texture2D &tex)
+{
+    for (int j = 0; j < m.materialCount; j++)
+    {
+        m.materials[j].maps[MATERIAL_MAP_DIFFUSE].texture = tex;
+        m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
+        m.materials[j].maps[MATERIAL_MAP_EMISSION].texture = tex;
+        m.materials[j].maps[MATERIAL_MAP_EMISSION].color = WHITE;
+        m.materials[j].maps[MATERIAL_MAP_SPECULAR].color = BLACK;
+        SetTextureFilter(tex, TEXTURE_FILTER_POINT);
+    }
+}
+
+// ============================================================
+// Загрузка текстуры с DBP color key (чёрный → прозрачный)
+// DBP: load image "file.bmp", N, 1
+// ============================================================
+Texture2D BulletSystem::loadTextureColorKey(const char *path)
+{
+    Image img = LoadImage(path);
+    if (img.data == nullptr)
+    {
+        TraceLog(LOG_WARNING, "Texture not found: %s", path);
+        return LoadTextureFromImage(img); // вернёт пустую
+    }
+
+    // DBP хранит как 32-bit RGBA после color key
+    ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
+    // Color key: тёмные пиксели → alpha = 0
+    Color *pixels = static_cast<Color *>(img.data);
+    int count = img.width * img.height;
+    for (int i = 0; i < count; i++)
+    {
+        if (pixels[i].r < 16 && pixels[i].g < 16 && pixels[i].b < 16)
+            pixels[i].a = 0;
+    }
+
+    Texture2D tex = LoadTextureFromImage(img);
+    UnloadImage(img);
+    return tex;
 }
 
 void BulletSystem::loadAssets()
@@ -55,17 +113,38 @@ void BulletSystem::loadAssets()
     ballModel = LoadModel("data/bullets/ball.glb");
     explosionModelsLoaded = true;
 
-    // DBP: set object specular 0, отключаем освещение,
-    //      ghost object on → аддитивное смешивание для взрывов
-    // Для ring/ball устанавливаем emissive-жёлтый через материал
-    auto setupExplosionMaterial = [](Model& m) {
+    bulletTex1 = LoadTexture("data/bullets/bullet.png");
+    bulletTex2 = LoadTexture("data/bullets/bullet2.png");
+    hitTex1 = LoadTexture("data/bullets/hit.png");
+    hitTex2 = LoadTexture("data/bullets/hit2.png");
+    ringTex = loadTextureColorKey("data/bullets/ring.png");
+    exploTex = LoadTexture("data/bullets/expo.png");
+    texturesLoaded = true;
+
+    bindTexture(bulletModel1, bulletTex1);
+    bindTexture(bulletModel2, bulletTex2);
+    bindTexture(hitModel1, hitTex1);
+    bindTexture(hitModel2, hitTex2);
+
+    // DBP для ring/ball:
+    //   set object emissive 401,rgb(255,255,20)
+    //   set object diffuse 401,rgb(255,255,20)
+    //   set object 401,1,1,0,0,1,0,0  (ghost)
+    // Текстура ring.png привязывается, но тонирована жёлтым
+    auto setupExplosionMaterial = [](Model &m)
+    {
         for (int j = 0; j < m.materialCount; j++)
         {
             m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color =
                 Color{255, 255, 20, 255};
+            m.materials[j].maps[MATERIAL_MAP_SPECULAR].color = BLACK;
         }
     };
+
+    bindTexture(ringModel, ringTex);
     setupExplosionMaterial(ringModel);
+
+    bindTexture(ballModel, exploTex);
     setupExplosionMaterial(ballModel);
 }
 
@@ -89,11 +168,11 @@ void BulletSystem::getMuzzlePosition(int n, float &mx, float &my, float &mz) con
     float lx = local.x * tk.scaleX;
     float ly = local.y * tk.scaleY;
     float lz = local.z * tk.scaleZ;
-    
+
     // Углы танка (DBP: pitch object up = tk#(n,4)+sin(walk)*2)
-    float yaw   = tk.yaw;
+    float yaw = tk.yaw;
     float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f;
-    float roll  = tk.roll;
+    float roll = tk.roll;
 
     // Порядок: Scale → Rz(roll) → Rx(pitch) → Ry(yaw+180) → Translate
     // Это совпадает с матрицей рендера: T * Ry * Rx * Rz * S
@@ -114,13 +193,13 @@ void BulletSystem::getMuzzlePosition(int n, float &mx, float &my, float &mz) con
     // 3) Ry (yaw + 180 для OpenGL)
     float yawRad = (yaw + 180.0f) * DEG2RAD;
     float cy = cosf(yawRad), sy = sinf(yawRad);
-    float x3 =  x2 * cy + z2 * sy;
-    float y3 =  y2;
+    float x3 = x2 * cy + z2 * sy;
+    float y3 = y2;
     float z3 = -x2 * sy + z2 * cy;
 
     // 4) Translate
     mx = tk.x + x3;
-    my = tk.y + 3.3f + y3;   // DBP: position object n,...,tk#(n,2)+3.3,...
+    my = tk.y + 3.3f + y3; // DBP: position object n,...,tk#(n,2)+3.3,...
     mz = tk.z + z3;
 }
 
@@ -198,8 +277,9 @@ void BulletSystem::fireBullet(int n)
     b.superBullet = (tk.bulletFlag > 0);
     // ИСПРАВЛЕНО: hitMagnifier → hitScale
     b.hitScale = tk.hitScale;
-    b.bulletScale   = tk.bulletScale;     // ← НОВОЕ
-    b.hitModelType  = tk.hitModelType;    // ← НОВОЕ
+    b.bulletScale = tk.bulletScale; // ← НОВОЕ
+    b.bulletModelType = tk.hitModelType;
+    b.hitModelType = tk.hitModelType; // ← НОВОЕ
 
     // DBP: tk#(n,17)=tk#(n,20) : tk#(n,18)=tk#(n,19)
     tk.bulletCounter = tk.bulletLength;
@@ -273,6 +353,10 @@ void BulletSystem::update()
         if (dead > 0)
         {
             b.active = false;
+
+            // ★ DBP: tk#(n,17)=0 — обнуляем, чтобы можно было стрелять снова
+            tankSystem->getTankMut(b.owner).bulletCounter = 0;
+
             spawnHitEffect(b.x, b.y, b.z, b.hitScale, b.hitModelType);
 
             if (dead == 2 && hitTank > 0)
@@ -468,7 +552,7 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
 
         float h = terrain->getHeight(tk.x, tk.z);
         float range = 35.0f + tk.collisionRange * 3.0f;
-        
+
         // DBP: gam(4)=55, gam(5)=range, gam(6)=-1
         // Кольцо ориентируется по танку, шар — случайный Y
         spawnExplosion(tk.x, h + 10.0f, tk.z, range,
@@ -487,12 +571,12 @@ void BulletSystem::spawnHitEffect(float x, float y, float z,
     {
         if (!hits[i].active)
         {
-            hits[i].active    = true;
-            hits[i].x         = x;
-            hits[i].y         = y;
-            hits[i].z         = z;
-            hits[i].counter   = 100;
-            hits[i].angleY    = (float)rnd(360);
+            hits[i].active = true;
+            hits[i].x = x;
+            hits[i].y = y;
+            hits[i].z = z;
+            hits[i].counter = 100;
+            hits[i].angleY = (float)rnd(360);
             hits[i].magnifier = magnifier;
             hits[i].modelType = modelType;
             return;
@@ -507,21 +591,21 @@ void BulletSystem::spawnExplosion(float x, float y, float z, float range,
     {
         if (!explosions[i].active)
         {
-            explosions[i].active    = true;
-            explosions[i].x         = x;
-            explosions[i].y         = y;
-            explosions[i].z         = z;
-            explosions[i].counter   = 55;
+            explosions[i].active = true;
+            explosions[i].x = x;
+            explosions[i].y = y;
+            explosions[i].z = z;
+            explosions[i].counter = 55;
             explosions[i].direction = -1;
-            explosions[i].range     = range;
+            explosions[i].range = range;
 
             // DBP: ring ориентируется по танку
-            explosions[i].ringYaw   = yaw;
+            explosions[i].ringYaw = yaw;
             explosions[i].ringPitch = pitch;
-            explosions[i].ringRoll  = roll + 4.0f - (float)rnd(8);
+            explosions[i].ringRoll = roll + 4.0f - (float)rnd(8);
 
             // DBP: rotate object 402,0,rnd(359),0
-            explosions[i].ballYaw   = (float)rnd(360);
+            explosions[i].ballYaw = (float)rnd(360);
             return;
         }
     }
@@ -541,18 +625,17 @@ void BulletSystem::render() const
             continue;
 
         // Выбор модели: типы 7-8 → bullet2
-        const Model& mdl = (b.hitModelType == 2) ? bulletModel2 : bulletModel1;
+        const Model &mdl = (b.hitModelType == 2) ? bulletModel2 : bulletModel1;
 
         // Направление → углы для рендера
-        float yaw   = atan2f(b.dirX, b.dirZ) * RAD2DEG;
+        float yaw = atan2f(b.dirX, b.dirZ) * RAD2DEG;
         float pitch = asinf(b.dirY) * RAD2DEG;
-
         float sc = b.bulletScale;
 
         rlPushMatrix();
         rlTranslatef(b.x, b.y, b.z);
-        rlRotatef(yaw + 180.0f, 0, 1, 0);   // DBP→OpenGL
-        rlRotatef(pitch, 1, 0, 0);           // +pitch = нос вверх
+        rlRotatef(yaw + 180.0f, 0, 1, 0); // DBP→OpenGL
+        rlRotatef(pitch, 1, 0, 0);        // +pitch = нос вверх
         rlScalef(sc, sc, sc);
         DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
         rlPopMatrix();
@@ -561,36 +644,57 @@ void BulletSystem::render() const
     // === Эффекты попадания ===
     for (int i = 1; i <= MAX_HIT_EFFECTS; i++)
     {
-        const HitEffect& h = hits[i];
-        if (!h.active) continue;
+        const HitEffect &h = hits[i];
+        if (!h.active)
+            continue;
 
         // DBP: sc=(20+(100-hit(n))/1.25)*tk#(n,39)
-        float sc = (20.0f + (100.0f - h.counter) / 1.25f) * h.magnifier;
+        float sc = (20.0f + (100.0f - h.counter) / 1.25f) * h.magnifier / 100.0f;
 
-        const Model& mdl = (h.modelType == 2) ? hitModel2 : hitModel1;
+        const Model &mdl = (h.modelType == 2) ? hitModel2 : hitModel1;
+
+        // tint: hit1 — белая вспышка, hit2 — цветное свечение
+        // (их текстура hit2 синяя → белый tint выбеливает, цветной tint
+        //  ограничивает добавку по каналам и возвращает оттенок)
+        Color tint = (h.modelType == 2)
+                         ? Color{100, 80, 230, 255}   // ← hit2: сине-фиолетовый, стартовый
+                         : Color{255, 255, 255, 255}; // ← hit1: как в оригинале
+
+        BeginBlendMode(BLEND_ADDITIVE);
 
         rlPushMatrix();
         rlTranslatef(h.x, h.y, h.z);
         rlRotatef(h.angleY, 0, 1, 0);
         rlScalef(sc, sc, sc);
-        DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
+        // DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
+        //  Alpha 128 = 50% — DBP ghost по умолчанию
+        DrawModel(mdl, {0, 0, 0}, 1.0f, tint);
         rlPopMatrix();
+
+        EndBlendMode();
     }
 
     // === Взрывы ===
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
     {
-        const ExplosionData& e = explosions[i];
-        if (!e.active) continue;
+        const ExplosionData &e = explosions[i];
+        if (!e.active)
+            continue;
 
         float r1 = (1.8f * (95.0f - e.counter * 1.1f) * e.range) / 100.0f;
         float r2 = (1.9f * (95.0f - e.counter / 1.1f) * e.range) / 100.0f;
 
-        if (r1 < 0.1f) r1 = 0.1f;
-        if (r2 < 0.1f) r2 = 0.1f;
+        if (r1 < 0.1f)
+            r1 = 0.1f;
+        if (r2 < 0.1f)
+            r2 = 0.1f;
+
+        // ★ DBP scale object = проценты → делим на 100
+        r1 /= 100.0f;
+        r2 /= 100.0f;
 
         // Включаем аддитивное смешивание (DBP: ghost object on)
-        BeginBlendMode(BLEND_ADDITIVE);
+        BeginBlendMode(BLEND_ALPHA_PREMULTIPLY);
 
         // Кольцо — ориентация по уничтоженному танку
         rlPushMatrix();
@@ -599,7 +703,7 @@ void BulletSystem::render() const
         rlRotatef(e.ringPitch, 1, 0, 0);
         rlRotatef(e.ringRoll, 0, 0, 1);
         rlScalef(r1, r1, r1);
-        DrawModel(ringModel, {0, 0, 0}, 1.0f, Color{255, 255, 20, 255});
+        DrawModel(ringModel, {0, 0, 0}, 1.0f, Color{255, 255, 20, 180});
         rlPopMatrix();
 
         // Шар — случайный Y-поворот
@@ -607,7 +711,7 @@ void BulletSystem::render() const
         rlTranslatef(e.x, e.y, e.z);
         rlRotatef(e.ballYaw, 0, 1, 0);
         rlScalef(r2, r2, r2);
-        DrawModel(ballModel, {0, 0, 0}, 1.0f, Color{255, 255, 20, 255});
+        DrawModel(ballModel, {0, 0, 0}, 1.0f, Color{255, 255, 20, 180});
         rlPopMatrix();
 
         // Возвращаем стандартный alpha blending

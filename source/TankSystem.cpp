@@ -70,6 +70,7 @@ void TankSystem::resetTank(int n)
 {
     TankData &t = tanks[n];
     t.type = 0;
+    t.baseType = 0;
     t.x = 0;
     t.y = -1000;
     t.z = 0;
@@ -150,8 +151,7 @@ void TankSystem::initTankTypes()
         350,      // turboTime
         800,      // turboReload
         1.0f,
-        1
-    };
+        1};
 
     // === Тип 2 ===
     tankTypes[2] = {
@@ -174,8 +174,7 @@ void TankSystem::initTankTypes()
         300,
         600,
         1.3f,
-        1
-    };
+        1};
 
     // === Тип 3 ===
     tankTypes[3] = {
@@ -198,8 +197,7 @@ void TankSystem::initTankTypes()
         300,
         700,
         1.3f,
-        1
-    };
+        1};
 
     // === Тип 4 ===
     tankTypes[4] = {
@@ -222,8 +220,7 @@ void TankSystem::initTankTypes()
         450,
         1500,
         1.4f,
-        1
-    };
+        1};
 
     // === Тип 5 ===
     tankTypes[5] = {
@@ -246,8 +243,7 @@ void TankSystem::initTankTypes()
         450,
         1000,
         1.5f,
-        1
-    };
+        1};
 
     // === Тип 6 ===
     tankTypes[6] = {
@@ -270,8 +266,7 @@ void TankSystem::initTankTypes()
         310,
         1100,
         1.8f,
-        1
-    };
+        1};
 
     // === Тип 7 ===
     tankTypes[7] = {
@@ -294,8 +289,7 @@ void TankSystem::initTankTypes()
         600,
         3000,
         2.0f,
-        2
-    };
+        2};
 
     // === Тип 8 ===
     tankTypes[8] = {
@@ -318,8 +312,7 @@ void TankSystem::initTankTypes()
         2000,
         5000,
         2.1f,
-        2
-    };
+        2};
 }
 
 void TankSystem::init(Terrain *t)
@@ -409,6 +402,7 @@ void TankSystem::loadTank(int n, int t, int c)
 
     // DBP: tk#(n,0)=t : tk#(n,48)=t : tk#(n,34)=c
     tk.type = t;
+    tk.baseType = t;
     tk.pictureId = t;
     tk.squadId = c;
 
@@ -725,7 +719,7 @@ void TankSystem::render() const
         const TankData &tk = tanks[n];
         if (tk.type == 0)
             continue;
-        if (!modelsLoaded[tk.type])
+        if (!modelsLoaded[tk.baseType])
             continue;
 
         // Выбираем текстуру по состоянию
@@ -748,7 +742,7 @@ void TankSystem::render() const
         }
 
         // Подменяем текстуру
-        Model &mdl = const_cast<Model &>(tankModels[tk.type]);
+        Model &mdl = const_cast<Model &>(tankModels[tk.baseType]);
         if (tex.id != 0)
         {
             for (int j = 0; j < mdl.materialCount; j++)

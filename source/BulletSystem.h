@@ -13,20 +13,18 @@ struct BulletData
 {
     bool active = false;
     int owner = 0;
-
     float x = 0, y = 0, z = 0;
     float dirX = 0, dirY = 0, dirZ = 1;
     float gravCounter = 0;
     int lifeCounter = 0;
-
-    // Параметры владельца на момент выстрела
     float bulletPower = 0;
     float bulletGravity = 0;
     int ownerSquadId = 0;
     bool superBullet = false;
     float hitScale = 1.0f;
-    float bulletScale = 1.0f; // ← НОВОЕ: масштаб модели пули
-    int hitModelType = 1;     // ← НОВОЕ: 1=hit, 2=hit2
+    float bulletScale = 1.0f; // масштаб модели пули (DBP %)
+    int bulletModelType = 1;  // 1 = bullet, 2 = bullet2
+    int hitModelType = 1;     // 1 = hit, 2 = hit2
 };
 
 // ============================================================
@@ -83,6 +81,13 @@ private:
     Model bulletModel2;
     bool bulletModelsLoaded = false;
 
+    // Текстуры (загружаются отдельно, т.к. не встроены в .glb)
+    Texture2D bulletTex1, bulletTex2;
+    Texture2D hitTex1, hitTex2;
+    Texture2D ringTex;
+    Texture2D exploTex;
+    bool texturesLoaded = false;
+
     // Модели эффектов попадания
     Model hitModel1; // hit.glb
     Model hitModel2; // hit2.glb
@@ -92,6 +97,9 @@ private:
     Model ringModel;
     Model ballModel;
     bool explosionModelsLoaded = false;
+
+    void bindTexture(Model &m, const Texture2D &tex);
+    Texture2D loadTextureColorKey(const char* path);
 
     bool checkGroundCollision(const BulletData &b) const;
     bool checkTreeCollision(BulletData &b, int &treeIndex) const;
