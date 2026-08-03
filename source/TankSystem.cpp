@@ -336,6 +336,12 @@ void TankSystem::unloadTankModels()
             modelsLoaded[i] = false;
         }
     }
+
+    if (superBulletPUPModelLoaded && superBulletPUPModel.meshCount > 0)
+    {
+        UnloadModel(superBulletPUPModel);
+        superBulletPUPModelLoaded = false;
+    }
 }
 
 void TankSystem::loadTankModels()
@@ -386,6 +392,24 @@ void TankSystem::loadTankModels()
         else
         {
             TraceLog(LOG_WARNING, "Tank model %d NOT found: %s", i, path);
+        }
+    }
+
+    Mesh ringMesh = GenMeshTorus(0.125f, 1.0f, 8, 32);
+
+    if (ringMesh.vertexCount > 0)
+    {
+        superBulletPUPModel = LoadModelFromMesh(ringMesh);
+        superBulletPUPModelLoaded = (superBulletPUPModel.meshCount > 0);
+
+        if (superBulletPUPModelLoaded)
+        {
+            // Материал: белый (цвет задаётся через tint при DrawModelEx)
+            if (superBulletPUPModel.materialCount > 0)
+                superBulletPUPModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
+
+            TraceLog(LOG_INFO, "Ring model (torus) created: %d vertices",
+                     ringMesh.vertexCount);
         }
     }
 }
@@ -672,33 +696,33 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
     {
         tk.x = TANK_LIMIT_MIN;
         tk.accel /= 1.015f;
-        tk.aiState     = 0;
+        tk.aiState = 0;
         tk.escapeAngle = 0.0f;
-        tk.target      = 51;
+        tk.target = 51;
     }
     if (tk.z < TANK_LIMIT_MIN)
     {
         tk.z = TANK_LIMIT_MIN;
         tk.accel /= 1.015f;
-        tk.aiState     = 0;
+        tk.aiState = 0;
         tk.escapeAngle = 0.0f;
-        tk.target      = 51;
+        tk.target = 51;
     }
     if (tk.x > TANK_LIMIT_MAX)
     {
         tk.x = TANK_LIMIT_MAX;
         tk.accel /= 1.015f;
-        tk.aiState     = 0;
+        tk.aiState = 0;
         tk.escapeAngle = 0.0f;
-        tk.target      = 51;
+        tk.target = 51;
     }
     if (tk.z > TANK_LIMIT_MAX)
     {
         tk.z = TANK_LIMIT_MAX;
         tk.accel /= 1.015f;
-        tk.aiState     = 0;
+        tk.aiState = 0;
         tk.escapeAngle = 0.0f;
-        tk.target      = 51;
+        tk.target = 51;
     }
 
     // ================================================================
@@ -929,31 +953,112 @@ void TankSystem::render() const
         float finalRoll = tk.interpRoll + rbounce / 10.0f + spinRoll;
         float finalYaw = tk.interpYaw;
 
+        // ============================================
+        // ТЕНЬ — используем ТЕ ЖЕ интерполированные координаты
+        // DBP: position object 200+n, tk#(n,1), hg#+3.5-slop#*10, tk#(n,3)
+        // turn/pitch/roll такие же как у танка
+        // ============================================
+        // DBP: slop#=20 для мёртвых коров, иначе 0
+        float slop = (n > EXTRA_MAX && tk.type < 0) ? 20.0f : 0.0f;
+        float shadowY = hg + 3.5f - slop * 10.0f;
+
+        // Уменьшение тени с высотой (для летающих танков)
+        float height = tk.interpY - hg;
+        float shScale = 1.0f;
+        if (height > 1.0f)
+        {
+            shScale = 1.0f / (1.0f + height / 200.0f);
+            if (shScale < 0.2f)
+                shScale = 0.2f;
+        }
+        float shadowRadius = tk.collisionRange * shScale * 1.25f;
+        if (shadowRadius < 10.0f)
+            shadowRadius = 10.0f;
+
+        BeginBlendMode(BLEND_MULTIPLIED);
+        rlDisableDepthMask();
+        rlDisableBackfaceCulling();
         rlPushMatrix();
+        rlTranslatef(tk.interpX, shadowY, tk.interpZ);
+        rlRotatef(finalYaw + 180.0f, 0.0f, 1.0f, 0.0f);
+        rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
+        rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
+        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {40, 40, 40, 128});
 
+        // ============================================
+        // СУПЕРПУЛЯ — красное кольцо
+        // DBP: show limb 200+n,1 if tk#(n,51)>0
+        // ============================================
+        if (tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
+        {
+            // Внешний радиус кольца (чуть больше тени)
+            float outerR = shadowRadius * 2.6f;
+            DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {255, 40, 40, 128});
+        }
+
+        rlPopMatrix();
+        rlEnableBackfaceCulling();
+        rlEnableDepthMask();
+        EndBlendMode();
+
+        // танк
+        rlPushMatrix();
         rlTranslatef(posX, posY, posZ);
-
-        // Модель .glb: нос вдоль −Z → добавляем 180°
         rlRotatef(finalYaw + 180.0, 0.0f, 1.0f, 0.0f);
-        // Pitch: инвертирован для OpenGL, но 180° yaw компенсирует → без инверсии
         rlRotatef(finalPitch, 1.0f, 0.0f, 0.0f);
-        // Roll: аналогично
         rlRotatef(finalRoll, 0.0f, 0.0f, 1.0f);
         rlScalef(tk.scaleX, tk.scaleY, tk.scaleZ);
 
-        // DrawModel(mdl, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
-
-        // DBP: hide limb n, fireLimb — меш дула невидим
         for (int i = 0; i < mdl.meshCount; i++)
         {
+            // DBP: hide limb n, fireLimb — меш дула невидим
             if (i == mdl.meshCount - tk.fireLimb)
-                continue; // пропускаем меш дула
+                continue;
 
             int matIdx = mdl.meshMaterial[i];
             DrawMesh(mdl.meshes[i], mdl.materials[matIdx], MatrixIdentity());
         }
 
         rlPopMatrix();
+    }
+}
+
+void TankSystem::renderShields() const
+{
+    for (int n = 1; n < MAX_TANKS; n++)
+    {
+        const TankData &tk = tanks[n];
+        if (tk.type == 0)
+            continue;
+
+        // ============================================
+        // BARRIER — полупрозрачная сфера вокруг танка
+        // DBP: show limb 200+n,2 if tk#(n,50)>0
+        // Сфера симметрична, рисуется в мировых координатах
+        // (pitch/roll тени не применяются — сфера вокруг корпуса танка)
+        // ============================================
+        if (tk.barrierCounter > 0)
+        {
+            // Радиус: чуть больше collisionRange танка
+            float sphereR = tk.collisionRange * 2.0f;
+            if (sphereR < 20.0f)
+                sphereR = 20.0f;
+
+            // Центр сферы — центр корпуса танка
+            Vector3 center = {
+                tk.interpX,
+                tk.interpY + tk.collisionHeight * 0.7f,
+                tk.interpZ};
+
+            BeginBlendMode(BLEND_ALPHA);
+            rlDisableDepthMask();
+            rlDisableBackfaceCulling();
+            DrawSphere(center, sphereR, {100, 200, 255, 60});
+            DrawSphereWires(center, sphereR + 0.125f, 12, 12, {150, 220, 255, 150});
+            rlEnableBackfaceCulling();
+            rlEnableDepthMask();
+            EndBlendMode();
+        }
     }
 }
 

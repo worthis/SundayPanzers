@@ -184,9 +184,10 @@ public:
 
     // Отрисовка всех танков
     void render() const;
+    // Отрисовка щитов танков (рендер в последнюю очередь)
+    void renderShields() const;
 
     // Доступ к данным танка
-    //const TankType &getTankType(int n) const { return tankTypes[n]; }
     const TankData &getTank(int n) const { return tanks[n]; }
     TankData &getTankMut(int n) { return tanks[n]; }
     // Локальный центр меша-дула (в координатах модели, до масштаба)
@@ -201,6 +202,9 @@ private:
 
     Model tankModels[MAX_TANK_TYPES + 1]; // модели t1-t8
     bool modelsLoaded[MAX_TANK_TYPES + 1];
+
+    Model superBulletPUPModel;
+    bool superBulletPUPModelLoaded = false;
 
     // Текстуры команд (DBP: 101-110 обычные, 111-120 повреждённые, 121-130 уничтоженные)
     Texture2D squadTexNormal[11];    // t1.png - t10.png

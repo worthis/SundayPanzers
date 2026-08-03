@@ -87,7 +87,7 @@ int main()
     // === Заменить ручную расстановку танков на makeSortie ===
     // DBP: player(13,4) — танки игрока
     PlayerTankInfo player[13] = {};
-    player[1].type = 1;  // танк типа 1
+    player[1].type = 8;  // танк типа 1
     player[1].ai   = 3;  // AI level 3
     player[2].type = 2;  // танк типа 2
     player[2].ai   = 2;  // AI level 2
@@ -97,7 +97,7 @@ int main()
     player[4].ai   = 2;  // AI level 2
     // ... остальные по желанию
 
-    int playerCommander = 1; // DBP: gam(1)
+    int playerCommander = 0; // DBP: gam(1)
 
     // DBP: gam(19)=enemy squad, gam(20)=guest squad
     int playerSquad = 1; // Slug
@@ -184,6 +184,8 @@ int main()
                             ptk.turboCharger = ptk.turboReload;
                         }
                     }
+
+                    tankSystem.getTankMut(n).superBulletCounter = 15000;
                 }
                 else
                 {
@@ -259,6 +261,7 @@ int main()
         tankSystem.render();
         powerUpSystem.render();
         bulletSystem.render();
+        tankSystem.renderShields();
 
         EndMode3D();
 
