@@ -640,6 +640,12 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
     tk.fallForce += (k - tk.fallForce) / 10.0f;
     float f = tk.fallForce * tk.accel;
 
+    // === DBP: Turbo setting ===
+    // if tk#(n,45)>0 then tk#(n,45)=tk#(n,45)-1
+    if (tk.turboCharger > 0)
+        tk.turboCharger--;
+
+    // DBP: if tk#(n,44)>0 then tk#(n,44)=tk#(n,44)-1
     if (tk.turboCounter > 0)
         tk.turboCounter--;
 

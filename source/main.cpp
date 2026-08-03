@@ -12,6 +12,8 @@
 #include "BulletSystem.h"
 #include "AISystem.h"
 #include "PowerUpSystem.h"
+#include "GameData.h"
+#include "SortieSystem.h"
 #include <cstdio>
 
 int main()
@@ -20,6 +22,8 @@ int main()
     SetTargetFPS(60);
 
     DisableCursor();
+
+    initGameData();
 
     // === Создание мира ===
     Terrain terrain;
@@ -58,7 +62,7 @@ int main()
     // Загружаем вражеские танки для теста
     // DBP: tankloader(e, tipe, se)
     // Enemy squad: индексы 13-40, тип 1-8, команда 2
-    tankSystem.loadTank(13, 1, 2);
+    /*tankSystem.loadTank(13, 1, 2);
     tankSystem.placeTank(13, 2500.0f, 4500.0f, 180.0f);
     tankSystem.getTankMut(13).aiType = 3;      // AI tipology
     tankSystem.getTankMut(13).aimRatio = 20;   // spec(l,3)
@@ -78,7 +82,33 @@ int main()
 
     // Загружаем танк игрока (тип 1, команда 1)
     tankSystem.loadTank(1, 8, 1);
-    tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);
+    tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);*/
+
+    // === Заменить ручную расстановку танков на makeSortie ===
+    // DBP: player(13,4) — танки игрока
+    PlayerTankInfo player[13] = {};
+    player[1].type = 1;  // танк типа 1
+    player[1].ai   = 3;  // AI level 3
+    player[2].type = 2;  // танк типа 2
+    player[2].ai   = 2;  // AI level 2
+    player[3].type = 2;  // танк типа 2
+    player[3].ai   = 2;  // AI level 2
+    player[4].type = 2;  // танк типа 2
+    player[4].ai   = 2;  // AI level 2
+    // ... остальные по желанию
+
+    int playerCommander = 1; // DBP: gam(1)
+
+    // DBP: gam(19)=enemy squad, gam(20)=guest squad
+    int playerSquad = 1; // Slug
+    int enemySquad = 3; // Smashers
+    int guestSquad = 5; // Hooks
+
+    // DBP: makesortie(gam(15), gam(19), gam(20))
+    int level = 10;
+    makeSortie(tankSystem, level,
+               playerSquad, enemySquad, guestSquad,
+               player, playerCommander);
 
     // === Камера следует за танком (DBP: track) ===
     TankCamera camera;
@@ -138,13 +168,24 @@ int main()
                 float xj = 0, yj = 0;
                 bool fire = false;
 
-                if (n == 1)
+                if (n == playerCommander)
                 {
                     xj = input.getTankX();
                     yj = input.getTankY();
                     fire = input.isFirePressed();
+
+                    // Турбо
+                    if (input.isTurboPressed())
+                    {
+                        TankData& ptk = tankSystem.getTankMut(n);
+                        if (ptk.turboCharger <= 0)
+                        {
+                            ptk.turboCounter = ptk.turboTime;
+                            ptk.turboCharger = ptk.turboReload;
+                        }
+                    }
                 }
-                else if (n >= ENEMY_MIN && n <= EXTRA_MAX) // AI
+                else
                 {
                     AIOutput ai = aiSystem.computeInput(n);
                     xj = ai.xj;
@@ -247,10 +288,10 @@ int main()
                                 playerTank.energy, playerTank.originalEnergy,
                                 playerTank.reloadCounter, playerTank.bulletCounter),
                      20, y, 18, GREEN);
-            y += 10;
-            DrawText("--- POWERUPS ---", 20, y, 18, WHITE);
             y += 22;
 
+            DrawText("--- POWERUPS ---", 20, y, 18, WHITE);
+            y += 22;
             const char *pupNames[] = {"BARRIER", "SUPERBUL", "REPAIR"};
             for (int i = 0; i < powerUpSystem.getCount(); i++)
             {

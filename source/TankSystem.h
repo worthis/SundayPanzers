@@ -186,7 +186,7 @@ public:
     void render() const;
 
     // Доступ к данным танка
-    const TankType &getTankType(int n) const { return tankTypes[n]; }
+    //const TankType &getTankType(int n) const { return tankTypes[n]; }
     const TankData &getTank(int n) const { return tanks[n]; }
     TankData &getTankMut(int n) { return tanks[n]; }
     // Локальный центр меша-дула (в координатах модели, до масштаба)
