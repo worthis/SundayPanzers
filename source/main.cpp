@@ -184,8 +184,6 @@ int main()
                             ptk.turboCharger = ptk.turboReload;
                         }
                     }
-
-                    tankSystem.getTankMut(n).superBulletCounter = 15000;
                 }
                 else
                 {

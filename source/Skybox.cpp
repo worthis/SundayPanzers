@@ -137,21 +137,18 @@ void Skybox::render() const
     float halfY = sizeY / 2.0f;
     float halfZ = sizeZ / 2.0f;
 
-    // КРИТИЧЕСКИ ВАЖНО: отключаем отсечение задних граней
-    rlDisableBackfaceCulling();
-
     // Передняя стенка (Z+) — смотрит на север
     rlPushMatrix();
     rlTranslatef(center.x, center.y + halfY, center.z + halfZ);
-    rlRotatef(0.0f, 0, 1, 0);  // Поворот вокруг Y
-    rlRotatef(90.0f, 1, 0, 0); // Поворот вокруг X (вертикализация)
+    rlRotatef(180.0f, 0, 1, 0);  // Поворот вокруг Y
+    rlRotatef(90.0f, 1, 0, 0); // Поворот вокруг X
     DrawModel(wall, (Vector3){0, 0, 0}, 1.0f, WHITE);
     rlPopMatrix();
 
     // Задняя стенка (Z-) — смотрит на юг
     rlPushMatrix();
     rlTranslatef(center.x, center.y + halfY, center.z - halfZ);
-    rlRotatef(180.0f, 0, 1, 0); // Поворот вокруг Y
+    rlRotatef(0.0f, 0, 1, 0); // Поворот вокруг Y
     rlRotatef(90.0f, 1, 0, 0);  // Поворот вокруг X
     DrawModel(wall, (Vector3){0, 0, 0}, 1.0f, WHITE);
     rlPopMatrix();
@@ -175,9 +172,6 @@ void Skybox::render() const
     // Потолок (Y+)
     DrawModelEx(ceiling,
                 (Vector3){center.x - 2.0f, center.y + sizeY - 2.0f, center.z - 2.0f},
-                (Vector3){1.0f, 0.0f, 0.0f}, 0.0f,
+                (Vector3){1.0f, 0.0f, 0.0f}, 180.0f,
                 (Vector3){1.0f, 1.0f, 1.0f}, WHITE);
-
-    // Возвращаем отсечение граней обратно
-    rlEnableBackfaceCulling();
 }

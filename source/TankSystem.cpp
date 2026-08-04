@@ -977,7 +977,6 @@ void TankSystem::render() const
 
         BeginBlendMode(BLEND_MULTIPLIED);
         rlDisableDepthMask();
-        rlDisableBackfaceCulling();
         rlPushMatrix();
         rlTranslatef(tk.interpX, shadowY, tk.interpZ);
         rlRotatef(finalYaw + 180.0f, 0.0f, 1.0f, 0.0f);
@@ -993,11 +992,10 @@ void TankSystem::render() const
         {
             // Внешний радиус кольца (чуть больше тени)
             float outerR = shadowRadius * 2.6f;
-            DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {255, 40, 40, 128});
+            DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {255, 40, 40, 180});
         }
 
         rlPopMatrix();
-        rlEnableBackfaceCulling();
         rlEnableDepthMask();
         EndBlendMode();
 
@@ -1052,10 +1050,8 @@ void TankSystem::renderShields() const
 
             BeginBlendMode(BLEND_ALPHA);
             rlDisableDepthMask();
-            rlDisableBackfaceCulling();
             DrawSphere(center, sphereR, {100, 200, 255, 60});
             DrawSphereWires(center, sphereR + 0.125f, 12, 12, {150, 220, 255, 150});
-            rlEnableBackfaceCulling();
             rlEnableDepthMask();
             EndBlendMode();
         }

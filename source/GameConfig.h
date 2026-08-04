@@ -23,8 +23,8 @@
 #define NUM_BIOMES 6
 
 // === Камера (DBP: set camera range 6,7450) ===
-#define CAMERA_NEAR 0.1f
-#define CAMERA_FAR 15000.0f
+#define CAMERA_NEAR 6.0f
+#define CAMERA_FAR 7100.0f
 
 // === Танки ===
 #define MAX_TANKS 56
