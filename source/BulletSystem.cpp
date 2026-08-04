@@ -552,7 +552,6 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
     if (tk.energy < tk.originalEnergy / 3.0f && !tk.damaged)
     {
         tk.damaged = true;
-        // TODO: сменить текстуру на td<squadId>.png
     }
 
     // Уничтожение
@@ -563,8 +562,6 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
         tk.bounceForce = 0;
         tk.accel = 0;
         tk.fallForce = 0;
-
-        // TODO: сменить текстуру на tw<squadId>.png
 
         float h = terrain->getHeight(tk.x, tk.z);
         float range = 35.0f + tk.collisionRange * 3.0f;

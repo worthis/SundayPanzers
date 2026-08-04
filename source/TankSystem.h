@@ -148,6 +148,10 @@ struct TankData
     int bulletFlag;
     int hitCounter;
 
+    float animFrame = 0.0f; // DBP: tk#(n,16) — текущий кадр
+    float animSpeed = 0.0f; // DBP: tk#(n,19) — скорость анимации
+    int lastAnimFrame = -1; // оптимизация: обновлять кости только при смене кадра
+
     // === Интерполяция для плавной отрисовки ===
     float prevX = 0, prevY = 0, prevZ = 0;
     float prevPitch = 0, prevYaw = 0, prevRoll = 0;
@@ -157,6 +161,16 @@ struct TankData
     float interpPitch = 0, interpYaw = 0, interpRoll = 0;
 };
 
+// === Модель extra на каждый слот (скелетная анимация требует отдельную копию) ===
+struct ExtraModelSlot
+{
+    Model model = {};
+    ModelAnimation *anims = nullptr;
+    int animCount = 0;
+    Texture2D texture = {};
+    bool loaded = false;
+};
+
 class TankSystem
 {
 public:
@@ -164,6 +178,8 @@ public:
     ~TankSystem();
 
     void init(Terrain *terrain, TreeSystem *treeSystem);
+
+    void spawnExtrasForBiome(int biome);
 
     // Загрузка танка (аналог tankloader(n,t,c))
     // n = индекс (1-55), t = тип (1-8), c = команда (1-10)
@@ -216,6 +232,8 @@ private:
     // Вычисляется один раз при загрузке модели
     Vector3 muzzleLocal[MAX_TANK_TYPES + 1] = {};
 
+    ExtraModelSlot extraSlots[EXTRA_MAX - EXTRA_MIN + 1]; // слоты 46..50 → индексы 0..4
+
     Terrain *terrain = nullptr;
     TreeSystem *treeSystem = nullptr;
 
@@ -224,8 +242,13 @@ private:
     void unloadTankModels();
     void loadSquadTextures();
     void unloadSquadTextures();
+    void loadExtra(int n, int type);
+    void unloadExtraSlot(int slot);
+    void unloadAllExtras();
     void resetTank(int n);
     void applyBounce(int n);
+    void updateExtraAnimation(int n);
+    void renderExtra(int n) const;
 
     // Вычисление центра меша (bounding box center)
     static Vector3 computeMeshCenter(const Mesh &mesh);

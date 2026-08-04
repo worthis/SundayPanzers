@@ -59,31 +59,6 @@ int main()
     aiSystem.init(&tankSystem);
     aiSystem.setPowupSearchFactor(90); // DBP: 96 - level(10) ≈ 86..90
 
-    // Загружаем вражеские танки для теста
-    // DBP: tankloader(e, tipe, se)
-    // Enemy squad: индексы 13-40, тип 1-8, команда 2
-    /*tankSystem.loadTank(13, 1, 2);
-    tankSystem.placeTank(13, 2500.0f, 4500.0f, 180.0f);
-    tankSystem.getTankMut(13).aiType = 3;      // AI tipology
-    tankSystem.getTankMut(13).aimRatio = 20;   // spec(l,3)
-    tankSystem.getTankMut(13).fireRatio = 985; // spec(l,4)
-
-    tankSystem.loadTank(14, 1, 2);
-    tankSystem.placeTank(14, 3000.0f, 4500.0f, 180.0f);
-    tankSystem.getTankMut(14).aiType = 5;
-    tankSystem.getTankMut(14).aimRatio = 18;
-    tankSystem.getTankMut(14).fireRatio = 980;
-
-    tankSystem.loadTank(15, 1, 2);
-    tankSystem.placeTank(15, 2000.0f, 4500.0f, 180.0f);
-    tankSystem.getTankMut(15).aiType = 7;
-    tankSystem.getTankMut(15).aimRatio = 16;
-    tankSystem.getTankMut(15).fireRatio = 975;
-
-    // Загружаем танк игрока (тип 1, команда 1)
-    tankSystem.loadTank(1, 8, 1);
-    tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);*/
-
     // === Заменить ручную расстановку танков на makeSortie ===
     // DBP: player(13,4) — танки игрока
     PlayerTankInfo player[13] = {};
@@ -109,6 +84,9 @@ int main()
     makeSortie(tankSystem, level,
                playerSquad, enemySquad, guestSquad,
                player, playerCommander);
+
+    // Спавн extra по биому
+    tankSystem.spawnExtrasForBiome(1);
 
     // === Камера следует за танком (DBP: track) ===
     TankCamera camera;
@@ -142,6 +120,7 @@ int main()
             terrain.buildMesh();
             cloudSystem.generate(newBiome);
             tankSystem.placeTank(1, MAP_CENTER, MAP_CENTER, 0.0f);
+            tankSystem.spawnExtrasForBiome(newBiome);
         }
 
         if (IsKeyPressed(KEY_F1))

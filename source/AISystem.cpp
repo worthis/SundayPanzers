@@ -204,11 +204,35 @@ AIOutput AISystem::computeInput(int n)
     if (tk.type <= 0)
         return out;
 
-    // DBP: extra objects просто идут вперёд
-    // if n>45 and tk#(n,0)>0 then yj#=-1
-    if (n > 45)
+    // ============================================================
+    // EXTRA (n 46..50) — DBP:
+    //   target = ближайший танк 1-40
+    //   if n>45 and tk#(n,0)>0 then yj#=-1  (всегда вперёд)
+    // ============================================================
+    if (n >= EXTRA_MIN && n <= EXTRA_MAX)
     {
-        out.yj = -1.0f;
+        // target designation: ближайший танк
+        if (tk.target == 0 || tankSystem->getTank(tk.target).type <= 0)
+        {
+            float tgmin = MAP_SIZE * MAP_SIZE;
+            int   tggot = 0;
+            for (int t = PLAYER_MIN; t <= TANKS_MAX; t++)
+            {
+                const TankData &extraTarget = tankSystem->getTank(t);
+                if (extraTarget.type > 0)
+                {
+                    float dx = tk.x - extraTarget.x;
+                    float dz = tk.z - extraTarget.z;
+                    float r  = sqrtf(dx*dx + dz*dz);
+                    if (r < tgmin) { tgmin = r; tggot = t; }
+                }
+            }
+            if (tggot > 0) tk.target = tggot;
+        }
+
+        //out.xj   = 0.0f;      // heading (поворот к цели) обрабатывается общей логикой
+        out.yj   = -1.0f;     // всегда вперёд
+        out.fire = 0;         // extra не стреляют
         return out;
     }
 
@@ -727,7 +751,7 @@ AIOutput AISystem::computeInput(int n)
     //        if r<200 and gd=0 then yj#=0
     //        if gd=1 then yj#=-1
     // ============================================================
-    if (tk.target > 50)
+    if (tk.target >= POWERUP_MIN)
     {
         yj = -1.0f;
         tk.aiState = 0;

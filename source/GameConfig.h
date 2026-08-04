@@ -43,7 +43,8 @@
 #define GUEST_MAX 45
 #define EXTRA_MIN 46
 #define EXTRA_MAX 50
+#define TANKS_MAX 45         // PLAYER + ENEMY + GUEST
+#define COMBAT_MAX EXTRA_MAX // PLAYER + ENEMY + GUEST + EXTRA
 #define POWERUP_MIN 51
 #define POWERUP_MAX 55
-#define COMBAT_MAX 50 // макс. объект для коллизий (DBP: obmax=50)
 #define NUM_PUP 5

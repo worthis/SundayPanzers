@@ -64,6 +64,7 @@ TankSystem::~TankSystem()
 {
     unloadTankModels();
     unloadSquadTextures();
+    unloadAllExtras();
 }
 
 void TankSystem::resetTank(int n)
@@ -529,6 +530,183 @@ void TankSystem::loadTank(int n, int t, int c)
     TraceLog(LOG_INFO, "Tank %d loaded: type %d, squad %d", n, t, c);
 }
 
+// ============================================================
+// Загрузка extra-объекта в слот n (46..50)
+// DBP: tankloader() cases 10..13
+// ============================================================
+void TankSystem::loadExtra(int n, int type)
+{
+    if (n < EXTRA_MIN || n > EXTRA_MAX)
+        return;
+    int slot = n - EXTRA_MIN;
+
+    // выбор файлов по типу
+    const char *modelFile = nullptr;
+    const char *texFile = nullptr;
+    switch (type)
+    {
+    case 10:
+        modelFile = "data/extra/cow.iqm";
+        texFile = "data/extra/cow.png";
+        break;
+    case 11:
+        modelFile = "data/extra/camel.iqm";
+        texFile = "data/extra/camel.png";
+        break;
+    case 12:
+        modelFile = "data/extra/moose.iqm";
+        texFile = "data/extra/moose.png";
+        break;
+    case 13:
+        modelFile = "data/extra/alien.iqm";
+        texFile = "data/extra/alien.png";
+        break;
+    default:
+        TraceLog(LOG_WARNING, "loadExtra: unknown type %d", type);
+        return;
+    }
+
+    // освободить слот если занят
+    unloadExtraSlot(slot);
+
+    if (!FileExists(modelFile))
+    {
+        TraceLog(LOG_ERROR, "loadExtra: model not found: %s", modelFile);
+        return;
+    }
+
+    ExtraModelSlot &es = extraSlots[slot];
+
+    // --- модель ---
+    es.model = LoadModel(modelFile);
+
+    // === ДИАГНОСТИКА ===
+    TraceLog(LOG_INFO, "Model: bones=%d, meshes=%d", es.model.boneCount, es.model.meshCount);
+    for (int i = 0; i < es.model.meshCount; i++)
+    {
+        Mesh &m = es.model.meshes[i];
+        TraceLog(LOG_INFO, "  Mesh %d: verts=%d, boneIds=%s, boneWeights=%s",
+                 i, m.vertexCount,
+                 m.boneIds ? "YES" : "NULL",
+                 m.boneWeights ? "YES" : "NULL");
+    }
+
+    // --- явная загрузка текстуры и применение к материалам ---
+    if (FileExists(texFile))
+    {
+        es.texture = LoadTexture(texFile);
+        for (int j = 0; j < es.model.materialCount; j++)
+        {
+            es.model.materials[j].maps[MATERIAL_MAP_DIFFUSE].texture = es.texture;
+            es.model.materials[j].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
+        }
+        TraceLog(LOG_INFO, "Extra %d: texture %s loaded", n, texFile);
+    }
+    else
+    {
+        TraceLog(LOG_WARNING, "loadExtra: texture not found: %s", texFile);
+    }
+
+    // --- скелетная анимация ---
+    es.anims = LoadModelAnimations(modelFile, &es.animCount);
+    if (es.animCount > 0)
+    {
+        TraceLog(LOG_INFO, "Extra %d: %d animations, %d frames, %d bones",
+                 n, es.animCount, es.anims[0].frameCount, es.anims[0].boneCount);
+    }
+    else
+    {
+        TraceLog(LOG_WARNING, "loadExtra: no animation in %s", modelFile);
+    }
+
+    es.loaded = true;
+
+    // ============================================================
+    // Параметры TankData — точно по DBP tankloader cases 10-13
+    // ============================================================
+    TankData &tk = tanks[n];
+    tk.type = type;
+    tk.baseType = type;
+    tk.squadId = 0;        // extra без squad
+    tk.y = -1000.0f;       // DBP: tk#(n,2)=-1000 (падает на землю)
+    tk.animFrame = 1.0f;   // DBP: tk#(n,16)=1
+    tk.aimRatio = 20;      // DBP: tk#(n,32)=20
+    tk.bulletCounter = 75; // DBP: tk#(n,20)=75
+    tk.canFire = 0;        // DBP: tk#(n,43)=0
+
+    switch (type)
+    {
+    case 10: // cow
+        tk.steering = 0.5f;
+        tk.maxSpeed = 0.25f;
+        tk.animSpeed = 0.4f;
+        tk.collisionRange = 17.0f;
+        tk.energy = 1.0f;
+        tk.collisionHeight = 13.0f;
+        tk.scaleX = tk.scaleY = tk.scaleZ = 2.2f; // 220%
+        break;
+    case 11: // camel
+        tk.steering = 0.4f;
+        tk.maxSpeed = 0.22f;
+        tk.animSpeed = 0.37f;
+        tk.collisionRange = 17.0f;
+        tk.energy = 1.5f;
+        tk.collisionHeight = 14.0f;
+        tk.scaleX = tk.scaleY = tk.scaleZ = 2.2f; // 220%
+        break;
+    case 12: // moose (sheep)
+        tk.steering = 0.4f;
+        tk.maxSpeed = 0.22f;
+        tk.animSpeed = 0.37f;
+        tk.collisionRange = 17.0f;
+        tk.energy = 1.5f;
+        tk.collisionHeight = 14.0f;
+        tk.scaleX = 2.25f;
+        tk.scaleY = 2.30f;
+        tk.scaleZ = 2.25f; // 225,230,225
+        break;
+    case 13: // alien
+        tk.steering = 0.2f;
+        tk.maxSpeed = 0.20f;
+        tk.animSpeed = 0.37f;
+        tk.collisionRange = 12.0f;
+        tk.energy = 1.5f;
+        tk.collisionHeight = 12.0f;
+        tk.scaleX = tk.scaleY = tk.scaleZ = 2.25f; // 225%
+        break;
+    }
+
+    tk.originalEnergy = tk.energy;
+}
+
+void TankSystem::unloadExtraSlot(int slot)
+{
+    if (slot < 0 || slot > (EXTRA_MAX - EXTRA_MIN))
+        return;
+    ExtraModelSlot &es = extraSlots[slot];
+    if (!es.loaded)
+        return;
+
+    UnloadModel(es.model);
+    if (es.texture.id != 0)
+        UnloadTexture(es.texture);
+    if (es.anims)
+    {
+        UnloadModelAnimations(es.anims, es.animCount);
+        es.anims = nullptr;
+    }
+    es.model = {};
+    es.texture = {};
+    es.animCount = 0;
+    es.loaded = false;
+}
+
+void TankSystem::unloadAllExtras()
+{
+    for (int i = 0; i <= (EXTRA_MAX - EXTRA_MIN); i++)
+        unloadExtraSlot(i);
+}
+
 void TankSystem::placeTank(int n, float x, float z, float yaw)
 {
     if (n < 1 || n >= MAX_TANKS)
@@ -543,6 +721,53 @@ void TankSystem::placeTank(int n, float x, float z, float yaw)
     tk.y = terrain ? terrain->getHeight(x, z) : 0.0f;
     tk.bounce = 0;
     tk.onGround = true;
+}
+
+// ============================================================
+// Спавн extra по биому — DBP maketerrain()
+// ============================================================
+void TankSystem::spawnExtrasForBiome(int biome)
+{
+    int type;
+    switch (biome)
+    {
+    case 1:
+    case 2:
+        type = 10;
+        break; // grass, mountains > коровы
+    case 3:
+        type = 11;
+        break; // desert > верблюды
+    case 4:
+        type = 12;
+        break; // frozed > лоси
+    case 5:
+        type = 10;
+        break; // tundra > коровы
+    case 6:
+        type = 13;
+        break; // moon > инопланетяне
+    default:
+        return;
+    }
+
+    // DBP: nc=1+rnd(3): for c=46 to 46+nc
+    int nc = 1 + rnd(3);
+    for (int c = EXTRA_MIN; c <= EXTRA_MIN + nc; c++)
+    {
+        if (c > EXTRA_MAX)
+            break;
+        loadExtra(c, type);
+
+        TankData &tk = tanks[c];
+        // DBP: tk#(c,1)=rnd(3000)+1000 : tk#(c,3)=rnd(3000)+1000 : tk#(c,5)=rnd(359)
+        tk.x = 1000.0f + (float)rnd(3000);
+        tk.z = 1000.0f + (float)rnd(3000);
+        tk.yaw = (float)rnd(359);
+        // y остаётся -1000 > упадёт на землю через гравитацию в updateTank()
+
+        TraceLog(LOG_INFO, "Extra %d spawned: type=%d at (%.0f, %.0f)", c, type, tk.x, tk.z);
+    }
 }
 
 void TankSystem::applyBounce(int n)
@@ -754,9 +979,41 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
     //      if tk#(n,15)<0.3 then tk#(n,15)=-1
     // ================================================================
     applyBounce(n);
+
+    // ============================================================
+    // Анимация extra — DBP:
+    //   if n>45 and tk#(n,0)>0
+    //     tk#(n,16)=tk#(n,16)+tk#(n,19)
+    //     if tk#(n,16)>50 then tk#(n,16)=tk#(n,16)-50
+    //     set object frame n,tk#(n,16)
+    // ============================================================
+    if (n >= EXTRA_MIN && n <= EXTRA_MAX && tk.type > 0)
+        updateExtraAnimation(n);
 }
 
-#include "TreeSystem.h" // в начало TankSystem.cpp
+void TankSystem::updateExtraAnimation(int n)
+{
+    int slot = n - EXTRA_MIN;
+    ExtraModelSlot &es = extraSlots[slot];
+    if (!es.loaded || es.animCount == 0)
+        return;
+
+    TankData &tk = tanks[n];
+    ModelAnimation &anim = es.anims[0];
+    if (anim.frameCount <= 0)
+        return;
+
+    tk.animFrame += tk.animSpeed;
+    if (tk.animFrame >= anim.frameCount)
+        tk.animFrame = 0;
+
+    // обновляем кости только при смене кадра (оптимизация)
+    if (tk.animFrame != tk.lastAnimFrame)
+    {
+        UpdateModelAnimation(es.model, anim, tk.animFrame);
+        tk.lastAnimFrame = tk.animFrame;
+    }
+}
 
 void TankSystem::updateCollisions()
 {
@@ -899,9 +1156,17 @@ void TankSystem::render() const
 {
     for (int n = 1; n < MAX_TANKS; n++)
     {
+        if (n >= EXTRA_MIN && n <= EXTRA_MAX)
+        {
+            renderExtra(n);
+            continue;
+            ;
+        }
+
         const TankData &tk = tanks[n];
         if (tk.type == 0)
             continue;
+
         if (!modelsLoaded[tk.baseType])
             continue;
 
@@ -1021,20 +1286,20 @@ void TankSystem::render() const
     }
 }
 
+// ============================================
+// BARRIER — полупрозрачная сфера вокруг танка
+// DBP: show limb 200+n,2 if tk#(n,50)>0
+// Сфера симметрична, рисуется в мировых координатах
+// (pitch/roll тени не применяются — сфера вокруг корпуса танка)
+// ============================================
 void TankSystem::renderShields() const
 {
-    for (int n = 1; n < MAX_TANKS; n++)
+    for (int n = 1; n <= TANKS_MAX; n++)
     {
         const TankData &tk = tanks[n];
         if (tk.type == 0)
             continue;
 
-        // ============================================
-        // BARRIER — полупрозрачная сфера вокруг танка
-        // DBP: show limb 200+n,2 if tk#(n,50)>0
-        // Сфера симметрична, рисуется в мировых координатах
-        // (pitch/roll тени не применяются — сфера вокруг корпуса танка)
-        // ============================================
         if (tk.barrierCounter > 0)
         {
             // Радиус: чуть больше collisionRange танка
@@ -1056,6 +1321,65 @@ void TankSystem::renderShields() const
             EndBlendMode();
         }
     }
+}
+
+// ============================================================
+// Рендер extra: тень + модель с анимацией + переворот мёртвых
+// Вызывать в main.cpp ПОСЛЕ tankSystem.render()
+// ============================================================
+void TankSystem::renderExtra(int n) const
+{
+    if (n < EXTRA_MIN || n > EXTRA_MAX)
+        return;
+
+    const TankData &tk = tanks[n];
+    if (tk.type == 0)
+        return;
+
+    int slot = n - EXTRA_MIN;
+    const ExtraModelSlot &es = extraSlots[slot];
+    if (!es.loaded)
+        return;
+
+    float groundH = terrain ? terrain->getHeight(tk.interpX, tk.interpZ) : tk.interpY;
+
+    // DBP: flipcow#=0:slop#=0
+    //      if n>45 and tk#(n,0)<0 then flipcow#=180:slop#=20
+    bool dead = (tk.type < 0);
+    float flipRoll = dead ? 180.0f : 0.0f;
+    float slop = dead ? 20.0f : 0.0f;
+
+    if (!dead)
+    {
+        // DBP: position object 200+n, tk#(n,1), hg#+3.5-slop#*10, tk#(n,3)
+        float shadowRadius = tk.collisionRange * 1.25f;
+        if (shadowRadius < 10.0f)
+            shadowRadius = 10.0f;
+
+        BeginBlendMode(BLEND_MULTIPLIED);
+        rlDisableDepthMask();
+        rlPushMatrix();
+        rlTranslatef(tk.interpX, groundH, tk.interpZ);
+        rlRotatef(tk.interpYaw + 180.0f, 0.0f, 1.0f, 0.0f);
+        rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
+        rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
+        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {40, 40, 40, 128});
+        rlPopMatrix();
+        rlEnableDepthMask();
+        EndBlendMode();
+    }
+
+    // === МОДЕЛЬ EXTRA ===
+    // DBP: position object n, tk#(n,1), slop#+tk#(n,2)+3.3, tk#(n,3)
+
+    rlPushMatrix();
+    rlTranslatef(tk.interpX, tk.interpY, tk.interpZ);
+    rlRotatef(tk.interpYaw + 180.0f, 0.0f, 1.0f, 0.0f);
+    rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
+    rlRotatef(tk.interpRoll + flipRoll, 0.0f, 0.0f, 1.0f);
+    rlScalef(tk.scaleX, tk.scaleY, tk.scaleZ);
+    DrawModel(es.model, {0, 0, 0}, 1.0f, WHITE);
+    rlPopMatrix();
 }
 
 int TankSystem::getActiveCount() const
