@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cfloat>
+#include <cstring>
 #include "rlgl.h"
 #include "raymath.h"
 
@@ -546,19 +547,19 @@ void TankSystem::loadExtra(int n, int type)
     switch (type)
     {
     case 10:
-        modelFile = "data/extra/cow.iqm";
+        modelFile = "data/extra/cow.glb";
         texFile = "data/extra/cow.png";
         break;
     case 11:
-        modelFile = "data/extra/camel.iqm";
+        modelFile = "data/extra/camel.glb";
         texFile = "data/extra/camel.png";
         break;
     case 12:
-        modelFile = "data/extra/moose.iqm";
+        modelFile = "data/extra/moose.glb";
         texFile = "data/extra/moose.png";
         break;
     case 13:
-        modelFile = "data/extra/alien.iqm";
+        modelFile = "data/extra/alien.glb";
         texFile = "data/extra/alien.png";
         break;
     default:
@@ -566,14 +567,14 @@ void TankSystem::loadExtra(int n, int type)
         return;
     }
 
-    // освободить слот если занят
-    unloadExtraSlot(slot);
-
     if (!FileExists(modelFile))
     {
         TraceLog(LOG_ERROR, "loadExtra: model not found: %s", modelFile);
         return;
     }
+
+    // освободить слот если занят
+    unloadExtraSlot(slot);
 
     ExtraModelSlot &es = extraSlots[slot];
 
@@ -993,25 +994,38 @@ void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
 
 void TankSystem::updateExtraAnimation(int n)
 {
+    if (n < EXTRA_MIN || n > EXTRA_MAX)
+        return;
+
     int slot = n - EXTRA_MIN;
     ExtraModelSlot &es = extraSlots[slot];
     if (!es.loaded || es.animCount == 0)
         return;
 
     TankData &tk = tanks[n];
+
+    if (tk.type <= 0)
+        return;
+
     ModelAnimation &anim = es.anims[0];
     if (anim.frameCount <= 0)
         return;
 
     tk.animFrame += tk.animSpeed;
-    if (tk.animFrame >= anim.frameCount)
+    float fc = (float)anim.frameCount;
+    while (tk.animFrame >= fc)
+        tk.animFrame -= fc;
+    if (tk.animFrame < 0)
         tk.animFrame = 0;
 
-    // обновляем кости только при смене кадра (оптимизация)
-    if (tk.animFrame != tk.lastAnimFrame)
+    int frame = (int)tk.animFrame;
+    if (frame >= anim.frameCount)
+        frame = anim.frameCount - 1;
+
+    if (frame != tk.lastAnimFrame)
     {
-        UpdateModelAnimation(es.model, anim, tk.animFrame);
-        tk.lastAnimFrame = tk.animFrame;
+        UpdateModelAnimation(es.model, anim, frame);
+        tk.lastAnimFrame = frame;
     }
 }
 
@@ -1160,7 +1174,6 @@ void TankSystem::render() const
         {
             renderExtra(n);
             continue;
-            ;
         }
 
         const TankData &tk = tanks[n];
@@ -1220,12 +1233,10 @@ void TankSystem::render() const
 
         // ============================================
         // ТЕНЬ — используем ТЕ ЖЕ интерполированные координаты
-        // DBP: position object 200+n, tk#(n,1), hg#+3.5-slop#*10, tk#(n,3)
+        // DBP: position object 200+n, tk#(n,1), hg#+3.5, tk#(n,3)
         // turn/pitch/roll такие же как у танка
         // ============================================
-        // DBP: slop#=20 для мёртвых коров, иначе 0
-        float slop = (n > EXTRA_MAX && tk.type < 0) ? 20.0f : 0.0f;
-        float shadowY = hg + 3.5f - slop * 10.0f;
+        float shadowY = hg + 3.5f;
 
         // Уменьшение тени с высотой (для летающих танков)
         float height = tk.interpY - hg;
@@ -1240,14 +1251,15 @@ void TankSystem::render() const
         if (shadowRadius < 10.0f)
             shadowRadius = 10.0f;
 
+        //rlDisableDepthMask();
+        //rlDisableDepthTest();
         BeginBlendMode(BLEND_MULTIPLIED);
-        rlDisableDepthMask();
         rlPushMatrix();
         rlTranslatef(tk.interpX, shadowY, tk.interpZ);
         rlRotatef(finalYaw + 180.0f, 0.0f, 1.0f, 0.0f);
         rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
         rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
-        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {40, 40, 40, 128});
+        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {200, 200, 200, 255});
 
         // ============================================
         // СУПЕРПУЛЯ — красное кольцо
@@ -1255,14 +1267,16 @@ void TankSystem::render() const
         // ============================================
         if (tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
         {
+            //BeginBlendMode(BLEND_ADDITIVE);
             // Внешний радиус кольца (чуть больше тени)
             float outerR = shadowRadius * 2.6f;
-            DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {255, 40, 40, 180});
+            DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {220, 20, 20, 255});
         }
 
         rlPopMatrix();
-        rlEnableDepthMask();
         EndBlendMode();
+        //rlEnableDepthTest();
+        //rlEnableDepthMask();
 
         // танк
         rlPushMatrix();
@@ -1347,33 +1361,32 @@ void TankSystem::renderExtra(int n) const
     //      if n>45 and tk#(n,0)<0 then flipcow#=180:slop#=20
     bool dead = (tk.type < 0);
     float flipRoll = dead ? 180.0f : 0.0f;
-    float slop = dead ? 20.0f : 0.0f;
+    float slop = dead ? 24.0f : 0.0f;
 
     if (!dead)
     {
         // DBP: position object 200+n, tk#(n,1), hg#+3.5-slop#*10, tk#(n,3)
-        float shadowRadius = tk.collisionRange * 1.25f;
+        float shadowRadius = tk.collisionRange * 1.0f;
         if (shadowRadius < 10.0f)
             shadowRadius = 10.0f;
 
+        //rlDisableDepthMask();
         BeginBlendMode(BLEND_MULTIPLIED);
-        rlDisableDepthMask();
         rlPushMatrix();
-        rlTranslatef(tk.interpX, groundH, tk.interpZ);
+        rlTranslatef(tk.interpX, groundH + 1.0f, tk.interpZ);
         rlRotatef(tk.interpYaw + 180.0f, 0.0f, 1.0f, 0.0f);
         rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
         rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
-        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {40, 40, 40, 128});
+        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {200, 200, 200, 255});
         rlPopMatrix();
-        rlEnableDepthMask();
         EndBlendMode();
+        //rlEnableDepthMask();
     }
 
     // === МОДЕЛЬ EXTRA ===
     // DBP: position object n, tk#(n,1), slop#+tk#(n,2)+3.3, tk#(n,3)
-
     rlPushMatrix();
-    rlTranslatef(tk.interpX, tk.interpY, tk.interpZ);
+    rlTranslatef(tk.interpX, tk.interpY + 1.0f + slop, tk.interpZ);
     rlRotatef(tk.interpYaw + 180.0f, 0.0f, 1.0f, 0.0f);
     rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
     rlRotatef(tk.interpRoll + flipRoll, 0.0f, 0.0f, 1.0f);

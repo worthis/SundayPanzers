@@ -203,10 +203,6 @@ int main()
         bool rearView = input.isRearViewPressed();
         camera.track(playerTank, terrain, rearView);
 
-        // === Отрисовка ===
-        Vector3 camPos = camera.getPosition();
-        float groundH = terrain.getHeight(camPos.x, camPos.z);
-
         BeginDrawing();
         ClearBackground(terrain.getBackdropColor());
 

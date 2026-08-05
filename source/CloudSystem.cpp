@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cmath>
 
-CloudSystem::CloudSystem() : terrain(nullptr), cloudCount(0)
+CloudSystem::CloudSystem() : cloudCount(0), terrain(nullptr)
 {
     for (int i = 0; i < 4; i++)
     {
