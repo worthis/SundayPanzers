@@ -1,5 +1,6 @@
 #pragma once
 #include "raylib.h"
+#include "rlgl.h"
 #include "raymath.h"
 #include "GameConfig.h"
 #include "TankSystem.h"
@@ -21,6 +22,25 @@ public:
         camera.up = {0.0f, 1.0f, 0.0f};
         camera.position = camPos;
         camera.target = {x, 0.0f, z + 100.0f};
+    }
+
+    // Устанавливаем дальность отрисовки через низкоуровневые функции rlgl
+    // Аналог set camera range 6,7450 в DBP
+    void applyRange()
+    {
+        float nearPlane = CAMERA_NEAR;
+        float fovy = camera.fovy * DEG2RAD;
+        float aspect = (float)SCREEN_WIDTH / SCREEN_HEIGHT;
+
+        float top = nearPlane * tanf(fovy / 2.0f);
+        float bottom = -top;
+        float right = top * aspect;
+        float left = -right;
+
+        rlMatrixMode(RL_PROJECTION);
+        rlLoadIdentity();
+        rlFrustum(left, right, bottom, top, nearPlane, farPlane);
+        rlMatrixMode(RL_MODELVIEW);
     }
 
     // DBP: track(n) — камера следует за танком

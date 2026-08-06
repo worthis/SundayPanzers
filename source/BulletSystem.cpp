@@ -8,12 +8,7 @@
 // ============================================================
 BulletSystem::BulletSystem()
 {
-    for (int i = 0; i <= MAX_BULLETS; i++)
-        bullets[i] = BulletData{};
-    for (int i = 0; i <= MAX_HIT_EFFECTS; i++)
-        hits[i] = HitEffect{};
-    for (int i = 0; i < MAX_EXPLOSIONS; i++)
-        explosions[i] = ExplosionData{};
+    reset();
 }
 
 BulletSystem::~BulletSystem()
@@ -49,6 +44,16 @@ void BulletSystem::init(Terrain *terrain, TankSystem *tankSystem, TreeSystem *tr
     this->terrain = terrain;
     this->tankSystem = tankSystem;
     this->treeSystem = treeSystem;
+}
+
+void BulletSystem::reset()
+{
+    for (int i = 0; i <= MAX_BULLETS; i++)
+        bullets[i] = BulletData{};
+    for (int i = 0; i <= MAX_HIT_EFFECTS; i++)
+        hits[i] = HitEffect{};
+    for (int i = 0; i < MAX_EXPLOSIONS; i++)
+        explosions[i] = ExplosionData{};
 }
 
 // ============================================================
@@ -418,7 +423,7 @@ bool BulletSystem::checkGroundCollision(const BulletData &b) const
     return h > b.y;
 }
 
-bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex, float& hitAngle) const
+bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex, float &hitAngle) const
 {
     int xm = (int)(b.x / 100.0f);
     int zm = (int)(b.z / 100.0f);
@@ -460,7 +465,8 @@ bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex, float& hitA
         //      point object 65000, bul#(n,1), 0, bul#(n,3)
         //      anb# = object angle y(65000)
         hitAngle = atan2f(b.x - cex, b.z - cez) * RAD2DEG;
-        if (hitAngle < 0.0f) hitAngle += 360.0f;
+        if (hitAngle < 0.0f)
+            hitAngle += 360.0f;
 
         // DBP: damage tree — вызываем TreeSystem
         if (treeSystem)

@@ -68,6 +68,7 @@ public:
     void update();
     void render() const;
     void loadAssets();
+    void reset();
 
 private:
     BulletData bullets[MAX_BULLETS + 1];

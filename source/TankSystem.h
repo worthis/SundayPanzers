@@ -178,6 +178,7 @@ public:
     ~TankSystem();
 
     void init(Terrain *terrain, TreeSystem *treeSystem);
+    void reset();
 
     void spawnExtrasForBiome(int biome);
 
@@ -190,7 +191,7 @@ public:
 
     // Обновление физики одного танка (аналог цикла в tanks())
     // xj = -1..1 (поворот), yj = -1..1 (газ/тормоз)
-    void updateTank(int n, float xj, float yj, float deltaTime);
+    void updateTank(int n, float xj, float yj);
 
     // Вызывается ОДИН раз за тик ПОСЛЕ updateTank для всех танков
     void updateCollisions();

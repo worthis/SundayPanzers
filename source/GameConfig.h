@@ -4,6 +4,9 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
+// Фиксированный временной шаг для физики (100 FPS, как в оригинальном DBPro)
+constexpr float FIXED_DT = 1.0f / 100.0f;
+
 // === Карта (DBP: make matrix 1,5000,5000,50,50) ===
 #define MAP_SIZE 5000.0f
 #define MAP_SEGMENTS 50

@@ -63,8 +63,18 @@ TankSystem::TankSystem() : terrain(nullptr), treeSystem(nullptr)
 
 TankSystem::~TankSystem()
 {
+    reset();
     unloadTankModels();
     unloadSquadTextures();
+    unloadAllExtras();
+}
+
+void TankSystem::reset()
+{
+    for (int i = 0; i < MAX_TANKS; i++)
+    {
+        resetTank(i);
+    }
     unloadAllExtras();
 }
 
@@ -684,6 +694,7 @@ void TankSystem::unloadExtraSlot(int slot)
 {
     if (slot < 0 || slot > (EXTRA_MAX - EXTRA_MIN))
         return;
+
     ExtraModelSlot &es = extraSlots[slot];
     if (!es.loaded)
         return;
@@ -787,7 +798,7 @@ void TankSystem::applyBounce(int n)
     }
 }
 
-void TankSystem::updateTank(int n, float xj, float yj, float deltaTime)
+void TankSystem::updateTank(int n, float xj, float yj)
 {
     if (n < 1 || n > COMBAT_MAX)
         return;

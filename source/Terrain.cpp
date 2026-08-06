@@ -6,16 +6,15 @@
 
 Terrain::Terrain() : currentBiome(1)
 {
-    reset();
     model = {0};
+    terrainTexture = {0};
+
+    reset();
 }
 
 Terrain::~Terrain()
 {
-    if (model.meshCount > 0)
-        UnloadModel(model);
-    if (terrainTexture.id != 0)
-        UnloadTexture(terrainTexture);
+    reset();
 }
 
 void Terrain::reset()
@@ -38,6 +37,11 @@ void Terrain::reset()
             tileIndices[z][x] = 1;
         }
     }
+
+    if (model.meshCount > 0)
+        UnloadModel(model);
+    if (terrainTexture.id != 0)
+        UnloadTexture(terrainTexture);
 }
 
 // Изменение тайла, строго до buildMesh
@@ -50,7 +54,6 @@ void Terrain::setTile(int x, int z, int tileIndex)
 }
 
 // === ГЕНЕРАЦИЯ БИОМОВ (ТОЧНО ПО DBP) ===
-
 void Terrain::generateGrass()
 {
     // case 1: scenario grass country

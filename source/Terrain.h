@@ -20,28 +20,17 @@ public:
     Terrain();
     ~Terrain();
 
-    // Аналог maketerrain(l) из DBP
-    void generate(int biome);
-
-    // Построение mesh из массива высот
-    void buildMesh();
-
-    // Отрисовка ландшафта
-    void render() const;
-
-    // Аналог get ground height(1,x,z) из DBP
-    // x,z - мировые координаты (0..5000)
-    float getHeight(float x, float z) const;
-
-    // Аналог color backdrop rgb(...) из DBP
-    Color getBackdropColor() const;
-
+    void reset();
+    void generate(int biome);                // Аналог maketerrain(l) из DBP
+    void buildMesh();                        // Построение mesh из массива высот
+    void render() const;                     // Отрисовка ландшафта
+    float getHeight(float x, float z) const; // Аналог get ground height(1,x,z) из DBP x,z - мировые координаты (0..5000)
+    Color getBackdropColor() const;          // Аналог color backdrop rgb(...) из DBP
     int getCurrentBiome() const { return currentBiome; }
-
+    void setTile(int x, int z, int tileIndex);
     // Доступ к массиву ter() для других систем (деревья, танки)
     TerrainCell &getCell(int x, int z) { return ter[x][z]; }
     const TerrainCell &getCell(int x, int z) const { return ter[x][z]; }
-    void setTile(int x, int z, int tileIndex);
 
 private:
     // ter(2,50,50) из DBP - массив клеток ландшафта
@@ -67,7 +56,4 @@ private:
 
     void calculateTileIndices();
     Mesh createTerrainMesh();
-
-    // Очистка массивов
-    void reset();
 };

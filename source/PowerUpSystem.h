@@ -35,18 +35,11 @@ public:
 
     void init(Terrain *terrain, TankSystem *tankSystem);
     void loadAssets();
-
-    // Вращение + таймер появления + синхронизация с TankSystem
-    void update();
-
-    // Подбор для танка n + decrease counters
-    // Вызывается для КАЖДОГО танка 1..50 каждый тик
-    void checkPickup(int n);
-
-    // Переразмещение (DBP: powup(o))
-    void respawn(int idx);
-
+    void update();           // Вращение + таймер появления + синхронизация с TankSystem
+    void checkPickup(int n); // Подбор для танка n + decrease counters. Вызывается для КАЖДОГО танка 1..50 каждый тик
     void render() const;
+    void reset();
+    void respawn();
 
     // Debug: доступ к данным
     const PowerUpData &getPup(int idx) const { return pups[idx]; }
@@ -62,4 +55,6 @@ private:
     Texture2D textures[3];
     bool modelLoaded[3] = {false, false, false};
     bool textureLoaded[3] = {false, false, false};
+
+    void respawn(int idx); // Переразмещение (DBP: powup(o))
 };

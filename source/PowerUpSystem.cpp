@@ -13,29 +13,14 @@ void PowerUpSystem::init(Terrain *terrain, TankSystem *tankSystem)
     this->terrain = terrain;
     this->tankSystem = tankSystem;
 
-    // DBP makesortie:
-    //   51,52 = barrier:     tk#(o,4)=1550+rnd(200)
-    //   53    = repair:      tk#(o,4)=4500+rnd(200)
-    //   54,55 = superbullet: tk#(o,4)=1550+rnd(200)
-
-    // Типы
-    pups[0].type = 0; // 51 barrier
-    pups[1].type = 0; // 52 barrier
-    pups[2].type = 2; // 53 repair
-    pups[3].type = 1; // 54 superbullet
-    pups[4].type = 1; // 55 superbullet
-
-    // DBP makesortie: сначала powup(o) — позиция + таймер 2500+rnd(2500)
+    reset();
+}
+void PowerUpSystem::reset()
+{
     for (int i = 0; i < NUM_PUP; i++)
-        respawn(i);
-
-    // DBP makesortie: ПОТОМ перезапись начального таймера
-    // (в DBP: tk#(o,4)=1550+rnd(200) после powup(o))
-    pups[0].spawnTimer = 1550 + rnd(200); // barrier
-    pups[1].spawnTimer = 1550 + rnd(200); // barrier
-    pups[2].spawnTimer = 4500 + rnd(200); // repair
-    pups[3].spawnTimer = 1550 + rnd(200); // superbullet
-    pups[4].spawnTimer = 1550 + rnd(200); // superbullet
+    {
+        pups[i] = PowerUpData();
+    }
 }
 
 // ============================================================
@@ -89,6 +74,33 @@ void PowerUpSystem::loadAssets()
             TraceLog(LOG_WARNING, "PUP texture %d NOT found: %s", i, textureFiles[i]);
         }
     }
+}
+
+void PowerUpSystem::respawn()
+{
+    // DBP makesortie:
+    //   51,52 = barrier:     tk#(o,4)=1550+rnd(200)
+    //   53    = repair:      tk#(o,4)=4500+rnd(200)
+    //   54,55 = superbullet: tk#(o,4)=1550+rnd(200)
+
+    // Типы
+    pups[0].type = 0; // 51 barrier
+    pups[1].type = 0; // 52 barrier
+    pups[2].type = 2; // 53 repair
+    pups[3].type = 1; // 54 superbullet
+    pups[4].type = 1; // 55 superbullet
+
+    // DBP makesortie: сначала powup(o) — позиция + таймер 2500+rnd(2500)
+    for (int i = 0; i < NUM_PUP; i++)
+        respawn(i);
+
+    // DBP makesortie: ПОТОМ перезапись начального таймера
+    // (в DBP: tk#(o,4)=1550+rnd(200) после powup(o))
+    pups[0].spawnTimer = 1550 + rnd(200); // barrier
+    pups[1].spawnTimer = 1550 + rnd(200); // barrier
+    pups[2].spawnTimer = 4500 + rnd(200); // repair
+    pups[3].spawnTimer = 1550 + rnd(200); // superbullet
+    pups[4].spawnTimer = 1550 + rnd(200); // superbullet
 }
 
 // ============================================================
