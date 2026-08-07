@@ -9,8 +9,8 @@ TreeSystem::TreeSystem() : terrain(nullptr)
 {
     for (int i = 0; i < 7; i++)
     {
-        treeModels[i] = {0};
-        treeTextures[i] = {0};
+        treeModels[i] = {};
+        treeTextures[i] = {};
         modelLoaded[i] = false;
         textureLoaded[i] = false;
     }
@@ -46,13 +46,13 @@ void TreeSystem::unloadTreeModels()
         if (modelLoaded[i] && treeModels[i].meshCount > 0)
         {
             UnloadModel(treeModels[i]);
-            treeModels[i] = {0};
+            treeModels[i] = {};
             modelLoaded[i] = false;
         }
         if (textureLoaded[i] && treeTextures[i].id != 0)
         {
             UnloadTexture(treeTextures[i]);
-            treeTextures[i] = {0};
+            treeTextures[i] = {};
             textureLoaded[i] = false;
         }
     }

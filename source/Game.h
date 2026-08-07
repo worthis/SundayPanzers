@@ -13,6 +13,7 @@
 #include "TankCamera.h"
 #include "InputSystem.h"
 #include "SortieSystem.h"
+#include "MenuSystem.h"
 #include "Utils.h"
 
 // Состояния игры (State Machine)
@@ -24,6 +25,13 @@ enum class GameState
     BATTLE_INTRO, // camintro()
     BATTLE,       // tanks()
     BATTLE_END    // camending()
+};
+
+enum class MenuItem
+{
+    START_GAME,
+    QUIT,
+    COUNT
 };
 
 class Game
@@ -43,6 +51,7 @@ public:
 
 private:
     // Логика состояний
+    void StartLogoIntro();
     void UpdateLogoIntro(float dt);
     void DrawLogoIntro();
 
@@ -55,6 +64,7 @@ private:
     void CheckBattleEndConditions();
 
     GameState currentState;
+    MenuSystem menuSystem;
 
     // Игровые системы (вместо глобальных переменных)
     Terrain terrain;
@@ -72,20 +82,17 @@ private:
     int playerCommander;
     float accumulator;
     bool showDebug;
-
-    // Флаги окончания боя (аналог gam(22) и gam(23) из DBPro)
     bool playerSquadAlive;
     bool enemySquadAlive;
     bool battleEnded;
 
     // Ассеты и состояние для интро
     float introTimer;
+    float introGamma;
     bool logoSoundPlayed;
     Texture2D texLogo, texData1, texData2, texTitle;
     Sound sndLogo;
     Music musicIntro;
-
-    // Фейковый танк для интро (аналог tk#(0,...) в DBPro)
     TankData introFakeTank;
     Vector3 introTarget;
 };

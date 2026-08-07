@@ -16,7 +16,7 @@ public:
     void init(float x, float y, float z)
     {
         camPos = {x, y, z};
-        camera = {0};
+        camera = {};
         camera.fovy = 60.0f;
         camera.projection = CAMERA_PERSPECTIVE;
         camera.up = {0.0f, 1.0f, 0.0f};

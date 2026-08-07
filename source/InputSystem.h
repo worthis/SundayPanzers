@@ -1,5 +1,6 @@
 #pragma once
 #include "raylib.h"
+#include <initializer_list>
 
 class InputSystem
 {
@@ -8,9 +9,18 @@ public:
 
     void update();
 
-    // === Танк (WASD / левый стик) ===
-    float getTankX() const; // +1 = поворот вправо
-    float getTankY() const; // -1 = вперёд, +1 = назад
+    // Управление танком (для боя)
+    float getTankX() const;
+    float getTankY() const;
+    bool isFirePressed() const;
+    bool isTurboPressed() const;
+    bool isRearViewPressed() const;
+
+    // Геймпад
+    bool isGamepadButtonDown(int button) const;
+    bool isGamepadButtonJustPressed(int button) const;
+    bool isGamepadAnyPressed(std::initializer_list<int> buttons) const;
+    bool isGamepadAvailable() const;
 
     // === Камера (стрелки / D-pad) ===
     float getCamX() const;
@@ -21,9 +31,6 @@ public:
     float getLookY() const;
 
     // === Действия ===
-    bool isFirePressed() const;
-    bool isRearViewPressed() const;
-    bool isTurboPressed() const;
     bool isToggleIdPressed() const;
     bool isNextTankPressed() const;
     bool isPrevTankPressed() const;
@@ -40,4 +47,11 @@ private:
 
     static constexpr float DEADZONE = 0.15f;
     float applyDeadzone(float value) const;
+
+    static constexpr int MAX_GAMEPAD_BUTTONS = 32;
+
+    bool m_gamepadDown[MAX_GAMEPAD_BUTTONS] = {};     // текущее состояние
+    bool m_gamepadPrevDown[MAX_GAMEPAD_BUTTONS] = {}; // предыдущий кадр
+
+    void updateGamepadState();
 };

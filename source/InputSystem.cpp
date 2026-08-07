@@ -32,15 +32,14 @@ void InputSystem::update()
     if (IsKeyDown(KEY_S))
         tankY += 1.0f;
 
-    // === Камера: стрелки ===
-    if (IsKeyDown(KEY_LEFT))
-        camX -= 1.0f;
-    if (IsKeyDown(KEY_RIGHT))
-        camX += 1.0f;
-    if (IsKeyDown(KEY_UP))
-        camY -= 1.0f;
-    if (IsKeyDown(KEY_DOWN))
-        camY += 1.0f;
+    // Сохраняем предыдущее состояние ДО чтения нового
+    for (int i = 0; i < MAX_GAMEPAD_BUTTONS; i++)
+    {
+        m_gamepadPrevDown[i] = m_gamepadDown[i];
+    }
+
+    // Читаем текущее состояние всех кнопок геймпада
+    updateGamepadState();
 
     // === Геймпад ===
     if (IsGamepadAvailable(0))
@@ -48,20 +47,6 @@ void InputSystem::update()
         // Левый стик → танк
         tankX += applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
         tankY += applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
-
-        // Правый стик → обзор камеры
-        lookX = applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X));
-        lookY = applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y));
-
-        // D-pad → камера
-        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT))
-            camX -= 1.0f;
-        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
-            camX += 1.0f;
-        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_UP))
-            camY -= 1.0f;
-        if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_DOWN))
-            camY += 1.0f;
     }
 
     // Клампим
@@ -155,4 +140,41 @@ bool InputSystem::isFpsTogglePressed() const
 bool InputSystem::isGamepadConnected() const
 {
     return IsGamepadAvailable(0);
+}
+
+void InputSystem::updateGamepadState()
+{
+    for (int i = 0; i < MAX_GAMEPAD_BUTTONS; i++)
+    {
+        m_gamepadDown[i] = IsGamepadButtonDown(0, i);
+    }
+}
+
+bool InputSystem::isGamepadAvailable() const
+{
+    return IsGamepadAvailable(0);
+}
+
+bool InputSystem::isGamepadButtonDown(int button) const
+{
+    if (button < 0 || button >= MAX_GAMEPAD_BUTTONS)
+        return false;
+    return m_gamepadDown[button];
+}
+
+bool InputSystem::isGamepadButtonJustPressed(int button) const
+{
+    if (button < 0 || button >= MAX_GAMEPAD_BUTTONS)
+        return false;
+    return m_gamepadDown[button] && !m_gamepadPrevDown[button];
+}
+
+bool InputSystem::isGamepadAnyPressed(std::initializer_list<int> buttons) const
+{
+    for (int btn : buttons)
+    {
+        if (isGamepadButtonJustPressed(btn))
+            return true;
+    }
+    return false;
 }

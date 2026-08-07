@@ -7,8 +7,8 @@ CloudSystem::CloudSystem() : cloudCount(0), terrain(nullptr)
 {
     for (int i = 0; i < 4; i++)
     {
-        cloudModels[i] = {0};
-        cloudTextures[i] = {0};
+        cloudModels[i] = {};
+        cloudTextures[i] = {};
         modelsLoaded[i] = false;
         texturesLoaded[i] = false;
     }
@@ -17,6 +17,7 @@ CloudSystem::CloudSystem() : cloudCount(0), terrain(nullptr)
 
 CloudSystem::~CloudSystem()
 {
+    reset();
     unloadModels();
 }
 
@@ -24,7 +25,7 @@ void CloudSystem::reset()
 {
     for (int i = 0; i < MAX_CLOUDS; i++)
     {
-        clouds[i].active = false;
+        clouds[i] = Cloud{};
     }
     cloudCount = 0;
 }
@@ -42,13 +43,13 @@ void CloudSystem::unloadModels()
         if (modelsLoaded[i] && cloudModels[i].meshCount > 0)
         {
             UnloadModel(cloudModels[i]);
-            cloudModels[i] = {0};
+            cloudModels[i] = {};
             modelsLoaded[i] = false;
         }
         if (texturesLoaded[i] && cloudTextures[i].id != 0)
         {
             UnloadTexture(cloudTextures[i]);
-            cloudTextures[i] = {0};
+            cloudTextures[i] = {};
             texturesLoaded[i] = false;
         }
     }
@@ -178,7 +179,7 @@ void CloudSystem::generate(int biome)
             break;
 
         clouds[i].active = true;
-        clouds[i].model = cloudModels[modelIdx];
+        clouds[i].modelId = modelIdx;
 
         // DBP: cl#(o,1)=rnd(2400)+400
         clouds[i].radius = 400.0f + (float)rnd(2401);
@@ -242,9 +243,9 @@ void CloudSystem::render() const
         float rotY = wrapValue(clouds[i].angle + 90.0f);
 
         DrawModelEx(
-            clouds[i].model,
+            cloudModels[clouds[i].modelId],
             clouds[i].position,
-            (Vector3){0.0f, 1.0f, 0.0f},
+            {0.0f, 1.0f, 0.0f},
             rotY,
             clouds[i].scale,
             WHITE);

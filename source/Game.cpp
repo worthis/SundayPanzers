@@ -12,7 +12,8 @@ Game::Game()
       enemySquadAlive(true),
       battleEnded(false),
       introTimer(0.0f),
-      logoSoundPlayed(false)
+      introGamma(0.0f),
+      logoSoundPlayed(false)      
 {
 }
 
@@ -31,28 +32,14 @@ void Game::Init()
     bulletSystem.init(&terrain, &tankSystem, &treeSystem);
     powerUpSystem.init(&terrain, &tankSystem);
     aiSystem.init(&tankSystem);
-    // camera.init(MAP_CENTER, 500.0f, MAP_CENTER + 200.0f);
-
     bulletSystem.loadAssets();
     powerUpSystem.loadAssets();
 
-    // Загрузка ассетов для логотипа разработчика
-    texLogo = LoadTexture("data/intro/logo.png");
-    texData1 = LoadTexture("data/intro/data1.png");
-    texData2 = LoadTexture("data/intro/data2.png");
-    sndLogo = LoadSound("data/intro/logo.wav");
+    menuSystem.init(&input, &terrain, &skybox, &treeSystem, &cloudSystem, &tankSystem, &camera);
 
-    currentState = GameState::LOGO_INTRO;
     introTimer = 0.0f;
 
-    // ВРЕМЕННО: Сразу начинаем бой для теста, пока не сделано Меню
-    /*PlayerTankInfo player[13] = {};
-    player[1].type = 8; player[1].ai = 3;
-    player[2].type = 2; player[2].ai = 2;
-    player[3].type = 2; player[3].ai = 2;
-    player[4].type = 2; player[4].ai = 2;
-
-    StartBattle(10, 1, 3, 5, player, 1);*/
+    StartLogoIntro();
 }
 
 void Game::Update(float dt)
@@ -68,7 +55,13 @@ void Game::Update(float dt)
         UpdateGameIntro(dt);
         break;
     case GameState::MAIN_MENU:
-        // Здесь будет UpdateMenu(dt)
+        menuSystem.update(dt);
+        if (menuSystem.isFinished())
+        {
+            MenuResult res = menuSystem.getResult();
+            StartBattle(res.level, res.playerSquad, res.enemySquad,
+                        res.guestSquad, res.player, res.commander);
+        }
         break;
     case GameState::BATTLE_INTRO:
         // Здесь будет UpdateBattleIntro(dt)
@@ -82,9 +75,6 @@ void Game::Update(float dt)
 
 void Game::Draw()
 {
-    // BeginDrawing();
-    // ClearBackground(BLACK);
-
     switch (currentState)
     {
     case GameState::LOGO_INTRO:
@@ -94,8 +84,7 @@ void Game::Draw()
         DrawGameIntro();
         break;
     case GameState::MAIN_MENU:
-        // DrawMenu()
-        DrawText("MENU (Not implemented yet)", 10, 10, 20, WHITE);
+        menuSystem.draw();
         break;
     case GameState::BATTLE_INTRO:
     case GameState::BATTLE:
@@ -103,20 +92,33 @@ void Game::Draw()
         DrawBattle();
         break;
     }
-
-    // EndDrawing();
 }
 
 void Game::Shutdown()
 {
+    menuSystem.shutdown();
     CloseAudioDevice();
-    // Глобальная выгрузка при закрытии игры
 }
 
 // === Логотип разработчика (entra) ===
+void Game::StartLogoIntro()
+{
+    texLogo = LoadTexture("data/menu/logo.png");
+    texData1 = LoadTexture("data/menu/data1.png");
+    texData2 = LoadTexture("data/menu/data2.png");
+    sndLogo = LoadSound("data/sound/logo.wav");
+
+    currentState = GameState::LOGO_INTRO;
+}
+
 void Game::UpdateLogoIntro(float dt)
 {
     introTimer += dt * 105.0f; // Эмуляция sync rate 105 из DBPro
+
+    // Fade in (ga=ga+5 из оригинала)
+    introGamma += 5.0f;
+    if (introGamma > 255.0f)
+        introGamma = 255.0f;
 
     if (introTimer >= 100.0f && !logoSoundPlayed)
     {
@@ -142,20 +144,39 @@ void Game::DrawLogoIntro()
     BeginDrawing();
     ClearBackground(BLACK);
 
+    // Центрирование: исходные координаты рассчитаны на 640x480
+    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+
     // Эффект тряски из оригинала: yu = 300 - et
     float yu = 300.0f - introTimer;
     if (yu < 0)
         yu = 0;
 
+    // Тряска логотипа (dx=rnd(yu)/2-(yu/4))
     float dx = GetRandomValue(-(int)(yu / 4), (int)(yu / 4));
     float dy = GetRandomValue(-(int)(yu / 4), (int)(yu / 4));
 
-    DrawTexture(texLogo, 120 + (int)dx, 45 + (int)dy, WHITE);
-    DrawTexture(texData1, 2, 400, WHITE);
+    // Тряска data1 (ddx=rnd(yu)/10-(yu/20))
+    float ddx = GetRandomValue(-(int)(yu / 20), (int)(yu / 20));
+    float ddy = GetRandomValue(-(int)(yu / 20), (int)(yu / 20));
 
+    // paste image 1,120+dx,45+dy
+    DrawTexture(texLogo, (int)(120 + dx + offsetX), (int)(45 + dy + offsetY), WHITE);
+    // paste image 2,2+ddx,400+ddy
+    DrawTexture(texData1, (int)(2 + ddx + offsetX), (int)(400 + ddy + offsetY), WHITE);
+
+    // if et>350 then paste image 3,258,360
     if (introTimer > 350.0f)
     {
-        DrawTexture(texData2, 258, 360, WHITE);
+        DrawTexture(texData2, (int)(258 + offsetX), (int)(360 + offsetY), WHITE);
+    }
+
+    // Fade-in overlay (аналог set gamma ga,ga,ga)
+    if (introGamma < 255.0f)
+    {
+        unsigned char alpha = (unsigned char)(255 - introGamma);
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alpha});
     }
 
     EndDrawing();
@@ -166,10 +187,11 @@ void Game::StartGameIntro()
 {
     currentState = GameState::GAME_INTRO;
     introTimer = 0.0f;
+    introGamma = 0.0f;
 
     // Загрузка тайтла и музыки
-    texTitle = LoadTexture("data/intro/title.png");
-    musicIntro = LoadMusicStream("data/intro/intro.mp3");
+    texTitle = LoadTexture("data/menu/title.png");
+    musicIntro = LoadMusicStream("data/music/intro.ogg");
     PlayMusicStream(musicIntro);
 
     // Генерация случайного ландшафта (без танков)
@@ -204,6 +226,11 @@ void Game::UpdateGameIntro(float dt)
 {
     UpdateMusicStream(musicIntro);
     introTimer += dt * 105.0f;
+
+    // Fade in (ga=ga+5 из оригинала)
+    introGamma += 5.0f;
+    if (introGamma > 255.0f)
+        introGamma = 255.0f;
 
     // === Логика движения фейкового танка (точный порт из DBPro) ===
     float dx = introFakeTank.x - introTarget.x;
@@ -276,6 +303,12 @@ void Game::UpdateGameIntro(float dt)
     if (introFakeTank.z > 4630.0f)
         introFakeTank.z = 4630.0f;
 
+    // === ИСПРАВЛЕНИЕ БАГА: Синхронизация для камеры ===
+    introFakeTank.interpX = introFakeTank.x;
+    introFakeTank.interpY = introFakeTank.y;
+    introFakeTank.interpZ = introFakeTank.z;
+    introFakeTank.interpYaw = introFakeTank.yaw;
+
     // === Обновляем нашу камеру, заставляя её следить за фейковым танком! ===
     camera.track(introFakeTank, terrain, false);
 
@@ -288,7 +321,7 @@ void Game::UpdateGameIntro(float dt)
         UnloadTexture(texTitle);
 
         currentState = GameState::MAIN_MENU;
-        // Здесь позже будет вызов MenuSystem::Init()
+        menuSystem.start(10, false); // maxLevel, gameCompleted
     }
 }
 
@@ -306,6 +339,10 @@ void Game::DrawGameIntro()
 
     EndMode3D();
 
+    // Центрирование: исходные координаты рассчитаны на 640x480
+    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+
     // Рендер 2D заголовка поверх (аналог sprite 1 из DBPro)
     float ang = introTimer * 0.55f;
     float ang2 = introTimer * 1.35f;
@@ -317,21 +354,29 @@ void Game::DrawGameIntro()
     float scale = 75.0f + sin(ang2 * DEG2RAD) * 40.0f;
 
     Rectangle source = {0, 0, (float)texTitle.width, (float)texTitle.height};
-    Rectangle dest = {320, 240, (float)texTitle.width * scale / 100.0f, (float)texTitle.height * scale / 100.0f};
-    Vector2 origin = {texTitle.width / 2.0f, texTitle.height / 2.0f};
+    // В оригинале: sprite 1,320,240,60000
+    Rectangle dest = {320.0f + offsetX, 240.0f + offsetY,
+                      (float)texTitle.width * scale / 100.0f,
+                      (float)texTitle.height * scale / 100.0f};
+    // В оригинале: offset sprite 1,253,192 (центр спрайта)
+    Vector2 origin = {dest.width / 2.0f, dest.height / 2.0f};
 
     // В Raylib цвет с прозрачностью: WHITE с альфой
     Color tint = {255, 255, 255, (unsigned char)alpha};
     DrawTexturePro(texTitle, source, dest, origin, rotation, tint);
+
+    // Fade-in overlay (аналог set gamma ga,ga,ga)
+    if (introGamma < 255.0f)
+    {
+        unsigned char alphaOverlay = (unsigned char)(255 - introGamma);
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alphaOverlay});
+    }
 
     EndDrawing();
 }
 
 void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSquad, PlayerTankInfo *player, int commander)
 {
-    // 1. Очистка предыдущего состояния (КРИТИЧНО для DBPro-порта)
-    // В оригинале при выходе из боя массивы обнулялись и объекты удалялись.
-    // Вам нужно добавить метод Reset() в ваши системы, чтобы очищать std::vector и выгружать меши.
     terrain.reset();
     treeSystem.reset();
     cloudSystem.reset();
@@ -339,9 +384,8 @@ void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSqua
     bulletSystem.reset();
     powerUpSystem.reset();
 
-    // 2. Генерация мира (аналог maketerrain)
     int sce = 1 + GetRandomValue(0, 14); // 1+rnd(15)
-    int biome = lev[level].scenario[sce];
+    int biome = lev[level - 1].scenario[sce - 1];
 
     terrain.generate(biome);
     skybox.load(biome);
@@ -350,14 +394,11 @@ void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSqua
     cloudSystem.generate(biome);
     aiSystem.setPowupSearchFactor(96 - level); // gam(12) = 96 - level
 
-    // 4. Расстановка юнитов
     playerCommander = commander;
     makeSortie(tankSystem, level, playerSquad, enemySquad, guestSquad, player, playerCommander);
 
     tankSystem.spawnExtrasForBiome(biome);
-
-    // 5. Камера
-    camera.init(MAP_CENTER, 500.0f, MAP_CENTER + 200.0f);
+    powerUpSystem.respawn();
 
     // Сброс флагов
     accumulator = 0.0f;
@@ -390,7 +431,7 @@ void Game::UpdateBattle(float dt)
 
         for (int n = 1; n <= COMBAT_MAX; n++)
         {
-            if (tankSystem.getTank(n).type == 0)
+            if (tankSystem.getTank(n).type <= 0)
                 continue;
 
             // Проверка живости (аналог for p=1 to 12 ... if tk#(p,0)>0)
@@ -514,7 +555,5 @@ void Game::DrawBattle()
 void Game::ReturnToMenu()
 {
     currentState = GameState::MAIN_MENU;
-    // Очистка тяжелых ресурсов (3D модели, меши) перед загрузкой меню
-    // tankSystem.unloadAssets();
-    // terrain.unloadMesh();
+    menuSystem.start(10, false); // Возврат в меню после боя
 }

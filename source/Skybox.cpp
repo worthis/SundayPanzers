@@ -6,10 +6,10 @@
 
 Skybox::Skybox() : currentBiome(1), sizeX(0.0f), sizeY(0.0f), sizeZ(0.0f)
 {
-    wall = {0};
-    ceiling = {0};
-    wallTexture = {0};
-    topTexture = {0};
+    wall = {};
+    ceiling = {};
+    wallTexture = {};
+    topTexture = {};
 }
 
 Skybox::~Skybox()
@@ -28,10 +28,10 @@ void Skybox::unload()
     if (topTexture.id != 0)
         UnloadTexture(topTexture);
 
-    wall = {0};
-    ceiling = {0};
-    wallTexture = {0};
-    topTexture = {0};
+    wall = {};
+    ceiling = {};
+    wallTexture = {};
+    topTexture = {};
 }
 
 Color Skybox::getSkyColor(int biome) const

@@ -6,9 +6,8 @@
 
 Terrain::Terrain() : currentBiome(1)
 {
-    model = {0};
-    terrainTexture = {0};
-
+    model = {};
+    terrainTexture = {};
     reset();
 }
 
@@ -39,9 +38,16 @@ void Terrain::reset()
     }
 
     if (model.meshCount > 0)
+    {
         UnloadModel(model);
+        model = {};
+    }
+
     if (terrainTexture.id != 0)
+    {
         UnloadTexture(terrainTexture);
+        terrainTexture = {};
+    }
 }
 
 // Изменение тайла, строго до buildMesh
@@ -587,7 +593,7 @@ void Terrain::calculateTileIndices()
 
 Mesh Terrain::createTerrainMesh()
 {
-    Mesh mesh = {0};
+    Mesh mesh = {};
 
     int segments = 50;
     int quadCount = segments * segments;
@@ -699,9 +705,10 @@ Mesh Terrain::createTerrainMesh()
 // === ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ===
 void Terrain::generate(int biome)
 {
-    currentBiome = biome;
     reset();
 
+    currentBiome = biome;
+    
     // Выбор биома (аналог select l в DBP)
     switch (biome)
     {
@@ -729,6 +736,8 @@ void Terrain::generate(int biome)
     }
 
     calculateTileIndices();
+
+    TraceLog(LOG_INFO, "Terrain generated for biome %i", biome);
 }
 
 // === ПОСТРОЕНИЕ MESH ===
@@ -738,7 +747,7 @@ void Terrain::buildMesh()
     if (model.meshCount > 0)
     {
         UnloadModel(model);
-        model = {0};
+        model = {};
     }
 
     // Нормализация высот для heightmap image
@@ -770,6 +779,7 @@ void Terrain::buildMesh()
     if (terrainTexture.id != 0)
     {
         UnloadTexture(terrainTexture);
+        terrainTexture = {};
     }
 
     // Загружаем изображение
@@ -792,6 +802,8 @@ void Terrain::buildMesh()
     {
         model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = terrainTexture;
     }
+
+    TraceLog(LOG_INFO, "Terrain mesh created");
 }
 
 // === ПОЛУЧЕНИЕ ВЫСОТЫ (аналог get ground height) ===

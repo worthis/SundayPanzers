@@ -5,13 +5,13 @@
 
 struct Cloud
 {
-    bool active;
-    Model model;
-    Vector3 position;
-    float angle;  // cl#(o,2) — текущий угол
-    float radius; // cl#(o,1) — радиус от центра карты
-    float speed;  // cl#(o,4) — скорость (градусы/сек)
-    Vector3 scale;
+    bool active = false;
+    int modelId = 0;
+    Vector3 position = {0, 0, 0};
+    float angle = 0.0f;  // cl#(o,2) — текущий угол
+    float radius = 0.0f; // cl#(o,1) — радиус от центра карты
+    float speed = 0.0f;  // cl#(o,4) — скорость (градусы/сек)
+    Vector3 scale = {1, 1, 1};
 };
 
 class CloudSystem

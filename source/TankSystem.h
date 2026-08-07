@@ -213,6 +213,15 @@ public:
     // Количество активных танков
     int getActiveCount() const;
 
+    Model getTankModel(int type) const { return tankModels[type]; }
+    bool isTankModelLoaded(int type) const { return modelsLoaded[type]; }
+    Texture2D getSquadTexture(int squadId) const
+    {
+        if (squadId >= 1 && squadId <= 10)
+            return squadTexNormal[squadId];
+        return {};
+    }
+
 private:
     TankData tanks[MAX_TANKS];
     TankType tankTypes[MAX_TANK_TYPES + 1]; // типы 1-8

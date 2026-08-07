@@ -19,7 +19,7 @@ void PowerUpSystem::reset()
 {
     for (int i = 0; i < NUM_PUP; i++)
     {
-        pups[i] = PowerUpData();
+        pups[i] = PowerUpData{};
     }
 }
 

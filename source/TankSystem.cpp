@@ -43,15 +43,15 @@ TankSystem::TankSystem() : terrain(nullptr), treeSystem(nullptr)
 {
     for (int i = 0; i < 9; i++)
     {
-        tankModels[i] = {0};
+        tankModels[i] = {};
         modelsLoaded[i] = false;
     }
 
     for (int i = 0; i < 11; i++)
     {
-        squadTexNormal[i] = {0};
-        squadTexDamaged[i] = {0};
-        squadTexDestroyed[i] = {0};
+        squadTexNormal[i] = {};
+        squadTexDamaged[i] = {};
+        squadTexDestroyed[i] = {};
         squadTexLoaded[i] = false;
     }
 
@@ -344,7 +344,7 @@ void TankSystem::unloadTankModels()
         if (modelsLoaded[i] && tankModels[i].meshCount > 0)
         {
             UnloadModel(tankModels[i]);
-            tankModels[i] = {0};
+            tankModels[i] = {};
             modelsLoaded[i] = false;
         }
     }
@@ -591,17 +591,6 @@ void TankSystem::loadExtra(int n, int type)
     // --- модель ---
     es.model = LoadModel(modelFile);
 
-    // === ДИАГНОСТИКА ===
-    TraceLog(LOG_INFO, "Model: bones=%d, meshes=%d", es.model.boneCount, es.model.meshCount);
-    for (int i = 0; i < es.model.meshCount; i++)
-    {
-        Mesh &m = es.model.meshes[i];
-        TraceLog(LOG_INFO, "  Mesh %d: verts=%d, boneIds=%s, boneWeights=%s",
-                 i, m.vertexCount,
-                 m.boneIds ? "YES" : "NULL",
-                 m.boneWeights ? "YES" : "NULL");
-    }
-
     // --- явная загрузка текстуры и применение к материалам ---
     if (FileExists(texFile))
     {
@@ -623,7 +612,7 @@ void TankSystem::loadExtra(int n, int type)
     if (es.animCount > 0)
     {
         TraceLog(LOG_INFO, "Extra %d: %d animations, %d frames, %d bones",
-                 n, es.animCount, es.anims[0].frameCount, es.anims[0].boneCount);
+                 n, es.animCount, es.anims[0].keyframeCount, es.anims[0].boneCount);
     }
     else
     {
@@ -1019,19 +1008,19 @@ void TankSystem::updateExtraAnimation(int n)
         return;
 
     ModelAnimation &anim = es.anims[0];
-    if (anim.frameCount <= 0)
+    if (anim.keyframeCount <= 0)
         return;
 
     tk.animFrame += tk.animSpeed;
-    float fc = (float)anim.frameCount;
+    float fc = (float)anim.keyframeCount;
     while (tk.animFrame >= fc)
         tk.animFrame -= fc;
     if (tk.animFrame < 0)
         tk.animFrame = 0;
 
     int frame = (int)tk.animFrame;
-    if (frame >= anim.frameCount)
-        frame = anim.frameCount - 1;
+    if (frame >= anim.keyframeCount)
+        frame = anim.keyframeCount - 1;
 
     if (frame != tk.lastAnimFrame)
     {
@@ -1195,7 +1184,7 @@ void TankSystem::render() const
             continue;
 
         // Выбираем текстуру по состоянию
-        Texture2D tex = {0};
+        Texture2D tex = {};
         int sq = tk.squadId;
         if (sq >= 1 && sq <= 10 && squadTexLoaded[sq])
         {
@@ -1262,8 +1251,8 @@ void TankSystem::render() const
         if (shadowRadius < 10.0f)
             shadowRadius = 10.0f;
 
-        //rlDisableDepthMask();
-        //rlDisableDepthTest();
+        // rlDisableDepthMask();
+        // rlDisableDepthTest();
         BeginBlendMode(BLEND_MULTIPLIED);
         rlPushMatrix();
         rlTranslatef(tk.interpX, shadowY, tk.interpZ);
@@ -1278,16 +1267,16 @@ void TankSystem::render() const
         // ============================================
         if (tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
         {
-            //BeginBlendMode(BLEND_ADDITIVE);
-            // Внешний радиус кольца (чуть больше тени)
+            // BeginBlendMode(BLEND_ADDITIVE);
+            //  Внешний радиус кольца (чуть больше тени)
             float outerR = shadowRadius * 2.6f;
             DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {220, 20, 20, 255});
         }
 
         rlPopMatrix();
         EndBlendMode();
-        //rlEnableDepthTest();
-        //rlEnableDepthMask();
+        // rlEnableDepthTest();
+        // rlEnableDepthMask();
 
         // танк
         rlPushMatrix();
@@ -1328,7 +1317,7 @@ void TankSystem::renderShields() const
         if (tk.barrierCounter > 0)
         {
             // Радиус: чуть больше collisionRange танка
-            float sphereR = tk.collisionRange * 2.0f;
+            float sphereR = tk.collisionRange * 1.6f;
             if (sphereR < 20.0f)
                 sphereR = 20.0f;
 
@@ -1381,7 +1370,7 @@ void TankSystem::renderExtra(int n) const
         if (shadowRadius < 10.0f)
             shadowRadius = 10.0f;
 
-        //rlDisableDepthMask();
+        // rlDisableDepthMask();
         BeginBlendMode(BLEND_MULTIPLIED);
         rlPushMatrix();
         rlTranslatef(tk.interpX, groundH + 1.0f, tk.interpZ);
@@ -1391,7 +1380,7 @@ void TankSystem::renderExtra(int n) const
         DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {200, 200, 200, 255});
         rlPopMatrix();
         EndBlendMode();
-        //rlEnableDepthMask();
+        // rlEnableDepthMask();
     }
 
     // === МОДЕЛЬ EXTRA ===
@@ -1429,9 +1418,9 @@ void TankSystem::unloadSquadTextures()
                 UnloadTexture(squadTexDamaged[i]);
             if (squadTexDestroyed[i].id != 0)
                 UnloadTexture(squadTexDestroyed[i]);
-            squadTexNormal[i] = {0};
-            squadTexDamaged[i] = {0};
-            squadTexDestroyed[i] = {0};
+            squadTexNormal[i] = {};
+            squadTexDamaged[i] = {};
+            squadTexDestroyed[i] = {};
             squadTexLoaded[i] = false;
         }
     }

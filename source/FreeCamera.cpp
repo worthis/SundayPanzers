@@ -4,7 +4,7 @@
 FreeCamera::FreeCamera()
     : yaw(-90.0f), pitch(-25.0f), moveSpeed(500.0f), mouseSensitivity(0.15f), farPlane(15000.0f)
 {
-    camera = {0};
+    camera = {};
 }
 
 void FreeCamera::init(Vector3 position)
