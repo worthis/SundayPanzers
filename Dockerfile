@@ -21,18 +21,22 @@ ENV DEVKITPRO=/opt/devkitpro
 ENV DEVKITARM=${DEVKITPRO}/devkitARM
 ENV PATH=${DEVKITPRO}/tools/bin:$PATH
 
-# 3. Raylib для Windows (Официальная версия)
-RUN git clone --depth 1 --branch 5.0 https://github.com/raysan5/raylib.git /tmp/raylib-win && \
-    cd /tmp/raylib-win/src && \
+# 3. Raylib для Windows — master (6.1-dev)
+RUN git clone https://github.com/raysan5/raylib.git /tmp/raylib-win && \
+    cd /tmp/raylib-win && \
+    git checkout caadb48e259028233515777a3e6402040c497309 && \
+    cd src && \
     make PLATFORM=PLATFORM_DESKTOP CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar OS=Windows_NT && \
     mkdir -p /opt/raylib/win/lib /opt/raylib/win/include && \
     cp libraylib.a /opt/raylib/win/lib/ && \
     cp *.h /opt/raylib/win/include/ && \
     rm -rf /tmp/raylib-win
 
-# 4. Raylib для Switch (luizpestana/raylib-nx)
-RUN git clone --depth 1 https://github.com/luizpestana/raylib-nx.git /tmp/raylib-nx && \
-    cd /tmp/raylib-nx/src && \
+# 4. Raylib для Switch (luizpestana/raylib-nx, 6.1-dev)
+RUN git clone https://github.com/luizpestana/raylib-nx.git /tmp/raylib-nx && \
+    cd /tmp/raylib-nx && \
+    git checkout 3afaa5a1fb5f690e66e0783f45455a8d93be54b6 && \
+    cd src && \
     make PLATFORM=PLATFORM_NX && \
     mkdir -p /opt/raylib/switch/lib /opt/raylib/switch/include && \
     cp libraylib.a /opt/raylib/switch/lib/ && \
