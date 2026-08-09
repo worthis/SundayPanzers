@@ -6,10 +6,11 @@
 // Init / Start / Shutdown
 // ============================================================
 
-void MenuSystem::init(InputSystem *input, Terrain *terrain, Skybox *skybox, TreeSystem *treeSystem,
+void MenuSystem::init(InputSystem *input, AudioSystem *audioSystem, Terrain *terrain, Skybox *skybox, TreeSystem *treeSystem,
                       CloudSystem *cloudSystem, TankSystem *tankSystem, TankCamera *camera)
 {
     m_input = input;
+    m_audioSystem = audioSystem;
     m_terrain = terrain;
     m_skybox = skybox;
     m_treeSystem = treeSystem;
@@ -27,18 +28,6 @@ void MenuSystem::init(InputSystem *input, Terrain *terrain, Skybox *skybox, Tree
     // Render textures for tank previews (180x120 = 210-30 x 420-300)
     m_previewLeft = LoadRenderTexture(180, 120);
     m_previewRight = LoadRenderTexture(180, 120);
-
-    // Sounds
-    if (FileExists("data/sound/menu.wav"))
-    {
-        m_sndClick = LoadSound("data/sound/menu.wav");
-        SetSoundVolume(m_sndClick, 0.99f);
-        m_soundsLoaded = true;
-    }
-    if (FileExists("data/sound/coll.wav"))
-    {
-        m_sndError = LoadSound("data/sound/coll.wav");
-    }
 }
 
 void MenuSystem::start(int maxLevel, bool gameCompleted)
@@ -100,52 +89,15 @@ void MenuSystem::start(int maxLevel, bool gameCompleted)
     m_fakeTank.yaw = 0.0f;
     m_fakeTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
 
-    // Camera init
-    /*m_menuCamera = {};
-    m_menuCamera.position = {2500.0f, 1000.0f, 2500.0f};
-    m_menuCamera.target = {m_fakeTank.x, 0.0f, m_fakeTank.z};
-    m_menuCamera.up = {0.0f, 1.0f, 0.0f};
-    m_menuCamera.fovy = 60.0f;
-    m_menuCamera.projection = CAMERA_PERSPECTIVE;*/
-
-    // Останавливаем предыдущую музыку, если была (повторный вход в меню)
-    if (m_musicLoaded)
-    {
-        StopMusicStream(m_music);
-        UnloadMusicStream(m_music);
-        m_musicLoaded = false;
-    }
-
-    // Загрузка музыки меню (аналог ms=1+rnd(199)/100 → 1 или 2)
-    int track = 1 + GetRandomValue(0, 199) / 100;
-    const char *musicPath = TextFormat("data/music/menu%d.ogg", track);
-    if (FileExists(musicPath))
-    {
-        m_music = LoadMusicStream(musicPath);
-        m_musicLoaded = true;
-        PlayMusicStream(m_music);
-        SetMusicVolume(m_music, 0.95f); // set music volume 1,95
-    }
+    m_audioSystem->playMenuMusic();
 }
 
 void MenuSystem::shutdown()
 {
-    if (m_musicLoaded)
-    {
-        StopMusicStream(m_music);
-        UnloadMusicStream(m_music);
-        m_musicLoaded = false;
-    }
-
     unloadAssets();
     unloadPreviewModels();
     UnloadRenderTexture(m_previewLeft);
     UnloadRenderTexture(m_previewRight);
-    if (m_soundsLoaded)
-    {
-        UnloadSound(m_sndClick);
-        UnloadSound(m_sndError);
-    }
 }
 
 // ============================================================
@@ -154,11 +106,6 @@ void MenuSystem::shutdown()
 
 void MenuSystem::update(float dt)
 {
-    if (m_musicLoaded)
-    {
-        UpdateMusicStream(m_music);
-    }
-
     // Fade in (ga=ga+5)
     if (m_gamma < 255.0f)
     {
@@ -184,13 +131,9 @@ void MenuSystem::update(float dt)
     bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
     if (m_screen == MenuScreen::SELECT_LEVEL_SQUAD)
-    {
         updateSelectLevelSquad(mx, my, clicked);
-    }
     else
-    {
         updateShop(mx, my, clicked);
-    }
 }
 
 void MenuSystem::updateFakeTank(float dt)
@@ -371,10 +314,10 @@ void MenuSystem::updateSelectLevelSquad(float mx, float my, bool clicked)
     if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_FACE_DOWN, GAMEPAD_BUTTON_MIDDLE_RIGHT}))
         doNext();
 
-    if (som == 1 && m_soundsLoaded)
-        PlaySound(m_sndClick);
-    if (som == 2 && m_soundsLoaded)
-        PlaySound(m_sndError);
+    if (som == 1)
+        m_audioSystem->playMenuClick();
+    if (som == 2)
+        m_audioSystem->playMenuCancel();
 }
 
 void MenuSystem::updateShop(float mx, float my, bool clicked)
@@ -605,21 +548,15 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
     if (gamepadPressed({GAMEPAD_BUTTON_MIDDLE_RIGHT}))
         doBattle();
 
-    if (som == 1 && m_soundsLoaded)
-        PlaySound(m_sndClick);
-    if (som == 2 && m_soundsLoaded)
-        PlaySound(m_sndError);
+    if (som == 1)
+        m_audioSystem->playMenuClick();
+    if (som == 2)
+        m_audioSystem->playMenuCancel();
 }
 
 void MenuSystem::finishMenu()
 {
-    // Останавливаем и выгружаем музыку меню
-    if (m_musicLoaded)
-    {
-        StopMusicStream(m_music);
-        UnloadMusicStream(m_music);
-        m_musicLoaded = false;
-    }
+    m_audioSystem->stopMusic();
 
     // Setting oppo and guest (from original)
     int oppn = ((m_freeSquads - 1) * 100) + 99;

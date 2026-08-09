@@ -7,39 +7,7 @@
 #include "rlgl.h"
 #include "raymath.h"
 
-// Центр bounding box меша — локальная позиция дула
-Vector3 TankSystem::computeMeshCenter(const Mesh &mesh)
-{
-    if (mesh.vertexCount == 0)
-        return {0, 0, 0};
-
-    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
-    float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
-
-    for (int i = 0; i < mesh.vertexCount; i++)
-    {
-        float x = mesh.vertices[i * 3 + 0];
-        float y = mesh.vertices[i * 3 + 1];
-        float z = mesh.vertices[i * 3 + 2];
-
-        if (x < minX)
-            minX = x;
-        if (x > maxX)
-            maxX = x;
-        if (y < minY)
-            minY = y;
-        if (y > maxY)
-            maxY = y;
-        if (z < minZ)
-            minZ = z;
-        if (z > maxZ)
-            maxZ = z;
-    }
-
-    return {(minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f};
-}
-
-TankSystem::TankSystem() : terrain(nullptr), treeSystem(nullptr)
+TankSystem::TankSystem()
 {
     for (int i = 0; i < 9; i++)
     {
@@ -103,7 +71,6 @@ void TankSystem::resetTank(int n)
     t.bounceForce = 0;
     t.fireLimb = 0;
     t.bulletCounter = 0;
-    t.superBulletCounter = 0;
     t.reloadCounter = 0;
     t.reloadTime = 0;
     t.bulletLength = 0;
@@ -134,10 +101,9 @@ void TankSystem::resetTank(int n)
     t.turboCharger = 0;
     t.turboTime = 0;
     t.turboReload = 0;
-    t.pictureId = 0;
-    t.originalEnergy = 0;
+    t.maxEnergy = 0;
     t.barrierCounter = 0;
-    t.bulletFlag = 0;
+    t.superBulletCounter = 0;
     t.hitCounter = 0;
 }
 
@@ -328,10 +294,12 @@ void TankSystem::initTankTypes()
         2};
 }
 
-void TankSystem::init(Terrain *terrain, TreeSystem *treeSystem)
+void TankSystem::init(AudioSystem *audioSystem, Terrain *terrain, TreeSystem *treeSystem)
 {
+    this->audioSystem = audioSystem;
     this->terrain = terrain;
     this->treeSystem = treeSystem;
+
     initTankTypes();
     loadTankModels();
     loadSquadTextures();
@@ -376,7 +344,7 @@ void TankSystem::loadTankModels()
             int fl = tankTypes[i].fireLimb;
             if (fl >= 0 && fl < m.meshCount)
             {
-                muzzleLocal[i] = computeMeshCenter(m.meshes[m.meshCount - fl]);
+                muzzleLocal[i] = ComputeMeshCenter(m.meshes[m.meshCount - fl]);
                 TraceLog(LOG_INFO, "Tank %d: fireLimb mesh %d center = (%.1f, %.1f, %.1f)",
                          i, fl, muzzleLocal[i].x, muzzleLocal[i].y, muzzleLocal[i].z);
             }
@@ -441,7 +409,6 @@ void TankSystem::loadTank(int n, int t, int c)
     // DBP: tk#(n,0)=t : tk#(n,48)=t : tk#(n,34)=c
     tk.type = t;
     tk.baseType = t;
-    tk.pictureId = t;
     tk.squadId = c;
 
     // Копируем параметры типа
@@ -457,7 +424,7 @@ void TankSystem::loadTank(int n, int t, int c)
     tk.collisionRange = tt.collisionRange;
     tk.shotAngle = tt.shotAngle;
     tk.energy = tt.energy;
-    tk.originalEnergy = tt.energy;
+    tk.maxEnergy = tt.energy;
     tk.hitScale = tt.hitScale;
     tk.soundStart = tt.soundStart;
     tk.collisionHeight = tt.collisionHeight;
@@ -536,7 +503,7 @@ void TankSystem::loadTank(int n, int t, int c)
     tk.maxSpeed *= speedMod;
     tk.bulletPower *= powerMod;
     tk.energy *= energyMod;
-    tk.originalEnergy = tk.energy;
+    tk.maxEnergy = tk.energy;
 
     TraceLog(LOG_INFO, "Tank %d loaded: type %d, squad %d", n, t, c);
 }
@@ -676,7 +643,7 @@ void TankSystem::loadExtra(int n, int type)
         break;
     }
 
-    tk.originalEnergy = tk.energy;
+    tk.maxEnergy = tk.energy;
 }
 
 void TankSystem::unloadExtraSlot(int slot)
@@ -1037,7 +1004,7 @@ void TankSystem::updateCollisions()
     // ================================================================
     // A. TANK ↔ TREE  (DBP: ter(0,xm,zm)=1 check)
     // ================================================================
-    for (int n = 1; n < MAX_TANKS; n++)
+    for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
     {
         TankData &tk = tanks[n];
         if (tk.type == 0)
@@ -1082,19 +1049,22 @@ void TankSystem::updateCollisions()
             // Урон дереву
             if (treeSystem)
                 treeSystem->hitTree(xm, zm, angle);
+
+            if (audioSystem)
+                audioSystem->playCollision({tk.x, tk.y, tk.z});
         }
     }
 
     // ================================================================
     // B. TANK ↔ TANK  (DBP: for c=n+1 to obmax)
     // ================================================================
-    for (int n = 1; n < MAX_TANKS - 1; n++)
+    for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
     {
         TankData &tkN = tanks[n];
         if (tkN.type == 0)
             continue;
 
-        for (int c = n + 1; c < MAX_TANKS; c++)
+        for (int c = n + 1; c <= COMBAT_MAX; c++)
         {
             TankData &tkC = tanks[c];
             if (tkC.type == 0)
@@ -1135,6 +1105,9 @@ void TankSystem::updateCollisions()
                     tkC.bounceForce /= 2.0f;
                 if (tkN.type < 0)
                     tkN.bounceForce /= 2.0f;
+
+                if (audioSystem)
+                    audioSystem->playCollision({tkN.x, tkN.y, tkN.z}, true);
             }
         }
     }
@@ -1142,7 +1115,7 @@ void TankSystem::updateCollisions()
 
 void TankSystem::interpolate(float alpha)
 {
-    for (int n = 1; n < MAX_TANKS; n++)
+    for (int n = PLAYER_MIN; n < MAX_TANKS; n++)
     {
         TankData &tk = tanks[n];
         if (tk.type == 0)
@@ -1317,20 +1290,20 @@ void TankSystem::renderShields() const
         if (tk.barrierCounter > 0)
         {
             // Радиус: чуть больше collisionRange танка
-            float sphereR = tk.collisionRange * 1.6f;
+            float sphereR = tk.collisionRange * 1.8f;
             if (sphereR < 20.0f)
                 sphereR = 20.0f;
 
             // Центр сферы — центр корпуса танка
             Vector3 center = {
                 tk.interpX,
-                tk.interpY + tk.collisionHeight * 0.7f,
+                tk.interpY + tk.collisionHeight,
                 tk.interpZ};
 
             BeginBlendMode(BLEND_ALPHA);
             rlDisableDepthMask();
             DrawSphere(center, sphereR, {100, 200, 255, 60});
-            DrawSphereWires(center, sphereR + 0.125f, 12, 12, {150, 220, 255, 150});
+            // DrawSphereWires(center, sphereR + 0.125f, 12, 12, {150, 220, 255, 150});
             rlEnableDepthMask();
             EndBlendMode();
         }

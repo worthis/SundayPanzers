@@ -13,7 +13,7 @@ Game::Game()
       battleEnded(false),
       introTimer(0.0f),
       introGamma(0.0f),
-      logoSoundPlayed(false)      
+      logoSoundPlayed(false)
 {
 }
 
@@ -26,16 +26,17 @@ void Game::Init()
     InitAudioDevice();
     initGameData();
 
+    audioSystem.init();
     treeSystem.init(&terrain);
     cloudSystem.init(&terrain);
-    tankSystem.init(&terrain, &treeSystem);
-    bulletSystem.init(&terrain, &tankSystem, &treeSystem);
-    powerUpSystem.init(&terrain, &tankSystem);
-    aiSystem.init(&tankSystem);
+    tankSystem.init(&audioSystem, &terrain, &treeSystem);
+    bulletSystem.init(&audioSystem, &terrain, &tankSystem, &treeSystem);
+    powerUpSystem.init(&audioSystem, &terrain, &tankSystem);
+    aiSystem.init(&audioSystem, &tankSystem);
     bulletSystem.loadAssets();
     powerUpSystem.loadAssets();
 
-    menuSystem.init(&input, &terrain, &skybox, &treeSystem, &cloudSystem, &tankSystem, &camera);
+    menuSystem.init(&input, &audioSystem, &terrain, &skybox, &treeSystem, &cloudSystem, &tankSystem, &camera);
 
     introTimer = 0.0f;
 
@@ -45,6 +46,7 @@ void Game::Init()
 void Game::Update(float dt)
 {
     input.update();
+    audioSystem.update(dt);
 
     switch (currentState)
     {
@@ -96,6 +98,7 @@ void Game::Draw()
 
 void Game::Shutdown()
 {
+    audioSystem.shutdown();
     menuSystem.shutdown();
     CloseAudioDevice();
 }
@@ -185,14 +188,13 @@ void Game::DrawLogoIntro()
 // === Заставка игры (gameintro) ===
 void Game::StartGameIntro()
 {
-    currentState = GameState::GAME_INTRO;
     introTimer = 0.0f;
     introGamma = 0.0f;
 
     // Загрузка тайтла и музыки
     texTitle = LoadTexture("data/menu/title.png");
-    musicIntro = LoadMusicStream("data/music/intro.ogg");
-    PlayMusicStream(musicIntro);
+    /// musicIntro = LoadMusicStream("data/music/intro.ogg");
+    // PlayMusicStream(musicIntro);
 
     // Генерация случайного ландшафта (без танков)
     int biome = GetRandomValue(1, 6);
@@ -220,11 +222,14 @@ void Game::StartGameIntro()
 
     // Первая случайная цель для фейкового танка
     introTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
+
+    audioSystem.playIntroMusic();
+    currentState = GameState::GAME_INTRO;
 }
 
 void Game::UpdateGameIntro(float dt)
 {
-    UpdateMusicStream(musicIntro);
+    // UpdateMusicStream(musicIntro);
     introTimer += dt * 105.0f;
 
     // Fade in (ga=ga+5 из оригинала)
@@ -316,8 +321,8 @@ void Game::UpdateGameIntro(float dt)
 
     if (introTimer > 5.0f && skip)
     {
-        StopMusicStream(musicIntro);
-        UnloadMusicStream(musicIntro);
+        // StopMusicStream(musicIntro);
+        // UnloadMusicStream(musicIntro);
         UnloadTexture(texTitle);
 
         currentState = GameState::MAIN_MENU;
@@ -406,6 +411,7 @@ void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSqua
     playerSquadAlive = true;
     enemySquadAlive = true;
 
+    audioSystem.playBattleMusic();
     currentState = GameState::BATTLE;
 }
 
@@ -470,6 +476,12 @@ void Game::UpdateBattle(float dt)
             tankSystem.updateTank(n, xj, yj);
             if (fire)
                 bulletSystem.fireBullet(n);
+
+            if (n == playerCommander)
+            {
+                const TankData &ptk = tankSystem.getTank(n);
+                audioSystem.updatePlayerPos(ptk.x, ptk.y, ptk.z);
+            }
         }
 
         for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
@@ -481,6 +493,14 @@ void Game::UpdateBattle(float dt)
         bulletSystem.update();
 
         accumulator -= FIXED_DT;
+    }
+
+    updateEngineSounds();
+
+    // Обработка M для mute музыки (keystate(50))
+    if (IsKeyPressed(KEY_M))
+    {
+        audioSystem.toggleMusicMute();
     }
 
     // === ИНТЕРПОЛЯЦИЯ ===
@@ -537,11 +557,11 @@ void Game::DrawBattle()
     {
         if (playerSquadAlive)
         {
-            DrawText("VICTORY! Click to continue", 200, 200, 30, GREEN);
+            DrawText("VICTORY! Click to continue", SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f, 30, GREEN);
         }
         else
         {
-            DrawText("DEFEAT! Click to continue", 200, 200, 30, RED);
+            DrawText("DEFEAT! Click to continue", SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f, 30, RED);
         }
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
@@ -554,6 +574,59 @@ void Game::DrawBattle()
 
 void Game::ReturnToMenu()
 {
+    audioSystem.stopMusic();
     currentState = GameState::MAIN_MENU;
     menuSystem.start(10, false); // Возврат в меню после боя
+    audioSystem.playMenuMusic();
+}
+
+float Game::findNearestTankDistance(int &nearestTankId) const
+{
+    // Точный порт из DBPro:
+    // gam(2)=7500:gam(3)=0
+    // for n=1 to obmax:
+    //   dxl=tk#(n,1)-tk#(gam(1),1):dzl=...:dyl=...
+    //   rp1=sqrt(...)
+    //   if rp1<gam(2) and n<>gam(1) and tk#(n,0)>0 then gam(2)=rp1:gam(3)=n
+
+    float minDistance = 7500.0f;
+    nearestTankId = 0;
+    const TankData &player = tankSystem.getTank(playerCommander);
+
+    for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
+    {
+        if (n == playerCommander)
+            continue;
+
+        const TankData &t = tankSystem.getTank(n);
+        if (t.type <= 0)
+            continue;
+        if (t.energy <= 0)
+            continue;
+
+        float dist = Vector3Distance({player.x, player.y, player.z}, {t.x, t.y, t.z});
+        if (dist < minDistance)
+        {
+            minDistance = dist;
+            nearestTankId = n;
+        }
+    }
+
+    return minDistance;
+}
+
+void Game::updateEngineSounds()
+{
+    const TankData &player = tankSystem.getTank(playerCommander);
+    bool changingCamera = false; //(camera.isChanging()); // gam(8)>0 означает что камера переключается
+    audioSystem.updatePlayerEngine(player.rpm, player.energy, player.soundStart, changingCamera);
+
+    // Двигатель ближайшего танка
+    int nearestId = 0;
+    float nearestDist = findNearestTankDistance(nearestId);
+    if (nearestId > PLAYER_MIN && nearestDist < 7500.0f)
+    {
+        const TankData &nearest = tankSystem.getTank(nearestId);
+        audioSystem.updateNearbyEngine(nearest.rpm, nearest.soundStart, nearestDist);
+    }
 }

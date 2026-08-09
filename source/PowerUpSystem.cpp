@@ -8,8 +8,9 @@
 // ============================================================
 // Инициализация — DBP makesortie: создание 5 powerup
 // ============================================================
-void PowerUpSystem::init(Terrain *terrain, TankSystem *tankSystem)
+void PowerUpSystem::init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem)
 {
+    this->audioSystem = audioSystem;
     this->terrain = terrain;
     this->tankSystem = tankSystem;
 
@@ -225,7 +226,7 @@ void PowerUpSystem::checkPickup(int n)
         case 0: // barrier
             // DBP: if pup<=2 then so=24:tk#(n,50)=tk#(n,50)+1500
             tk.barrierCounter += 1500;
-            // TODO: play sound 24 (pup.wav)
+            if (audioSystem) audioSystem->playBarrierPickup({p.x, p.y, p.z});        
             break;
 
         case 2: // repair
@@ -234,17 +235,17 @@ void PowerUpSystem::checkPickup(int n)
             //   if tk#(n,37)>tk#(n,49) then tk#(n,37)=tk#(n,49)
             //   tk#(n,35)=0: texture reset
             //   powup(53): so=28
-            tk.energy += tk.originalEnergy / 2.0f;
-            if (tk.energy > tk.originalEnergy)
-                tk.energy = tk.originalEnergy;
+            tk.energy += tk.maxEnergy / 2.0f;
+            if (tk.energy > tk.maxEnergy)
+                tk.energy = tk.maxEnergy;
             tk.damaged = false; // DBP: tk#(n,35)=0
-            // TODO: reset texture to 100+colorId, play sound 28 (repair.wav)
+            if (audioSystem) audioSystem->playRepairPickup({p.x, p.y, p.z});
             break;
 
         case 1: // superbullet
             // DBP: if pup>3 then so=25:tk#(n,51)=tk#(n,51)+2000
             tk.superBulletCounter += 2000;
-            // TODO: play sound 25 (pup2.wav)
+            if (audioSystem) audioSystem->playSuperBulletPickup({p.x, p.y, p.z});
             break;
         }
 

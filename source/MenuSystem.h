@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "GameConfig.h"
 #include "InputSystem.h"
+#include "AudioSystem.h"
 #include "Terrain.h"
 #include "Skybox.h"
 #include "TreeSystem.h"
@@ -33,7 +34,7 @@ enum class MenuScreen
 class MenuSystem
 {
 public:
-    void init(InputSystem *input, Terrain *terrain, Skybox *skybox, TreeSystem *treeSystem,
+    void init(InputSystem *input, AudioSystem *audioSystem, Terrain *terrain, Skybox *skybox, TreeSystem *treeSystem,
               CloudSystem *cloudSystem, TankSystem *tankSystem, TankCamera *camera);
     void start(int maxLevel, bool gameCompleted);
     void update(float dt);
@@ -73,6 +74,7 @@ private:
 
     // Systems
     InputSystem *m_input = nullptr;
+    AudioSystem *m_audioSystem = nullptr;
     Terrain *m_terrain = nullptr;
     Skybox *m_skybox = nullptr;
     TreeSystem *m_treeSystem = nullptr;
@@ -138,15 +140,6 @@ private:
     RenderTexture2D m_previewRight = {};
     Model m_previewModels[9] = {};
     bool m_previewModelsLoaded[9] = {};
-
-    // Sound
-    Sound m_sndClick = {};
-    Sound m_sndError = {};
-    bool m_soundsLoaded = false;
-
-    // Music
-    Music m_music = {};
-    bool m_musicLoaded = false;
 
     // Tank prices (cost() from original)
     static constexpr int TANK_COST[9] = {0, 3, 4, 6, 11, 14, 20, 25, 40};

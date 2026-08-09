@@ -51,7 +51,7 @@ void makeSortie(TankSystem &tankSystem,
         // tk#(e,37)=(tk#(e,37)*100)/spec(l,5)
         TankData &tk = tankSystem.getTankMut(idx);
         tk.energy = (tk.energy * 100.0f) / spec[l].energyDecreaser;
-        tk.originalEnergy = tk.energy;
+        tk.maxEnergy = tk.energy;
 
         // AI параметры
         tk.aiType = aiType;
@@ -114,7 +114,7 @@ void makeSortie(TankSystem &tankSystem,
             // DBP: energy decreaser
             TankData &tk = tankSystem.getTankMut(idx);
             tk.energy = (tk.energy * 100.0f) / spec[l].energyDecreaser;
-            tk.originalEnergy = tk.energy;
+            tk.maxEnergy = tk.energy;
 
             // AI параметры
             tk.aiType = aiType;

@@ -17,6 +17,7 @@ BulletSystem::~BulletSystem()
     {
         UnloadModel(bulletModel1);
         UnloadModel(bulletModel2);
+        UnloadModel(bulletModel3);
     }
     if (hitModelsLoaded)
     {
@@ -32,6 +33,7 @@ BulletSystem::~BulletSystem()
     {
         UnloadTexture(bulletTex1);
         UnloadTexture(bulletTex2);
+        UnloadTexture(bulletTex3);
         UnloadTexture(hitTex1);
         UnloadTexture(hitTex2);
         UnloadTexture(ringTex);
@@ -39,8 +41,9 @@ BulletSystem::~BulletSystem()
     }
 }
 
-void BulletSystem::init(Terrain *terrain, TankSystem *tankSystem, TreeSystem *treeSystem)
+void BulletSystem::init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem, TreeSystem *treeSystem)
 {
+    this->audioSystem = audioSystem;
     this->terrain = terrain;
     this->tankSystem = tankSystem;
     this->treeSystem = treeSystem;
@@ -68,47 +71,18 @@ void BulletSystem::bindTexture(Model &m, const Texture2D &tex)
     {
         m.materials[j].maps[MATERIAL_MAP_DIFFUSE].texture = tex;
         m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-        m.materials[j].maps[MATERIAL_MAP_EMISSION].texture = tex;
-        m.materials[j].maps[MATERIAL_MAP_EMISSION].color = WHITE;
+        //m.materials[j].maps[MATERIAL_MAP_EMISSION].texture = tex;
+        //m.materials[j].maps[MATERIAL_MAP_EMISSION].color = WHITE;
         m.materials[j].maps[MATERIAL_MAP_SPECULAR].color = BLACK;
         SetTextureFilter(tex, TEXTURE_FILTER_POINT);
     }
 }
 
-// ============================================================
-// Загрузка текстуры с DBP color key (чёрный → прозрачный)
-// DBP: load image "file.bmp", N, 1
-// ============================================================
-Texture2D BulletSystem::loadTextureColorKey(const char *path)
-{
-    Image img = LoadImage(path);
-    if (img.data == nullptr)
-    {
-        TraceLog(LOG_WARNING, "Texture not found: %s", path);
-        return LoadTextureFromImage(img); // вернёт пустую
-    }
-
-    // DBP хранит как 32-bit RGBA после color key
-    ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-
-    // Color key: тёмные пиксели → alpha = 0
-    Color *pixels = static_cast<Color *>(img.data);
-    int count = img.width * img.height;
-    for (int i = 0; i < count; i++)
-    {
-        if (pixels[i].r < 16 && pixels[i].g < 16 && pixels[i].b < 16)
-            pixels[i].a = 0;
-    }
-
-    Texture2D tex = LoadTextureFromImage(img);
-    UnloadImage(img);
-    return tex;
-}
-
 void BulletSystem::loadAssets()
 {
     bulletModel1 = LoadModel("data/bullets/bullet.glb");
-    bulletModel2 = LoadModel("data/bullets/bullet2.glb");
+    bulletModel2 = LoadModel("data/bullets/bullet.glb");
+    bulletModel3 = LoadModel("data/bullets/bullet.glb");
     bulletModelsLoaded = true;
 
     hitModel1 = LoadModel("data/bullets/hit.glb");
@@ -121,14 +95,16 @@ void BulletSystem::loadAssets()
 
     bulletTex1 = LoadTexture("data/bullets/bullet.png");
     bulletTex2 = LoadTexture("data/bullets/bullet2.png");
+    bulletTex3 = LoadTexture("data/bullets/bullet3.png");
     hitTex1 = LoadTexture("data/bullets/hit.png");
     hitTex2 = LoadTexture("data/bullets/hit2.png");
-    ringTex = loadTextureColorKey("data/bullets/ring.png");
+    ringTex = LoadTextureColorKey("data/bullets/ring.png");
     exploTex = LoadTexture("data/bullets/expo.png");
     texturesLoaded = true;
 
     bindTexture(bulletModel1, bulletTex1);
     bindTexture(bulletModel2, bulletTex2);
+    bindTexture(bulletModel3, bulletTex3);
     bindTexture(hitModel1, hitTex1);
     bindTexture(hitModel2, hitTex2);
 
@@ -141,8 +117,7 @@ void BulletSystem::loadAssets()
     {
         for (int j = 0; j < m.materialCount; j++)
         {
-            m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color =
-                Color{255, 255, 20, 255};
+            m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color = Color{255, 255, 20, 255};
             m.materials[j].maps[MATERIAL_MAP_SPECULAR].color = BLACK;
         }
     };
@@ -277,20 +252,20 @@ void BulletSystem::fireBullet(int n)
     b.lifeCounter = tk.bulletLength;
     b.bulletPower = tk.bulletPower;
     b.bulletGravity = tk.bulletGravity;
-    // ИСПРАВЛЕНО: colorId → squadId
     b.ownerSquadId = tk.squadId;
-    // ИСПРАВЛЕНО: superBullet → bulletFlag
-    b.superBullet = (tk.bulletFlag > 0);
-    // ИСПРАВЛЕНО: hitMagnifier → hitScale
+    b.superBullet = (tk.superBulletCounter > 0);
     b.hitScale = tk.hitScale;
-    b.bulletScale = tk.bulletScale; // ← НОВОЕ
-    b.bulletModelType = tk.hitModelType;
-    b.hitModelType = tk.hitModelType; // ← НОВОЕ
+    b.bulletScale = tk.bulletScale;
+    b.hitModelType = tk.hitModelType;
 
     // DBP: tk#(n,17)=tk#(n,20) : tk#(n,18)=tk#(n,19)
     tk.bulletCounter = tk.bulletLength;
     tk.reloadCounter = tk.reloadTime;
     tk.hitCounter = 0;
+
+    // Звук выстрела
+    if (audioSystem)
+        audioSystem->playCannonShot({tk.x, tk.y, tk.z});
 }
 
 // ============================================================
@@ -335,19 +310,20 @@ void BulletSystem::update()
 
         int dead = 0;
         int treeIdx = 0;
+        float treeHitAngle = 0.0f;
 
         if (b.lifeCounter <= 0)
             dead = 1;
 
-        if (dead == 0 && checkGroundCollision(b))
-            dead = 1;
-
-        float treeHitAngle = 0.0f;
-        if (dead == 0 && checkTreeCollision(b, treeIdx, treeHitAngle))
-            dead = 1;
-
-        if (dead == 0 && checkMapBounds(b))
-            dead = 1;
+        if (dead == 0)
+            if (checkGroundCollision(b) ||
+                checkTreeCollision(b, treeIdx, treeHitAngle) ||
+                checkMapBounds(b))
+            {
+                dead = 1;
+                if (audioSystem)
+                    audioSystem->playGroundHit({b.x, b.y, b.z});
+            }
 
         int hitTank = 0;
         if (dead == 0)
@@ -363,7 +339,6 @@ void BulletSystem::update()
 
             // ★ DBP: tk#(n,17)=0 — обнуляем, чтобы можно было стрелять снова
             tankSystem->getTankMut(b.owner).bulletCounter = 0;
-
             spawnHitEffect(b.x, b.y, b.z, b.hitScale, b.hitModelType);
 
             if (dead == 2 && hitTank > 0)
@@ -375,6 +350,9 @@ void BulletSystem::update()
                     collAngle += 360.0f;
 
                 applyDamage(hitTank, b, collAngle);
+
+                if (audioSystem)
+                    audioSystem->playTankHit({b.x, b.y, b.z});
             }
         }
     }
@@ -484,7 +462,7 @@ bool BulletSystem::checkMapBounds(const BulletData &b) const
 
 int BulletSystem::checkTankCollision(const BulletData &b) const
 {
-    for (int c = 1; c < MAX_TANKS; c++)
+    for (int c = PLAYER_MIN; c < COMBAT_MAX; c++)
     {
         if (c == b.owner)
             continue;
@@ -494,17 +472,14 @@ int BulletSystem::checkTankCollision(const BulletData &b) const
             continue;
 
         float dx = b.x - tk.x;
-        float dz = b.z - tk.z;
-        // ИСПРАВЛЕНО: collHeight → collisionHeight
         float dy = b.y - (tk.y + tk.collisionHeight);
-
+        float dz = b.z - tk.z;
         float r = sqrtf(dx * dx + dz * dz);
 
-        // ИСПРАВЛЕНО: collRadius → collisionRange, collHeight → collisionHeight
-        if (r < (tk.collisionRange + 2.0f) &&
-            fabsf(dy) < (tk.collisionHeight + 2.0f))
+        if (r < (tk.collisionRange + 2.0f) && fabsf(dy) < (tk.collisionHeight + 2.0f))
             return c;
     }
+
     return 0;
 }
 
@@ -517,7 +492,6 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
     if (tk.type == 0)
         return;
 
-    // ИСПРАВЛЕНО: collAngle → bounceAngle, collForce → bounceForce
     tk.bounceAngle = collAngle;
     tk.bounceForce = 2.0f;
     tk.accel /= 2.0f;
@@ -538,11 +512,9 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
     if (khit < 0.355f)
         khit *= 0.665f;
 
-    // ИСПРАВЛЕНО: colorId → squadId
     if (b.ownerSquadId == tk.squadId)
         khit /= 4.0f;
 
-    // ИСПРАВЛЕНО: barrier → barrierCounter
     if (tk.barrierCounter > 0)
         khit = 0.0f;
 
@@ -555,7 +527,7 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
         tk.hitCounter = 10;
 
     // Смена текстуры при 2/3 урона
-    if (tk.energy < tk.originalEnergy / 3.0f && !tk.damaged)
+    if (tk.energy < tk.maxEnergy / 3.0f && !tk.damaged)
     {
         tk.damaged = true;
     }
@@ -564,7 +536,6 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
     if (tk.energy < 0.0f)
     {
         tk.type = -1;
-        // ИСПРАВЛЕНО: collForce → bounceForce
         tk.bounceForce = 0;
         tk.accel = 0;
         tk.fallForce = 0;
@@ -576,6 +547,13 @@ void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAng
         // Кольцо ориентируется по танку, шар — случайный Y
         spawnExplosion(tk.x, h + 10.0f, tk.z, range,
                        tk.yaw, tk.pitch, tk.roll);
+
+        if (audioSystem)
+        {
+            audioSystem->playTankExplosion({tk.interpX, tk.interpY, tk.interpZ});
+            if (targetIdx >= PLAYER_MIN && targetIdx <= PLAYER_MAX)
+                audioSystem->playPlayerDestroyed();
+        }
     }
 }
 
@@ -656,7 +634,7 @@ void BulletSystem::render() const
         rlRotatef(yaw + 180.0f, 0, 1, 0); // DBP→OpenGL
         rlRotatef(pitch, 1, 0, 0);        // +pitch = нос вверх
         rlScalef(sc, sc, sc);
-        DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
+        DrawModel(b.superBullet ? bulletModel3 : mdl, {0, 0, 0}, 1.0f, WHITE);
         rlPopMatrix();
     }
 
@@ -680,16 +658,12 @@ void BulletSystem::render() const
                          : Color{255, 255, 255, 255}; // ← hit1: как в оригинале
 
         BeginBlendMode(BLEND_ADDITIVE);
-
         rlPushMatrix();
         rlTranslatef(h.x, h.y, h.z);
         rlRotatef(h.angleY, 0, 1, 0);
         rlScalef(sc, sc, sc);
-        // DrawModel(mdl, {0, 0, 0}, 1.0f, WHITE);
-        //  Alpha 128 = 50% — DBP ghost по умолчанию
         DrawModel(mdl, {0, 0, 0}, 1.0f, tint);
         rlPopMatrix();
-
         EndBlendMode();
     }
 

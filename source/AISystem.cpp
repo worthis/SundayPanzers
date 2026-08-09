@@ -2,9 +2,10 @@
 #include "Utils.h"
 #include <cmath>
 
-void AISystem::init(TankSystem *ts)
+void AISystem::init(AudioSystem *audioSystem, TankSystem *tankSystem)
 {
-    tankSystem = ts;
+    this->audioSystem = audioSystem;
+    this->tankSystem = tankSystem;
 }
 
 // ============================================================
@@ -742,6 +743,8 @@ AIOutput AISystem::computeInput(int n)
     {
         tk.turboCounter = tk.turboTime;
         tk.turboCharger = tk.turboReload;
+
+        if (audioSystem) audioSystem->playTurbo({tk.x, tk.y, tk.z});
     }
 
     // ============================================================

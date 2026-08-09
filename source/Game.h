@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "GameConfig.h"
+#include "AudioSystem.h"
 #include "Terrain.h"
 #include "Skybox.h"
 #include "TreeSystem.h"
@@ -45,10 +46,6 @@ public:
     void Draw();
     void Shutdown();
 
-    // Методы управления потоком игры
-    void StartBattle(int level, int playerSquad, int enemySquad, int guestSquad, PlayerTankInfo *player, int commander);
-    void ReturnToMenu();
-
 private:
     // Логика состояний
     void StartLogoIntro();
@@ -59,14 +56,21 @@ private:
     void UpdateGameIntro(float dt);
     void DrawGameIntro();
 
+    void StartBattle(int level, int playerSquad, int enemySquad, int guestSquad, PlayerTankInfo *player, int commander);
     void UpdateBattle(float dt);
     void DrawBattle();
     void CheckBattleEndConditions();
 
+    void ReturnToMenu();
+
+    void updateEngineSounds();
+    float findNearestTankDistance(int &nearestTankId) const;
+
     GameState currentState;
     MenuSystem menuSystem;
 
-    // Игровые системы (вместо глобальных переменных)
+    // Игровые системы
+    AudioSystem audioSystem;
     Terrain terrain;
     Skybox skybox;
     TreeSystem treeSystem;

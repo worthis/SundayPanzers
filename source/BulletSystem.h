@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "GameConfig.h"
+#include "AudioSystem.h"
 #include "Terrain.h"
 #include "TankSystem.h"
 #include "TreeSystem.h"
@@ -24,7 +25,6 @@ struct BulletData
     bool superBullet = false;
     float hitScale = 1.0f;
     float bulletScale = 1.0f; // масштаб модели пули (DBP %)
-    int bulletModelType = 1;  // 1 = bullet, 2 = bullet2
     int hitModelType = 1;     // 1 = hit, 2 = hit2
 };
 
@@ -63,7 +63,7 @@ public:
     BulletSystem();
     ~BulletSystem();
 
-    void init(Terrain *terrain, TankSystem *tankSystem, TreeSystem* treeSystem);
+    void init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem, TreeSystem *treeSystem);
     void fireBullet(int n);
     void update();
     void render() const;
@@ -75,17 +75,19 @@ private:
     HitEffect hits[MAX_BULLETS + 1];
     ExplosionData explosions[MAX_EXPLOSIONS];
 
+    AudioSystem *audioSystem = nullptr;
     Terrain *terrain = nullptr;
     TankSystem *tankSystem = nullptr;
     TreeSystem *treeSystem = nullptr;
 
     // Модели пуль
-    Model bulletModel1;
-    Model bulletModel2;
+    Model bulletModel1; // general bullet
+    Model bulletModel2; // heavy bullet
+    Model bulletModel3; // super bullet
     bool bulletModelsLoaded = false;
 
     // Текстуры (загружаются отдельно, т.к. не встроены в .glb)
-    Texture2D bulletTex1, bulletTex2;
+    Texture2D bulletTex1, bulletTex2, bulletTex3;
     Texture2D hitTex1, hitTex2;
     Texture2D ringTex;
     Texture2D exploTex;
@@ -102,10 +104,9 @@ private:
     bool explosionModelsLoaded = false;
 
     void bindTexture(Model &m, const Texture2D &tex);
-    Texture2D loadTextureColorKey(const char* path);
-
+    
     bool checkGroundCollision(const BulletData &b) const;
-    bool checkTreeCollision(BulletData& b, int& treeIndex, float& hitAngle) const;
+    bool checkTreeCollision(BulletData &b, int &treeIndex, float &hitAngle) const;
     bool checkMapBounds(const BulletData &b) const;
     int checkTankCollision(const BulletData &b) const;
 

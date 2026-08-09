@@ -51,3 +51,23 @@ constexpr float FIXED_DT = 1.0f / 100.0f;
 #define POWERUP_MIN 51
 #define POWERUP_MAX 55
 #define NUM_PUP 5
+
+// === Аудио система ===
+constexpr int MAX_SOUNDS = 12;
+constexpr float DBPRO_PITCH_BASE = 22050.0f;           // В DBPro sound speed = 22050 Hz для нормы. Raylib pitch: 1.0 = оригинал = wav sample rate
+constexpr float MAX_SOUND_DISTANCE = 1500.0f;          // Максимальная дистанция для звуков (из DBPro: rl < 1500)
+constexpr float MAX_TREE_COLLISION_DISTANCE = 2500.0f; // Максимальная дистанция для столкновений (rp1 < 2500 для дерева, 1500 для танка)
+constexpr float MAX_TANK_COLLISION_DISTANCE = 1500.0f; // Максимальная дистанция для столкновений (rp1 < 2500 для дерева, 1500 для танка)
+constexpr float ENGINE_VOLUME_BASE = 85.0f;            // Громкость двигателя игрока: vo# = 85 + rpm# * 4.5, cap 93// Громкость двигателя игрока: vo# = 85 + rpm# * 4.5, cap 93
+constexpr float ENGINE_VOLUME_FACTOR = 4.5f;           // Громкость двигателя игрока: vo# = 85 + rpm# * 4.5, cap 93
+constexpr float ENGINE_VOLUME_MAX = 93.0f;             // Громкость двигателя игрока: vo# = 85 + rpm# * 4.5, cap 93
+constexpr float NEARBY_VOLUME_BASE = 105.0f;           // Громкость ближайшего танка: vol = 105 - distance/15
+constexpr float NEARBY_VOLUME_DIVISOR = 15.0f;         // Громкость ближайшего танка: vol = 105 - distance/15
+constexpr float ENGINE_PITCH_FACTOR_PLAYER = 3250.0f;  // Pitch двигателя игрока: tk#(n,40) + rpm# * 3250
+constexpr float ENGINE_PITCH_FACTOR_NEARBY = 3150.0f;  // Pitch ближайшего танка: tk#(gam(3),40) + tk#(gam(3),38) * 3150
+constexpr float ENGINE_PITCH_MIN = DBPRO_PITCH_BASE * 0.3f;
+constexpr float ENGINE_PITCH_MAX = DBPRO_PITCH_BASE * 2.8f;
+constexpr float COMBAT_VOLUME_BASE = 105.0f;   // Громкость выстрелов/попаданий: vol = 105 - rl/25
+constexpr float COMBAT_VOLUME_DIVISOR = 25.0f; // Громкость выстрелов/попаданий: vol = 105 - rl/25
+constexpr float COMBAT_VOLUME_MAX = 100.0f;
+constexpr float DBPRO_VOLUME_SCALE = 1.0f / 100.0f; // Нормализация громкости DBPro (0-100) в Raylib (0.0-1.0)

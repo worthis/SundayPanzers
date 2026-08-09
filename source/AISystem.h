@@ -1,4 +1,5 @@
 #pragma once
+#include "AudioSystem.h"
 #include "TankSystem.h"
 #include "GameConfig.h"
 
@@ -13,7 +14,7 @@ struct AIOutput
 class AISystem
 {
 public:
-    void init(TankSystem *tankSystem);
+    void init(AudioSystem *audioSystem, TankSystem *tankSystem);
 
     // Вызывается ОДИН раз за тик ПЕРЕД циклом updateTank
     void update();
@@ -25,6 +26,7 @@ public:
     void setPowupSearchFactor(int v) { powupSearchFactor = v; }
 
 private:
+    AudioSystem *audioSystem = nullptr;
     TankSystem *tankSystem = nullptr;
 
     int changeTargetClock = 0;  // DBP: gam(11), 0..300

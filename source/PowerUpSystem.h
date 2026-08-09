@@ -2,6 +2,7 @@
 
 #include "raylib.h"
 #include "GameConfig.h"
+#include "AudioSystem.h"
 #include "Terrain.h"
 #include "TankSystem.h"
 
@@ -33,7 +34,7 @@ class PowerUpSystem
 public:
     PowerUpSystem() = default;
 
-    void init(Terrain *terrain, TankSystem *tankSystem);
+    void init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem);
     void loadAssets();
     void update();           // Вращение + таймер появления + синхронизация с TankSystem
     void checkPickup(int n); // Подбор для танка n + decrease counters. Вызывается для КАЖДОГО танка 1..50 каждый тик
@@ -48,6 +49,8 @@ public:
 
 private:
     PowerUpData pups[NUM_PUP];
+    
+    AudioSystem *audioSystem = nullptr;
     Terrain *terrain = nullptr;
     TankSystem *tankSystem = nullptr;
 
