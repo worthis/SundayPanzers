@@ -94,7 +94,7 @@ Texture2D LoadTextureColorKey(const char *path)
     int count = img.width * img.height;
     for (int i = 0; i < count; i++)
     {
-        if (pixels[i].r < 16 && pixels[i].g < 16 && pixels[i].b < 16)
+        if (pixels[i].r == 0 && pixels[i].g == 00 && pixels[i].b == 00)
             pixels[i].a = 0;
     }
 

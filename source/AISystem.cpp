@@ -20,7 +20,7 @@ void AISystem::update()
 
     // Уменьшение hitCounter для всех танков
     // DBP: if tk#(n,52)>0 then tk#(n,52)=tk#(n,52)-1
-    for (int n = 1; n < MAX_TANKS; n++)
+    for (int n = PLAYER_MIN; n < COMBAT_MAX; n++)
     {
         TankData &tk = tankSystem->getTankMut(n);
         if (tk.type == 0)

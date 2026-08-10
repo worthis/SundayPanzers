@@ -115,7 +115,7 @@ void MenuSystem::update(float dt)
     }
 
     m_cloudSystem->update(dt);
-    updateFakeTank(dt);
+    updateFakeTank();
 
     // Logo animation (ang#=wrapvalue(ang#+0.15), ang2#=wrapvalue(ang2#+0.2))
     m_logoAngle = wrapValue(m_logoAngle + 0.15f);
@@ -136,7 +136,7 @@ void MenuSystem::update(float dt)
         updateShop(mx, my, clicked);
 }
 
-void MenuSystem::updateFakeTank(float dt)
+void MenuSystem::updateFakeTank()
 {
     // Exact port from menu() fake tank logic
     float dx = m_fakeTank.x - m_fakeTarget.x;
@@ -269,9 +269,9 @@ void MenuSystem::updateSelectLevelSquad(float mx, float my, bool clicked)
             som = 1;
             m_selectedTankType = 1;
             m_selectedBox = 1;
-            m_minAI = 1 + (int)(spec[m_selectedLevel].ai1 / 2.5f);
-            m_maxAI = spec[m_selectedLevel].ai2;
-            m_creditsMax = lev[m_selectedLevel].credits;
+            m_minAI = 1 + (int)(spec[m_selectedLevel - 1].ai1 / 2.5f);
+            m_maxAI = spec[m_selectedLevel - 1].ai2;
+            m_creditsMax = lev[m_selectedLevel - 1].credits;
             m_creditsUsed = 0;
             m_commander = 0;
 
@@ -754,7 +754,7 @@ void MenuSystem::drawShop()
     drawDigits(m_selectedBox, 337, 200);
 
     // Enemy tanks count
-    int enemyCount = spec[m_selectedLevel].numEnemy + 1;
+    int enemyCount = spec[m_selectedLevel - 1].numEnemy + 1;
     drawDigits(enemyCount, 605, 200);
 
     // Arrows for box selection
@@ -901,8 +901,8 @@ void MenuSystem::drawDigits(int value, float x, float y) const
 
 void MenuSystem::loadAssets()
 {
-    m_texLogo = LoadTexture("data/menu/title2.png");
-    m_texCursor = LoadTexture("data/menu/mouse.png");
+    m_texLogo = LoadTextureColorKey("data/menu/title2.png");
+    m_texCursor = LoadTextureColorKey("data/menu/mouse.png");
     m_texSLevel = LoadTexture("data/menu/slevel.png");
     m_texSSquad = LoadTexture("data/menu/ssquad.png");
     m_texArrowLeft = LoadTexture("data/menu/ar1.png");
@@ -913,7 +913,7 @@ void MenuSystem::loadAssets()
 
     for (int i = 0; i < 10; i++)
     {
-        m_texDigits[i] = LoadTexture(TextFormat("data/menu/dg%d.png", i));
+        m_texDigits[i] = LoadTextureColorKey(TextFormat("data/menu/dg%d.png", i));
     }
     for (int i = 1; i <= 10; i++)
     {
@@ -921,7 +921,10 @@ void MenuSystem::loadAssets()
     }
     for (int i = 1; i <= 20; i++)
     {
-        m_texButtons[i] = LoadTexture(TextFormat("data/menu/p%d.png", i));
+        if (i == 7 || i == 18 || i == 19)
+            m_texButtons[i] = LoadTextureColorKey(TextFormat("data/menu/p%d.png", i));
+        else
+            m_texButtons[i] = LoadTexture(TextFormat("data/menu/p%d.png", i));
     }
     for (int i = 1; i <= 8; i++)
     {
@@ -934,8 +937,7 @@ void MenuSystem::loadAssets()
     {
         for (int type = 1; type <= 8; type++)
         {
-            m_texTankSmall[squad][type] = LoadTexture(
-                TextFormat("data/menu/tasq%s%d.png", letters[squad - 1], type));
+            m_texTankSmall[squad][type] = LoadTextureColorKey(TextFormat("data/menu/tasq%s%d.png", letters[squad - 1], type));
         }
     }
 }

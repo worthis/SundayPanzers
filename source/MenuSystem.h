@@ -46,7 +46,7 @@ public:
 
 private:
     // Update
-    void updateFakeTank(float dt);
+    void updateFakeTank();
     void updateSelectLevelSquad(float mx, float my, bool clicked);
     void updateShop(float mx, float my, bool clicked);
     void finishMenu();

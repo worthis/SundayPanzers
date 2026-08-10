@@ -54,6 +54,7 @@ constexpr float FIXED_DT = 1.0f / 100.0f;
 
 // === Аудио система ===
 constexpr int MAX_SOUNDS = 12;
+constexpr float NEAREST_TANK_DISTANCE_MAX = 1500.0F;   // Максимальная дистанция поиска ближайшего танка
 constexpr float DBPRO_PITCH_BASE = 22050.0f;           // В DBPro sound speed = 22050 Hz для нормы. Raylib pitch: 1.0 = оригинал = wav sample rate
 constexpr float MAX_SOUND_DISTANCE = 1500.0f;          // Максимальная дистанция для звуков (из DBPro: rl < 1500)
 constexpr float MAX_TREE_COLLISION_DISTANCE = 2500.0f; // Максимальная дистанция для столкновений (rp1 < 2500 для дерева, 1500 для танка)
