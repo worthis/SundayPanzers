@@ -304,15 +304,22 @@ void AudioSystem::updatePlayerEngine(float playerTankRPM, float playerTankEnergy
 // Оригинальная формула:
 // sps = tk#(gam(3),40) + tk#(gam(3),38) * 3150
 // vol = 105 - distance/15
-void AudioSystem::updateNearbyEngine(float nearbyTankRPM, float nearbyTankSoundStart, float distanceToNearby)
+void AudioSystem::updateNearbyEngine(const NearbyData nearbyData)
 {
     if (!initialized)
         return;
 
-    float pitch = calculatePitch(nearbyTankRPM, nearbyTankSoundStart);
+    // Поблизости нет танка - отключаем звук
+    if (nearbyData.id <= 0 || nearbyData.distance >= NEAREST_TANK_DISTANCE_MAX)
+    {
+        SetSoundVolume(sndEngineNearby, 0.0f);
+        return;
+    }
+
+    float pitch = calculatePitch(nearbyData.rpm, nearbyData.soundStart);
 
     // vol = 105 - gam(2)/15 (gam(2) = дистанция до ближайшего)
-    float volume = NEARBY_VOLUME_BASE - distanceToNearby / NEARBY_VOLUME_DIVISOR;
+    float volume = NEARBY_VOLUME_BASE - nearbyData.distance / NEARBY_VOLUME_DIVISOR;
     if (volume > ENGINE_VOLUME_MAX)
         volume = ENGINE_VOLUME_MAX;
     if (volume < 0)
@@ -321,6 +328,10 @@ void AudioSystem::updateNearbyEngine(float nearbyTankRPM, float nearbyTankSoundS
 
     SetSoundVolume(sndEngineNearby, volume);
     SetSoundPitch(sndEngineNearby, pitch);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(sndEngineNearby, calculatePan(nearbyData.pos));
+    }
 
     if (!IsSoundPlaying(sndEngineNearby))
     {
@@ -375,10 +386,7 @@ void AudioSystem::playCannonShot(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     // Игрок всегда имеет свободный канал (канал 2 в DBPro)
     // Для других: ищем свободный в пуле (каналы 3-6)
@@ -392,6 +400,10 @@ void AudioSystem::playCannonShot(const Vector3 &position)
 
     SetSoundVolume(poolCannon[idx].sound, volume);
     SetSoundPitch(poolCannon[idx].sound, 1.0f + GetRandomValue(-5, 5) * 0.01f);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(poolCannon[idx].sound, calculatePan(position));
+    }
     PlaySound(poolCannon[idx].sound);
 }
 
@@ -400,10 +412,7 @@ void AudioSystem::playGroundHit(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     int idx = findFreeChannel(poolBulletHit); // каналы 7-11
     if (idx < 0)
@@ -414,6 +423,10 @@ void AudioSystem::playGroundHit(const Vector3 &position)
         return;
 
     SetSoundVolume(poolBulletHit[idx].sound, volume);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(poolBulletHit[idx].sound, calculatePan(position));
+    }
     PlaySound(poolBulletHit[idx].sound);
 }
 
@@ -422,10 +435,7 @@ void AudioSystem::playTankHit(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     int idx = findFreeChannel(poolTankHit); // каналы 14-17
     if (idx < 0)
@@ -436,6 +446,10 @@ void AudioSystem::playTankHit(const Vector3 &position)
         return;
 
     SetSoundVolume(poolTankHit[idx].sound, volume);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(poolTankHit[idx].sound, calculatePan(position));
+    }
     PlaySound(poolTankHit[idx].sound);
 }
 
@@ -444,10 +458,7 @@ void AudioSystem::playCollision(const Vector3 &position, bool isTank)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     int idx = findFreeChannel(poolCollision); // каналы 19-22
     if (idx < 0)
@@ -458,6 +469,10 @@ void AudioSystem::playCollision(const Vector3 &position, bool isTank)
         return;
 
     SetSoundVolume(poolCollision[idx].sound, volume);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(poolCollision[idx].sound, calculatePan(position));
+    }
     PlaySound(poolCollision[idx].sound);
 }
 
@@ -466,16 +481,17 @@ void AudioSystem::playTankExplosion(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     if (distance >= MAX_SOUND_DISTANCE)
         return;
 
     float volume = calculateDistanceVolume(distance);
     SetSoundVolume(sndExplosion, volume);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(sndExplosion, calculatePan(position));
+    }
     PlaySound(sndExplosion);
 }
 
@@ -494,10 +510,7 @@ void AudioSystem::playRepairPickup(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     if (distance >= MAX_SOUND_DISTANCE)
         return;
@@ -505,6 +518,10 @@ void AudioSystem::playRepairPickup(const Vector3 &position)
     float volume = 105.0f - distance / 25.0f;
     volume = std::min(volume, 100.0f);
     SetSoundVolume(sndRepairPickup, volume * DBPRO_VOLUME_SCALE);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(sndRepairPickup, calculatePan(position));
+    }
     PlaySound(sndRepairPickup);
 }
 
@@ -513,10 +530,7 @@ void AudioSystem::playTurbo(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     // В оригинале: if rp1 < 1500 then play sound
     if (distance >= MAX_SOUND_DISTANCE)
@@ -525,6 +539,10 @@ void AudioSystem::playTurbo(const Vector3 &position)
     float volume = 105.0f - distance / 25.0f;
     volume = std::min(volume, 100.0f);
     SetSoundVolume(sndTurbo, volume * DBPRO_VOLUME_SCALE);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(sndTurbo, calculatePan(position));
+    }
     PlaySound(sndTurbo);
 }
 
@@ -533,10 +551,7 @@ void AudioSystem::playBarrierPickup(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     // В оригинале: if rp1 < 1500 then play sound
     if (distance >= MAX_SOUND_DISTANCE)
@@ -545,6 +560,10 @@ void AudioSystem::playBarrierPickup(const Vector3 &position)
     float volume = 105.0f - distance / 25.0f;
     volume = std::min(volume, 100.0f);
     SetSoundVolume(sndBarrierPickup, volume * DBPRO_VOLUME_SCALE);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(sndBarrierPickup, calculatePan(position));
+    }
     PlaySound(sndBarrierPickup);
 }
 
@@ -553,10 +572,7 @@ void AudioSystem::playSuperBulletPickup(const Vector3 &position)
     if (!initialized)
         return;
 
-    float dx = position.x - playerPosX;
-    float dz = position.z - playerPosZ;
-    float dy = position.y - playerPosY;
-    float distance = std::sqrt(dx * dx + dz * dz + dy * dy);
+    float distance = Vector3Distance(listenerPosition, position);
 
     if (distance >= MAX_SOUND_DISTANCE)
         return;
@@ -564,6 +580,10 @@ void AudioSystem::playSuperBulletPickup(const Vector3 &position)
     float volume = 105.0f - distance / 25.0f;
     volume = std::min(volume, 100.0f);
     SetSoundVolume(sndSuperBulletPickup, volume * DBPRO_VOLUME_SCALE);
+    if (sound3DEnabled)
+    {
+        SetSoundPan(sndSuperBulletPickup, calculatePan(position));
+    }
     PlaySound(sndSuperBulletPickup);
 }
 
@@ -579,7 +599,7 @@ void AudioSystem::playMenuCancel()
 {
     if (!initialized)
         return;
-        
+
     PlaySound(sndMenuCancel);
 }
 
@@ -588,9 +608,84 @@ void AudioSystem::update(float dt)
     updateMusic(dt);
 }
 
-void AudioSystem::updatePlayerPos(float x, float y, float z)
+// 3D позиционирование звука (опционально)
+void AudioSystem::toggle3DSound()
 {
-    playerPosX = x;
-    playerPosY = y;
-    playerPosZ = z;
+    sound3DEnabled = !sound3DEnabled;
+
+    // Логируем для отладки
+    if (sound3DEnabled)
+    {
+        TraceLog(LOG_INFO, "3D Sound Positioning: ENABLED");
+    }
+    else
+    {
+        // При отключении сбрасываем пан всех пулов в центр
+        for (auto &ch : poolCannon)
+            SetSoundPan(ch.sound, 0.0f);
+        for (auto &ch : poolBulletHit)
+            SetSoundPan(ch.sound, 0.0f);
+        for (auto &ch : poolTankHit)
+            SetSoundPan(ch.sound, 0.0f);
+        for (auto &ch : poolCollision)
+            SetSoundPan(ch.sound, 0.0f);
+        SetSoundPan(sndExplosion, 0.0f);
+        SetSoundPan(sndBarrierPickup, 0.0f);
+        SetSoundPan(sndSuperBulletPickup, 0.0f);
+        SetSoundPan(sndTurbo, 0.0f);
+        SetSoundPan(sndPlayerDestroyed, 0.0f);
+        SetSoundPan(sndRepairPickup, 0.0f);
+
+        TraceLog(LOG_INFO, "3D Sound Positioning: DISABLED (original DBPro behavior)");
+    }
+}
+
+void AudioSystem::setListenerOrientation(Vector3 position, Vector3 forward, Vector3 up)
+{
+    listenerPosition = position;
+    listenerForward = forward;
+    listenerUp = up;
+}
+
+float AudioSystem::calculatePan(const Vector3 &sourcePos) const
+{
+    // Вектор от слушателя к источнику звука
+    Vector3 direction = Vector3Subtract(sourcePos, listenerPosition);
+
+    // Нормализация направления
+    float length = Vector3Length(direction);
+    if (length < 0.001f)
+        return 0.0f; // Источник в позиции слушателя — центр
+
+    Vector3 normalizedDir = {
+        direction.x / length,
+        direction.y / length,
+        direction.z / length};
+
+    // Вычисляем вектор "вправо" от взгляда слушателя
+    // right = forward × up (векторное произведение)
+    Vector3 right = {
+        listenerForward.y * listenerUp.z - listenerForward.z * listenerUp.y,
+        listenerForward.z * listenerUp.x - listenerForward.x * listenerUp.z,
+        listenerForward.x * listenerUp.y - listenerForward.y * listenerUp.x};
+
+    // Нормализация right
+    float rightLength = Vector3Length(right);
+    if (rightLength < 0.001f)
+        return 0.0f;
+    right.x /= rightLength;
+    right.y /= rightLength;
+    right.z /= rightLength;
+
+    // Пан = скалярное произведение направления на вектор "вправо"
+    // pan < 0 → звук слева, pan > 0 → звук справа, pan = 0 → по центру
+    float pan = normalizedDir.x * right.x + normalizedDir.y * right.y + normalizedDir.z * right.z;
+
+    // Ограничиваем диапазон [-1.0, 1.0]
+    if (pan < -1.0f)
+        pan = -1.0f;
+    if (pan > 1.0f)
+        pan = 1.0f;
+
+    return pan;
 }

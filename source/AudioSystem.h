@@ -1,9 +1,19 @@
 #pragma once
 #include "raylib.h"
+#include "raymath.h"
 #include "GameConfig.h"
 #include <string>
 #include <vector>
 #include <array>
+
+struct NearbyData
+{
+    int id = 0;
+    float rpm = 0.0f;
+    float soundStart = 0.0f;
+    float distance = 0.0f;
+    Vector3 pos = Vector3Zero();
+};
 
 /**
  * AudioSystem - точный порт звуковой системы из DBPro.
@@ -69,7 +79,7 @@ public:
 
     // Звуки двигателя (2 канала)
     void updatePlayerEngine(float playerTankRPM, float playerTankEnergy, float playerTankSoundStart, bool isChangingCamera);
-    void updateNearbyEngine(float nearbyTankRPM, float nearbyTankSoundStart, float distanceToNearby);
+    void updateNearbyEngine(const NearbyData nearbyData);
 
     // Одноразовые звуки с пуллингом каналов
     void playCannonShot(const Vector3 &position);
@@ -85,24 +95,29 @@ public:
     void playMenuClick();  // Звук 29 (menu.wav)
     void playMenuCancel(); // Звук 18 (coll.wav)
 
-    void update(float dt);                           // Главный метод обновления (вызывать в UpdateBattle)
-    void updatePlayerPos(float x, float y, float z); // Обновления позиции танка игрока для обработки звуков в пространстве
+    void update(float dt); // Главный метод обновления (вызывать в UpdateBattle)
+
+    void toggle3DSound();
+    bool is3DSoundEnabled() const { return sound3DEnabled; }
+    void setListenerOrientation(Vector3 position, Vector3 forward, Vector3 up);
 
 private:
     struct SoundChannel
     {
-        Sound sound;
+        Sound sound = {};
         bool active = false;
         float volume = 1.0f;
     };
 
-    float playerPosX = 0.0f;
-    float playerPosY = 0.0f;
-    float playerPosZ = 0.0f;
+    bool sound3DEnabled = true;
+    Vector3 listenerPosition = Vector3Zero();
+    Vector3 listenerForward = {0.0f, 0.0f, 1.0f};
+    Vector3 listenerUp = {0.0f, 1.0f, 0.0f};
 
     // Вспомогательные методы
     float calculateDistanceVolume(float distance, float maxDistance = 1500.0f) const;
     float calculatePitch(float rpm, float basePitch, bool isPlayer = false) const;
+    float calculatePan(const Vector3 &sourcePos) const;
     int findFreeChannel(std::vector<SoundChannel> &pool) const;
 
     // Музыка
@@ -122,7 +137,7 @@ private:
     // Звуки двигателя (всегда играют)
     Sound sndEnginePlayer; // Звук 1 и 12 (tank.wav)
     Sound sndEngineNearby; // Звук 1 и 12 (tank.wav)
-    
+
     // Одноразовые звуки
     Sound sndExplosion;         // explo.wav (канал 23)
     Sound sndBarrierPickup;     // pup.wav (канал 24)
@@ -133,5 +148,5 @@ private:
     Sound sndMenuClick;         // menu.wav (канал 29)
     Sound sndMenuCancel;        // coll.wav (канал 18)
 
-    bool initialized;
+    bool initialized = false;
 };
