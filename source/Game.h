@@ -47,6 +47,9 @@ public:
     void Shutdown();
 
 private:
+    void loadAssets();
+    void unloadAssets();
+
     // Логика состояний
     void StartLogoIntro();
     void UpdateLogoIntro(float dt);
@@ -56,15 +59,27 @@ private:
     void UpdateGameIntro(float dt);
     void DrawGameIntro();
 
+    void StartBattleIntro();
+    void UpdateBattleIntro(float dt);
+    void DrawBattleIntro();
+
     void StartBattle(int level, int playerSquad, int enemySquad, int guestSquad, PlayerTankInfo *player, int commander);
     void UpdateBattle(float dt);
     void DrawBattle();
     void CheckBattleEndConditions();
 
+    void StartBattleEnding();
+    void UpdateBattleEnding(float dt);
+    void DrawBattleEnding();
+
     void ReturnToMenu();
 
     void updateEngineSounds();
     float findNearestTankDistance(int &nearestTankId) const;
+
+    void initFakeTank();
+    void initFakeTank(float x, float z, float yaw);
+    void UpdateFakeTankMovement();
 
     GameState currentState;
     MenuSystem menuSystem;
@@ -94,9 +109,22 @@ private:
     float introTimer;
     float introGamma;
     bool logoSoundPlayed;
-    Texture2D texLogo, texData1, texData2, texTitle;
+    Texture2D texLogo = {};
+    Texture2D texData1 = {};
+    Texture2D texData2 = {};
+    Texture2D texTitle = {};
     Sound sndLogo;
-    Music musicIntro;
     TankData introFakeTank;
-    Vector3 introTarget;
+    Vector3 introTarget = Vector3Zero();
+
+    // Ассеты и состояние для интро боя
+    float battleEndingBounce = 0.0f;     // b# (bounce эффект)
+    float battleEndingBounceAcc = 0.0f;  // ac# (ускорение bounce)
+    bool battleEndingVictory = false;    // результат боя
+    Texture2D texScenario[6] = {};       // image 84+gam(25) - имя сценария
+    Texture2D texVictory = {};           // image 2001
+    Texture2D texDefeat = {};            // image 2002
+    Texture2D texClick = {};             // image 2003
+    Texture2D texStart = {};
+    Texture2D texBattleOver = {};
 };

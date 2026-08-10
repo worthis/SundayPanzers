@@ -25,6 +25,7 @@ void Game::Init()
 {
     InitAudioDevice();
     initGameData();
+    loadAssets();
 
     audioSystem.init();
     treeSystem.init(&terrain);
@@ -66,11 +67,13 @@ void Game::Update(float dt)
         }
         break;
     case GameState::BATTLE_INTRO:
-        // Здесь будет UpdateBattleIntro(dt)
+        UpdateBattleIntro(dt);
         break;
     case GameState::BATTLE:
-    case GameState::BATTLE_END:
         UpdateBattle(dt);
+        break;
+    case GameState::BATTLE_END:
+        UpdateBattleEnding(dt);
         break;
     }
 }
@@ -89,9 +92,13 @@ void Game::Draw()
         menuSystem.draw();
         break;
     case GameState::BATTLE_INTRO:
+        DrawBattleIntro();
+        break;
     case GameState::BATTLE:
-    case GameState::BATTLE_END:
         DrawBattle();
+        break;
+    case GameState::BATTLE_END:
+        DrawBattleEnding();
         break;
     }
 }
@@ -101,16 +108,13 @@ void Game::Shutdown()
     audioSystem.shutdown();
     menuSystem.shutdown();
     CloseAudioDevice();
+
+    unloadAssets();
 }
 
 // === Логотип разработчика (entra) ===
 void Game::StartLogoIntro()
 {
-    texLogo = LoadTexture("data/menu/logo.png");
-    texData1 = LoadTexture("data/menu/data1.png");
-    texData2 = LoadTexture("data/menu/data2.png");
-    sndLogo = LoadSound("data/sound/logo.wav");
-
     currentState = GameState::LOGO_INTRO;
 }
 
@@ -133,11 +137,6 @@ void Game::UpdateLogoIntro(float dt)
 
     if (introTimer > 350.0f && skip)
     {
-        UnloadSound(sndLogo);
-        UnloadTexture(texLogo);
-        UnloadTexture(texData1);
-        UnloadTexture(texData2);
-
         StartGameIntro();
     }
 }
@@ -191,11 +190,6 @@ void Game::StartGameIntro()
     introTimer = 0.0f;
     introGamma = 0.0f;
 
-    // Загрузка тайтла и музыки
-    texTitle = LoadTexture("data/menu/title.png");
-    /// musicIntro = LoadMusicStream("data/music/intro.ogg");
-    // PlayMusicStream(musicIntro);
-
     // Генерация случайного ландшафта (без танков)
     int biome = GetRandomValue(1, 6);
 
@@ -209,19 +203,8 @@ void Game::StartGameIntro()
     terrain.buildMesh();
     cloudSystem.generate(biome);
 
-    // === Инициализация фейкового танка (аналог n=0 в DBPro) ===
-    introFakeTank = TankData{}; // Сброс в дефолтное состояние
-    introFakeTank.x = 500.0f + GetRandomValue(0, 4000);
-    introFakeTank.z = 500.0f + GetRandomValue(0, 4000);
-    introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z);
-    introFakeTank.yaw = 0.0f;
-    introFakeTank.spin = 0.0f;
-
-    // Инициализация нашей камеры
+    initFakeTank();
     camera.init(introFakeTank.x, 1000.0f, introFakeTank.z);
-
-    // Первая случайная цель для фейкового танка
-    introTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
 
     audioSystem.playIntroMusic();
     currentState = GameState::GAME_INTRO;
@@ -237,94 +220,15 @@ void Game::UpdateGameIntro(float dt)
     if (introGamma > 255.0f)
         introGamma = 255.0f;
 
-    // === Логика движения фейкового танка (точный порт из DBPro) ===
-    float dx = introFakeTank.x - introTarget.x;
-    float dz = introFakeTank.z - introTarget.z;
-    float r = sqrtf(dx * dx + dz * dz);
-
-    if (r < 110.0f || GetRandomValue(0, 100) > 97)
-    {
-        introTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
-    }
-
-    // Вычисление угла к цели (аналог point object 65000)
-    // В DBPro 0 градусов = +Z, 90 = +X. atan2(x, z) дает именно это.
-    float ry = atan2f(introTarget.x - introFakeTank.x, introTarget.z - introFakeTank.z) * RAD2DEG;
-    ry = wrapValue(ry); // Если у вас функции без namespace, уберите Utils::
-
-    float tanAngle = wrapValue(introFakeTank.yaw - ry);
-    int flag = 1;
-    float ta = fabsf(tanAngle);
-    float xj = 0.0f;
-
-    if (ta >= 355.0f || ta <= 5.0f)
-    {
-        xj = 0.0f;
-    }
-    else
-    {
-        if (ta > 180.0f)
-            flag = -flag;
-        if (tanAngle > 0.0f)
-            xj = -(float)flag;
-        if (tanAngle < 0.0f)
-            xj = (float)flag;
-    }
-
-    if (xj != 0.0f)
-    {
-        introFakeTank.spin += xj * 0.05f;
-        if (fabsf(introFakeTank.spin) > 0.7f)
-        {
-            if (introFakeTank.spin < 0)
-                introFakeTank.spin = -0.7f;
-            if (introFakeTank.spin > 0)
-                introFakeTank.spin = 0.7f;
-        }
-    }
-
-    if (xj == 0.0f && fabsf(introFakeTank.spin) >= 0.05f)
-    {
-        introFakeTank.spin /= 1.15f;
-        if (fabsf(introFakeTank.spin) <= 0.06f)
-            introFakeTank.spin = 0.0f;
-    }
-
-    introFakeTank.yaw = wrapValue(introFakeTank.yaw + introFakeTank.spin);
-
-    // Движение танка
-    float f = 0.5f + r / 500.0f;
-    introFakeTank.x = newXValue(introFakeTank.x, introFakeTank.yaw, f);
-    introFakeTank.z = newZValue(introFakeTank.z, introFakeTank.yaw, f);
-    introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z);
-
-    // Ограничения карты
-    if (introFakeTank.x < 370.0f)
-        introFakeTank.x = 370.0f;
-    if (introFakeTank.z < 370.0f)
-        introFakeTank.z = 370.0f;
-    if (introFakeTank.x > 4630.0f)
-        introFakeTank.x = 4630.0f;
-    if (introFakeTank.z > 4630.0f)
-        introFakeTank.z = 4630.0f;
-
-    // === ИСПРАВЛЕНИЕ БАГА: Синхронизация для камеры ===
-    introFakeTank.interpX = introFakeTank.x;
-    introFakeTank.interpY = introFakeTank.y;
-    introFakeTank.interpZ = introFakeTank.z;
-    introFakeTank.interpYaw = introFakeTank.yaw;
-
-    // === Обновляем нашу камеру, заставляя её следить за фейковым танком! ===
+    // Движение фейкового танка
+    UpdateFakeTankMovement();
+    // Камера следит за фейковым танком
     camera.track(introFakeTank, terrain, false);
 
     bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
     if (introTimer > 5.0f && skip)
     {
-        // StopMusicStream(musicIntro);
-        // UnloadMusicStream(musicIntro);
-        UnloadTexture(texTitle);
-
         currentState = GameState::MAIN_MENU;
         menuSystem.start(10, false); // maxLevel, gameCompleted
     }
@@ -411,14 +315,404 @@ void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSqua
     playerSquadAlive = true;
     enemySquadAlive = true;
 
-    audioSystem.playBattleMusic();
-    currentState = GameState::BATTLE;
+    StartBattleIntro();
+}
+
+void Game::StartBattleIntro()
+{
+    introTimer = 0.0f;
+    introGamma = 0.0f;
+
+    initFakeTank();
+    camera.init(introFakeTank.x, 1000.0f, introFakeTank.z);
+
+    // Сброс параметров
+    battleEndingBounce = 0.0f;
+    battleEndingBounceAcc = 0.0f;
+
+    currentState = GameState::BATTLE_INTRO;
+}
+
+void Game::UpdateBattleIntro(float dt)
+{
+    introTimer += dt * 105.0f;
+
+    // Fade in (ga=ga+5 из оригинала)
+    introGamma += 5.0f;
+    if (introGamma > 255.0f)
+        introGamma = 255.0f;
+
+    // Движение фейкового танка
+    UpdateFakeTankMovement();
+    // Камера следит за фейковым танком
+    camera.track(introFakeTank, terrain, false);
+
+    // Выход: если ga>=255 и нажата любая клавиша/мышь
+    // В оригинале: mv=abs(joystick x/200)+abs(joystick y/200)+rightkey()+leftkey()+upkey()+downkey()
+    bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+                IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_LEFT) ||
+                IsKeyDown(KEY_UP) || IsKeyDown(KEY_DOWN);
+
+    if (introTimer >= 5.0f && skip)
+    {
+        // Переход к бою
+        audioSystem.playBattleMusic();
+        currentState = GameState::BATTLE;
+    }
+}
+
+void Game::DrawBattleIntro()
+{
+    BeginDrawing();
+    ClearBackground(terrain.getBackdropColor());
+    BeginMode3D(camera.getCamera());
+
+    camera.applyRange();
+    skybox.render();
+    terrain.render();
+    treeSystem.render();
+    cloudSystem.render();
+
+    EndMode3D();
+
+    // === 2D UI (координаты оригинала 640x480) ===
+    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+
+    // Анимация текста "Sunday Panzers" (как в оригинале)
+    // ang#=wrapvalue(ang#+0.95)  ang2#=wrapvalue(ang2#+1.35)
+    float ang = introTimer * 0.95f;
+    float ang2 = introTimer * 1.35f;
+    float alpha = introTimer / 2.0f;
+    if (alpha > 255.0f)
+        alpha = 255.0f;
+
+    float rotation = cosf(ang * DEG2RAD) * 12.0f;
+    float scale = 100.0f + sinf(ang2 * DEG2RAD) * 25.0f;
+
+    int biome = terrain.getCurrentBiome();
+
+    // sprite 1,320,240,13
+    Rectangle src = {0, 0, (float)texStart.width, (float)texStart.height};
+    Rectangle dst = {
+        320.0f + offsetX,
+        240.0f + offsetY,
+        (float)texStart.width * scale / 100.0f,
+        (float)texStart.height * scale / 100.0f};
+    Vector2 origin = {dst.width / 2.0f, dst.height / 2.0f};
+    Color tint = {255, 255, 255, (unsigned char)alpha};
+    DrawTexturePro(texStart, src, dst, origin, rotation, tint);
+
+    // Fade in overlay (gamma эффект)
+    if (introGamma < 255.0f)
+    {
+        unsigned char overlayAlpha = (unsigned char)(255 - introGamma);
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, overlayAlpha});
+    }
+
+    // paste image 84+gam(25),10,10,1 - название сценария
+    if (biome > 0 && biome <= 6)
+    {
+        DrawTexture(texScenario[biome - 1], 10, 10, WHITE);
+    }
+
+    EndDrawing();
+}
+
+// ============================================================
+// BATTLE ENDING (camending в оригинале)
+// ============================================================
+
+void Game::StartBattleEnding()
+{
+    introTimer = 0.0f;
+    introGamma = 0.0f;
+
+    // gam(1)=0:gam(8)=-1 - игрок больше не управляет
+    // gam(22)=0 означает поражение (player squad уничтожен)
+    battleEndingVictory = playerSquadAlive && !enemySquadAlive;
+
+    // Фейковый танк стартует из позиции последнего игрока
+    // В оригинале: tk#(n,1)=tk#(gam(1),1):tk#(n,3)=tk#(gam(1),3)
+    const TankData &lastPlayer = tankSystem.getTank(playerCommander);
+    initFakeTank(lastPlayer.x, lastPlayer.z, lastPlayer.yaw);
+
+    currentState = GameState::BATTLE_END;
+}
+
+void Game::UpdateBattleEnding(float dt)
+{
+    introTimer += dt * 105.0f;
+
+    // Fade in (ga=ga+5 из оригинала)
+    introGamma += 5.0f;
+    if (introGamma > 255.0f)
+        introGamma = 255.0f;
+
+    cloudSystem.update(dt);
+
+    accumulator += dt;
+    while (accumulator >= FIXED_DT)
+    {
+        aiSystem.update();
+
+        for (int n = 1; n <= COMBAT_MAX; n++)
+        {
+            if (tankSystem.getTank(n).type <= 0)
+                continue;
+
+            AIOutput ai = aiSystem.computeInput(n);
+            tankSystem.updateTank(n, ai.xj, ai.yj);
+            if (ai.fire)
+                bulletSystem.fireBullet(n);
+        }
+
+        for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
+            powerUpSystem.checkPickup(n);
+
+        powerUpSystem.update();
+        tankSystem.updateCollisions();
+        treeSystem.update();
+        bulletSystem.update();
+
+        accumulator -= FIXED_DT;
+    }
+
+    //updateEngineSounds();
+
+    // Обработка M для mute музыки (keystate(50))
+    if (IsKeyPressed(KEY_M))
+    {
+        audioSystem.toggleMusicMute();
+    }
+
+    // === ИНТЕРПОЛЯЦИЯ ===
+    float alpha = accumulator / FIXED_DT; // 0.0 .. 1.0
+    tankSystem.interpolate(alpha);
+
+    // Движение фейкового танка
+    UpdateFakeTankMovement();
+    // Камера следит за фейковым танком
+    camera.track(introFakeTank, terrain, false);
+
+    Camera3D cam = camera.getCamera();
+    Vector3 forward = Vector3Subtract(cam.target, cam.position);
+    float fwdLen = Vector3Length(forward);
+    if (fwdLen > 0.001f)
+    {
+        forward.x /= fwdLen;
+        forward.y /= fwdLen;
+        forward.z /= fwdLen;
+    }
+    audioSystem.setListenerOrientation(camera.getPosition(), forward, cam.up);
+
+    // if msg>395 then paste image 2003 (click to continue)
+    /*if (battleEndingMessage > 395.0f)
+    {
+        battleEndingClickShown = true;
+    }*/
+
+    // Выход: если mv>0 и msg>=400
+    bool skip = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (introTimer >= 5.0f && skip)
+    {
+        ReturnToMenu();
+    }
+}
+
+void Game::DrawBattleEnding()
+{
+    BeginDrawing();
+    ClearBackground(terrain.getBackdropColor());
+    BeginMode3D(camera.getCamera());
+
+    camera.applyRange();
+    skybox.render();
+    terrain.render();
+    treeSystem.render();
+    cloudSystem.render();
+    tankSystem.render(); // показать останки танков
+    powerUpSystem.render();
+    bulletSystem.render();
+    tankSystem.renderShields();
+
+    EndMode3D();
+
+    // === 2D UI ===
+    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+
+    float ang = introTimer * 0.95f;
+    float ang2 = introTimer * 1.35f;
+    float alpha = introTimer / 2.0f;
+    if (alpha > 255.0f)
+        alpha = 255.0f;
+
+    float rotation = cosf(ang * DEG2RAD) * 12.0f;
+    float scale = 100.0f + sinf(ang2 * DEG2RAD) * 25.0f;
+
+    // Выбор текстуры: victory (2001) или defeat (2002)
+    Texture2D &resultTex = battleEndingVictory ? texVictory : texDefeat;
+    if (resultTex.id != 0)
+    {
+        Rectangle src = {0, 0, (float)resultTex.width, (float)resultTex.height};
+        Rectangle dst = {
+            320.0f + offsetX,
+            190.0f + offsetY,
+            (float)resultTex.width * scale / 100.0f,
+            (float)resultTex.height * scale / 100.0f};
+        Vector2 origin = {165.0f * scale / 100.0f, 35.0f * scale / 100.0f};
+        Color tint = {255, 255, 255, (unsigned char)alpha};
+        DrawTexturePro(resultTex, src, dst, origin, rotation, tint);
+    }
+
+    // if msg>395 then paste image 2003 - "click to continue"
+    if (alpha >= 255.0f && texClick.id != 0)
+    {
+        // xof=10*cos(ang#)  yof=10*sin(ang#)
+        float xof = 10.0f * cosf(ang * DEG2RAD);
+        float yof = 10.0f * sinf(ang * DEG2RAD);
+        DrawTexture(texClick,
+                    (int)(200 + xof + offsetX),
+                    (int)(380 - yof + offsetY), WHITE);
+    }
+
+    EndDrawing();
+}
+
+// Инициализация фейкового танка
+void Game::initFakeTank(float x, float z, float yaw)
+{
+    introFakeTank = TankData{};
+    introFakeTank.x = x;
+    introFakeTank.z = z;
+    introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z);
+    introFakeTank.yaw = yaw;
+    introFakeTank.spin = 0.0f;
+
+    // Первая случайная цель для фейкового танка
+    introTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
+
+    battleEndingBounce = 0.0f;
+    battleEndingBounceAcc = 0.0f;
+}
+
+void Game::initFakeTank()
+{
+    introFakeTank = TankData{};
+    introFakeTank.x = 500.0f + GetRandomValue(0, 4000);
+    introFakeTank.z = 500.0f + GetRandomValue(0, 4000);
+    introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z);
+    introFakeTank.yaw = 0.0f;
+    introFakeTank.spin = 0.0f;
+
+    // Первая случайная цель для фейкового танка
+    introTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
+
+    battleEndingBounce = 0.0f;
+    battleEndingBounceAcc = 0.0f;
+}
+
+// Движение фейкового танка
+void Game::UpdateFakeTankMovement()
+{
+    // Расчёт дистанции до цели
+    float dx = introFakeTank.x - introTarget.x;
+    float dz = introFakeTank.z - introTarget.z;
+    float r = sqrtf(dx * dx + dz * dz);
+
+    // if r#<110 or rnd(100)>97 then новая цель
+    if (r < 110.0f || GetRandomValue(0, 99) > 97)
+    {
+        introTarget = {500.0f + GetRandomValue(0, 4000), 0.0f, 500.0f + GetRandomValue(0, 4000)};
+    }
+
+    // Вычисление угла к цели
+    float ry = atan2f(introTarget.x - introFakeTank.x, introTarget.z - introFakeTank.z) * RAD2DEG;
+    ry = wrapValue(ry);
+
+    float tanAngle = wrapValue(introFakeTank.yaw - ry);
+    int flag = 1;
+    float ta = fabsf(tanAngle);
+    float xj = 0.0f;
+
+    if (ta >= 355.0f || ta <= 5.0f)
+    {
+        xj = 0.0f;
+    }
+    else
+    {
+        if (ta > 180.0f)
+            flag = -flag;
+        if (tanAngle > 0.0f)
+            xj = -(float)flag;
+        if (tanAngle < 0.0f)
+            xj = (float)flag;
+    }
+
+    // Поворот танка (в intro: 0.05, в ending: 0.05 тоже)
+    if (xj != 0.0f)
+    {
+        introFakeTank.spin += xj * 0.05f;
+        if (fabsf(introFakeTank.spin) > 0.7f)
+        {
+            introFakeTank.spin = (introFakeTank.spin < 0) ? -0.7f : 0.7f;
+        }
+    }
+    else if (fabsf(introFakeTank.spin) >= 0.05f)
+    {
+        introFakeTank.spin /= 1.15f;
+        if (fabsf(introFakeTank.spin) <= 0.06f)
+            introFakeTank.spin = 0.0f;
+    }
+
+    introFakeTank.yaw = wrapValue(introFakeTank.yaw + introFakeTank.spin);
+
+    // Bounce эффект (rnd(1000)>997)
+    if (GetRandomValue(0, 999) > 997 && battleEndingBounce <= 0.0f)
+    {
+        battleEndingBounce = 0.001f;
+        battleEndingBounceAcc = 10.0f + GetRandomValue(0, 30);
+    }
+    if (battleEndingBounce > 0.0f)
+    {
+        battleEndingBounce += battleEndingBounceAcc;
+        battleEndingBounceAcc -= 0.5f;
+        if (battleEndingBounce < 0.0f)
+            battleEndingBounce = 0.0f;
+    }
+
+    // Движение: f#=0.5+r#/500
+    float f = 0.5f + r / 500.0f;
+    introFakeTank.x = newXValue(introFakeTank.x, introFakeTank.yaw, f);
+    introFakeTank.z = newZValue(introFakeTank.z, introFakeTank.yaw, f);
+    introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z) + battleEndingBounce / 10.0f;
+
+    // Ограничения карты
+    if (introFakeTank.x < 370.0f)
+        introFakeTank.x = 370.0f;
+    if (introFakeTank.z < 370.0f)
+        introFakeTank.z = 370.0f;
+    if (introFakeTank.x > 4630.0f)
+        introFakeTank.x = 4630.0f;
+    if (introFakeTank.z > 4630.0f)
+        introFakeTank.z = 4630.0f;
+
+    // Синхронизация интерполяции
+    introFakeTank.interpX = introFakeTank.x;
+    introFakeTank.interpY = introFakeTank.y;
+    introFakeTank.interpZ = introFakeTank.z;
+    introFakeTank.interpYaw = introFakeTank.yaw;
 }
 
 void Game::UpdateBattle(float dt)
 {
     if (IsKeyPressed(KEY_F1))
         showDebug = !showDebug;
+
+    if (IsKeyPressed(KEY_F3))
+        audioSystem.toggle3DSound();
+
     if (IsKeyPressed(KEY_ESCAPE))
     {
         ReturnToMenu();
@@ -476,12 +770,6 @@ void Game::UpdateBattle(float dt)
             tankSystem.updateTank(n, xj, yj);
             if (fire)
                 bulletSystem.fireBullet(n);
-
-            if (n == playerCommander)
-            {
-                const TankData &ptk = tankSystem.getTank(n);
-                audioSystem.updatePlayerPos(ptk.x, ptk.y, ptk.z);
-            }
         }
 
         for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
@@ -513,21 +801,36 @@ void Game::UpdateBattle(float dt)
     // Камера следует за танком
     // ============================================================
     const TankData &playerTank = tankSystem.getTank(playerCommander);
+
+    Camera3D cam = camera.getCamera();
+    Vector3 forward = Vector3Subtract(cam.target, cam.position);
+    float fwdLen = Vector3Length(forward);
+    if (fwdLen > 0.001f)
+    {
+        forward.x /= fwdLen;
+        forward.y /= fwdLen;
+        forward.z /= fwdLen;
+    }
+    audioSystem.setListenerOrientation({playerTank.x, playerTank.y, playerTank.z}, forward, cam.up);
+
     bool rearView = input.isRearViewPressed();
     camera.track(playerTank, terrain, rearView);
+
+    if (battleEnded && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        StartBattleEnding();
+    }
 }
 
 void Game::CheckBattleEndConditions()
 {
-    if (!battleEnded)
+    if (battleEnded)
+        return;
+
+    // Если одна из сторон уничтожена
+    if (!playerSquadAlive || !enemySquadAlive)
     {
-        // Если одна из сторон уничтожена
-        if (!playerSquadAlive || !enemySquadAlive)
-        {
-            battleEnded = true;
-            currentState = GameState::BATTLE_END;
-            // Здесь позже будет вызов camending() и сохранение прогресса
-        }
+        battleEnded = true;
     }
 }
 
@@ -550,22 +853,24 @@ void Game::DrawBattle()
 
     EndMode3D();
 
+    if (battleEnded)
+    {
+        float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+        DrawTexture(texBattleOver, 141 + offsetX, 20, WHITE);
+    }
+
     if (showDebug)
+    {
         DrawFPS(10, 10);
 
-    if (currentState == GameState::BATTLE_END)
-    {
-        if (playerSquadAlive)
+        // Индикатор 3D звука
+        if (audioSystem.is3DSoundEnabled())
         {
-            DrawText("VICTORY! Click to continue", SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f, 30, GREEN);
+            DrawText("3D Sound: ON  [F3 to toggle]", 10, 30, 16, GREEN);
         }
         else
         {
-            DrawText("DEFEAT! Click to continue", SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f, 30, RED);
-        }
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-            ReturnToMenu();
+            DrawText("3D Sound: OFF [F3 to toggle]", 10, 30, 16, RED);
         }
     }
 
@@ -589,11 +894,11 @@ float Game::findNearestTankDistance(int &nearestTankId) const
     //   rp1=sqrt(...)
     //   if rp1<gam(2) and n<>gam(1) and tk#(n,0)>0 then gam(2)=rp1:gam(3)=n
 
-    float minDistance = 7500.0f;
     nearestTankId = 0;
+    float minDistance = NEAREST_TANK_DISTANCE_MAX;
     const TankData &player = tankSystem.getTank(playerCommander);
 
-    for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
+    for (int n = PLAYER_MIN; n <= TANKS_MAX; n++)
     {
         if (n == playerCommander)
             continue;
@@ -622,11 +927,69 @@ void Game::updateEngineSounds()
     audioSystem.updatePlayerEngine(player.rpm, player.energy, player.soundStart, changingCamera);
 
     // Двигатель ближайшего танка
-    int nearestId = 0;
-    float nearestDist = findNearestTankDistance(nearestId);
-    if (nearestId > PLAYER_MIN && nearestDist < 7500.0f)
+    NearbyData nearbyData = NearbyData{};
+    nearbyData.distance = findNearestTankDistance(nearbyData.id);
+
+    if (nearbyData.id > PLAYER_MIN)
     {
-        const TankData &nearest = tankSystem.getTank(nearestId);
-        audioSystem.updateNearbyEngine(nearest.rpm, nearest.soundStart, nearestDist);
+        const TankData &nearest = tankSystem.getTank(nearbyData.id);
+
+        nearbyData.pos = {nearest.x, nearest.y, nearest.z};
+        nearbyData.rpm = nearest.rpm;
+        nearbyData.soundStart = nearest.soundStart;
     }
+
+    audioSystem.updateNearbyEngine(nearbyData);
+}
+
+void Game::loadAssets()
+{
+    // logo assets
+    sndLogo = LoadSound("data/sound/logo.wav");
+    texLogo = LoadTexture("data/menu/logo.png");
+    texData1 = LoadTexture("data/menu/data1.png");
+    texData2 = LoadTexture("data/menu/data2.png");
+
+    // intro assets
+    const char *scenarioFiles[6] = {
+        "data/menu/sc1.png",
+        "data/menu/sc2.png",
+        "data/menu/sc3.png",
+        "data/menu/sc4.png",
+        "data/menu/sc5.png",
+        "data/menu/sc6.png"};
+
+    for (int i = 0; i < 6; i++)
+    {
+        texScenario[i] = LoadTextureColorKey(scenarioFiles[i]);
+    }
+
+    texTitle = LoadTextureColorKey("data/menu/title.png");
+    texStart = LoadTextureColorKey("data/menu/start.png");
+    texVictory = LoadTextureColorKey("data/menu/victory.png");
+    texDefeat = LoadTextureColorKey("data/menu/defeat.png");
+    texClick = LoadTextureColorKey("data/menu/click.png");
+    texBattleOver = LoadTextureColorKey("data/menu/battleover.png");
+}
+
+void Game::unloadAssets()
+{
+    // logo assets
+    UnloadSound(sndLogo);
+    UnloadTexture(texLogo);
+    UnloadTexture(texData1);
+    UnloadTexture(texData2);
+
+    // intro assets
+    for (int i = 0; i < 6; i++)
+    {
+        UnloadTexture(texScenario[i]);
+    }
+
+    UnloadTexture(texTitle);
+    UnloadTexture(texStart);
+    UnloadTexture(texVictory);
+    UnloadTexture(texDefeat);
+    UnloadTexture(texClick);
+    UnloadTexture(texBattleOver);
 }
