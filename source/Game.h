@@ -15,6 +15,7 @@
 #include "InputSystem.h"
 #include "SortieSystem.h"
 #include "MenuSystem.h"
+#include "HUDSystem.h"
 #include "Utils.h"
 
 // Состояния игры (State Machine)
@@ -83,6 +84,7 @@ private:
 
     GameState currentState;
     MenuSystem menuSystem;
+    HUDSystem hudSystem;
 
     // Игровые системы
     AudioSystem audioSystem;
@@ -98,33 +100,34 @@ private:
     InputSystem input;
 
     // Состояние текущего матча
-    int playerCommander;
+    int playerCommander = 1;
     float accumulator;
-    bool showDebug;
-    bool playerSquadAlive;
-    bool enemySquadAlive;
-    bool battleEnded;
+    bool showDebug = false;
+    bool showEnemyIDs = false;
+    bool playerSquadAlive = false;
+    bool enemySquadAlive = false;
+    bool battleEnded = false;
 
     // Ассеты и состояние для интро
     float introTimer;
     float introGamma;
-    bool logoSoundPlayed;
+    bool logoSoundPlayed = false;
     Texture2D texLogo = {};
     Texture2D texData1 = {};
     Texture2D texData2 = {};
     Texture2D texTitle = {};
-    Sound sndLogo;
-    TankData introFakeTank;
+    Sound sndLogo = {};
+    TankData introFakeTank = {};
     Vector3 introTarget = Vector3Zero();
 
     // Ассеты и состояние для интро боя
-    float battleEndingBounce = 0.0f;     // b# (bounce эффект)
-    float battleEndingBounceAcc = 0.0f;  // ac# (ускорение bounce)
-    bool battleEndingVictory = false;    // результат боя
-    Texture2D texScenario[6] = {};       // image 84+gam(25) - имя сценария
-    Texture2D texVictory = {};           // image 2001
-    Texture2D texDefeat = {};            // image 2002
-    Texture2D texClick = {};             // image 2003
+    float battleEndingBounce = 0.0f;    // b# (bounce эффект)
+    float battleEndingBounceAcc = 0.0f; // ac# (ускорение bounce)
+    bool battleEndingVictory = false;   // результат боя
+    Texture2D texScenario[6] = {};      // image 84+gam(25) - имя сценария
+    Texture2D texVictory = {};          // image 2001
+    Texture2D texDefeat = {};           // image 2002
+    Texture2D texClick = {};            // image 2003
     Texture2D texStart = {};
     Texture2D texBattleOver = {};
 };

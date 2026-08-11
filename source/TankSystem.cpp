@@ -740,8 +740,9 @@ void TankSystem::spawnExtrasForBiome(int biome)
 
 void TankSystem::applyBounce(int n)
 {
-    if (n < 1 || n >= MAX_TANKS)
+    if (n < PLAYER_MIN || n >= MAX_TANKS)
         return;
+        
     TankData &tk = tanks[n];
 
     if (tk.bounceForce > 0.0f)
@@ -756,7 +757,7 @@ void TankSystem::applyBounce(int n)
 
 void TankSystem::updateTank(int n, float xj, float yj)
 {
-    if (n < 1 || n > COMBAT_MAX)
+    if (n < PLAYER_MIN || n > COMBAT_MAX)
         return;
 
     TankData &tk = tanks[n];

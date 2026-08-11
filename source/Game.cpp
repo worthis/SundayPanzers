@@ -38,6 +38,7 @@ void Game::Init()
     powerUpSystem.loadAssets();
 
     menuSystem.init(&input, &audioSystem, &terrain, &skybox, &treeSystem, &cloudSystem, &tankSystem, &camera);
+    hudSystem.init();
 
     introTimer = 0.0f;
 
@@ -107,6 +108,7 @@ void Game::Shutdown()
 {
     audioSystem.shutdown();
     menuSystem.shutdown();
+    hudSystem.shutdown();
     CloseAudioDevice();
 
     unloadAssets();
@@ -478,7 +480,7 @@ void Game::UpdateBattleEnding(float dt)
         accumulator -= FIXED_DT;
     }
 
-    //updateEngineSounds();
+    // updateEngineSounds();
 
     // Обработка M для mute музыки (keystate(50))
     if (IsKeyPressed(KEY_M))
@@ -719,6 +721,9 @@ void Game::UpdateBattle(float dt)
         return;
     }
 
+    if (IsKeyPressed(KEY_T))
+        showEnemyIDs = !showEnemyIDs;
+
     cloudSystem.update(dt);
 
     accumulator += dt;
@@ -852,6 +857,10 @@ void Game::DrawBattle()
     tankSystem.renderShields();
 
     EndMode3D();
+
+    const TankData &playerTank = tankSystem.getTank(playerCommander);
+    Vector3 playerPos = {playerTank.interpX, playerTank.interpY, playerTank.interpZ};
+    hudSystem.render(tankSystem, camera.getCamera(), playerCommander, playerPos, showEnemyIDs);
 
     if (battleEnded)
     {
