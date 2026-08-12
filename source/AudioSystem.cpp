@@ -98,28 +98,28 @@ void AudioSystem::init(EventSystem *eventSystem)
 
     // Загрузка пула звуков выстрелов (4 канала, как DBPro 3-6)
     poolCannon.resize(4);
-    for (int i = 0; i < poolCannon.size(); i++)
+    for (size_t i = 0; i < poolCannon.size(); i++)
     {
         poolCannon[i].sound = LoadSoundAlias(poolSounds[static_cast<int>(SoundList::CANNON)]);
     }
 
     // Загрузка пула звуков пуль (5 каналов, DBPro 7-11)
     poolBulletHit.resize(5);
-    for (int i = 0; i < poolBulletHit.size(); i++)
+    for (size_t i = 0; i < poolBulletHit.size(); i++)
     {
         poolBulletHit[i].sound = LoadSoundAlias(poolSounds[static_cast<int>(SoundList::HIT)]);
     }
 
     // Загрузка пула звуков попаданий в танк (4 канала, DBPro 14-17)
     poolTankHit.resize(4);
-    for (int i = 0; i < poolTankHit.size(); i++)
+    for (size_t i = 0; i < poolTankHit.size(); i++)
     {
         poolTankHit[i].sound = LoadSoundAlias(poolSounds[static_cast<int>(SoundList::HIT2)]);
     }
 
     // Загрузка пула звуков столкновений (4 канала, DBPro 19-22)
     poolCollision.resize(4);
-    for (int i = 0; i < poolCollision.size(); i++)
+    for (size_t i = 0; i < poolCollision.size(); i++)
     {
         poolCollision[i].sound = LoadSoundAlias(poolSounds[static_cast<int>(SoundList::COLLISION)]);
     }
@@ -159,7 +159,7 @@ void AudioSystem::shutdown()
     // Выгрузка пулов
     if (poolCannon.size() > 0)
     {
-        for (int i = 0; i < poolCannon.size(); i++)
+        for (size_t i = 0; i < poolCannon.size(); i++)
         {
             UnloadSoundAlias(poolCannon[i].sound);
         }
@@ -168,7 +168,7 @@ void AudioSystem::shutdown()
 
     if (poolBulletHit.size() > 0)
     {
-        for (int i = 0; i < poolBulletHit.size(); i++)
+        for (size_t i = 0; i < poolBulletHit.size(); i++)
         {
             UnloadSoundAlias(poolBulletHit[i].sound);
         }
@@ -177,7 +177,7 @@ void AudioSystem::shutdown()
 
     if (poolTankHit.size() > 0)
     {
-        for (int i = 0; i < poolTankHit.size(); i++)
+        for (size_t i = 0; i < poolTankHit.size(); i++)
         {
             UnloadSoundAlias(poolTankHit[i].sound);
         }
@@ -186,14 +186,14 @@ void AudioSystem::shutdown()
 
     if (poolCollision.size() > 0)
     {
-        for (int i = 0; i < poolCollision.size(); i++)
+        for (size_t i = 0; i < poolCollision.size(); i++)
         {
             UnloadSoundAlias(poolCollision[i].sound);
         }
     }
     poolCollision.clear();
 
-    for (int i = 0; i < MAX_SOUNDS; i++)
+    for (size_t i = 0; i < MAX_SOUNDS; i++)
     {
         UnloadSoundAlias(poolSounds[i]);
     }

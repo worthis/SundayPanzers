@@ -198,6 +198,7 @@ int AISystem::findTarget(int n) const
 AIOutput AISystem::computeInput(int n)
 {
     AIOutput out;
+
     if (!tankSystem)
         return out;
 
@@ -216,7 +217,7 @@ AIOutput AISystem::computeInput(int n)
         if (tk.target == 0 || tankSystem->getTank(tk.target).type <= 0)
         {
             float tgmin = MAP_SIZE * MAP_SIZE;
-            int   tggot = 0;
+            int tggot = 0;
             for (int t = PLAYER_MIN; t <= TANKS_MAX; t++)
             {
                 const TankData &extraTarget = tankSystem->getTank(t);
@@ -224,16 +225,57 @@ AIOutput AISystem::computeInput(int n)
                 {
                     float dx = tk.x - extraTarget.x;
                     float dz = tk.z - extraTarget.z;
-                    float r  = sqrtf(dx*dx + dz*dz);
-                    if (r < tgmin) { tgmin = r; tggot = t; }
+                    float r = sqrtf(dx * dx + dz * dz);
+                    if (r < tgmin)
+                    {
+                        tgmin = r;
+                        tggot = t;
+                    }
                 }
             }
-            if (tggot > 0) tk.target = tggot;
+            if (tggot > 0)
+                tk.target = tggot;
         }
 
-        //out.xj   = 0.0f;      // heading (поворот к цели) обрабатывается общей логикой
-        out.yj   = -1.0f;     // всегда вперёд
-        out.fire = 0;         // extra не стреляют
+        if (tk.target > 0)
+        {
+            const TankData &tg = tankSystem->getTank(tk.target);
+            if (tg.type > 0)
+            {
+                float dx = tg.x - tk.x;
+                float dz = tg.z - tk.z;
+                float r = sqrtf(dx * dx + dz * dz);
+
+                // Вычисляем угол к цели (аналог point object в DBP)
+                float ry = atan2f(dx, dz) * RAD2DEG;
+                ry = wrapValue(ry);
+
+                float tanAngle = wrapValue(tk.yaw - ry);
+                float ta = fabsf(tanAngle);
+
+                // aim = 20 для животных (tk#(n,32)=20 из tankloader)
+                float aim = 20.0f;
+
+                if (ta >= (360.0f - aim) || ta <= aim)
+                {
+                    out.xj = 0.0f; // уже направлены на цель
+                }
+                else
+                {
+                    int flag = 1;
+                    if (ta > 180.0f)
+                        flag = -flag;
+                    if (tanAngle > 0.0f)
+                        out.xj = -(float)flag;
+                    if (tanAngle < 0.0f)
+                        out.xj = (float)flag;
+                }
+            }
+        }
+
+        // out.xj   = 0.0f;      // heading (поворот к цели) обрабатывается общей логикой
+        out.yj = -1.0f; // всегда вперёд
+        out.fire = 0;   // extra не стреляют
         return out;
     }
 
@@ -744,7 +786,8 @@ AIOutput AISystem::computeInput(int n)
         tk.turboCounter = tk.turboTime;
         tk.turboCharger = tk.turboReload;
 
-        if (audioSystem) audioSystem->playTurbo({tk.x, tk.y, tk.z});
+        if (audioSystem)
+            audioSystem->playTurbo({tk.x, tk.y, tk.z});
     }
 
     // ============================================================
