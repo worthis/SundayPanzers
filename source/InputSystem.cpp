@@ -178,3 +178,18 @@ bool InputSystem::isGamepadAnyPressed(std::initializer_list<int> buttons) const
     }
     return false;
 }
+
+int InputSystem::getRequestedTank() const
+{
+    // F1-F10: scancode 59-68
+    // F11-F12: scancode 87-88 (в DBP это было a=>87 and a<=88)
+    // В Raylib: KEY_F1 = 290, KEY_F12 = 301
+
+    for (int i = 0; i < 12; i++)
+    {
+        if (IsKeyPressed(KEY_F1 + i))
+            return i + 1;
+    }
+
+    return 0;
+}

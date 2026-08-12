@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "GameConfig.h"
+#include "SaveSystem.h"
 #include "EventSystem.h"
 #include "AudioSystem.h"
 #include "Terrain.h"
@@ -22,12 +23,13 @@
 // Состояния игры (State Machine)
 enum class GameState
 {
-    LOGO_INTRO,   // entra()
-    GAME_INTRO,   // gameintro()
-    MAIN_MENU,    // menu()
-    BATTLE_INTRO, // camintro()
-    BATTLE,       // tanks()
-    BATTLE_END    // camending()
+    LOGO_INTRO,    // entra()
+    GAME_INTRO,    // gameintro()
+    MAIN_MENU,     // menu()
+    BATTLE_INTRO,  // camintro()
+    BATTLE,        // tanks()
+    BATTLE_END,    // camending()
+    GAME_COMPLETED // game ending
 };
 
 enum class MenuItem
@@ -68,13 +70,17 @@ private:
     void StartBattle(int level, int playerSquad, int enemySquad, int guestSquad, PlayerTankInfo *player, int commander);
     void UpdateBattle(float dt);
     void DrawBattle();
-    void CheckBattleEndConditions();
 
     void StartBattleEnding();
     void UpdateBattleEnding(float dt);
     void DrawBattleEnding();
 
+    void StartGameCompleted();
+    void UpdateGameCompleted(float dt);
+    void DrawGameCompleted();
+
     void ReturnToMenu();
+    void CheckBattleEndConditions();
 
     void updateEngineSounds();
     float findNearestTankDistance(int &nearestTankId) const;
@@ -101,6 +107,8 @@ private:
     TankCamera camera;
     InputSystem input;
 
+    SaveData saveData;
+
     // Состояние текущего матча
     int playerCommander = 1;
     float accumulator;
@@ -109,6 +117,7 @@ private:
     bool playerSquadAlive = false;
     bool enemySquadAlive = false;
     bool battleEnded = false;
+    int requestedTank = 0;
 
     // Ассеты и состояние для интро
     float introTimer;
@@ -132,4 +141,9 @@ private:
     Texture2D texClick = {};            // image 2003
     Texture2D texStart = {};
     Texture2D texBattleOver = {};
+
+    // Ассеты и состояние для конца игры
+    Texture2D texEndGame = {};
+    Music musicEndGame = {};
+    bool endGamePlayed = false;
 };

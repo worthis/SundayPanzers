@@ -27,6 +27,8 @@ void Game::Init()
     initGameData();
     loadAssets();
 
+    SaveSystem::load(saveData); // Загружаем сохранения
+
     audioSystem.init(&eventSystem);
     terrain.init(&eventSystem);
     treeSystem.init(&eventSystem, &terrain);
@@ -77,6 +79,9 @@ void Game::Update(float dt)
     case GameState::BATTLE_END:
         UpdateBattleEnding(dt);
         break;
+    case GameState::GAME_COMPLETED:
+        UpdateGameCompleted(dt);
+        break;
     }
 }
 
@@ -101,6 +106,9 @@ void Game::Draw()
         break;
     case GameState::BATTLE_END:
         DrawBattleEnding();
+        break;
+    case GameState::GAME_COMPLETED:
+        DrawGameCompleted();
         break;
     }
 }
@@ -233,7 +241,7 @@ void Game::UpdateGameIntro(float dt)
     if (introTimer > 5.0f && skip)
     {
         currentState = GameState::MAIN_MENU;
-        menuSystem.start(10, false); // maxLevel, gameCompleted
+        menuSystem.start(saveData.maxLevel, saveData.gameCompleted);
     }
 }
 
@@ -516,10 +524,19 @@ void Game::UpdateBattleEnding(float dt)
     }*/
 
     // Выход: если mv>0 и msg>=400
-    bool skip = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool skip = (alpha >= 255.0f) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     if (introTimer >= 5.0f && skip)
     {
-        ReturnToMenu();
+        // Проверяем, нужно ли показать финальную заставку
+        int currentLevel = menuSystem.getResult().level;
+        if (currentLevel == 50 && saveData.gameCompleted && !endGamePlayed)
+        {
+            StartGameCompleted();
+        }
+        else
+        {
+            ReturnToMenu();
+        }
     }
 }
 
@@ -725,6 +742,37 @@ void Game::UpdateBattle(float dt)
     if (IsKeyPressed(KEY_T))
         showEnemyIDs = !showEnemyIDs;
 
+    // === СМЕНА ТАНКА (F1-F12) ===
+    int requestedTankId = input.getRequestedTank();
+    if (requestedTankId > 0 && requestedTankId != playerCommander && !camera.isSlipCamActive())
+    {
+        const TankData &newTank = tankSystem.getTank(requestedTankId);
+        if (newTank.type > 0 && newTank.energy > 0)
+        {
+            // Запускаем slipcam
+            const TankData &currentTank = tankSystem.getTank(playerCommander);
+            camera.startSlipCam(currentTank, newTank);
+            requestedTank = requestedTankId;
+            TraceLog(LOG_INFO, "Switching to tank %d", requestedTankId);
+        }
+    }
+
+    // Обновляем slipcam если активен
+    if (camera.isSlipCamActive())
+    {
+        const TankData &targetTank = tankSystem.getTank(requestedTank);
+        camera.updateSlipCam(dt, terrain, targetTank);
+
+        if (camera.isSlipCamFinished())
+        {
+            // Переключаем управление
+            playerCommander = requestedTank;
+            camera.resetSlipCam();
+            requestedTank = 0;
+            TraceLog(LOG_INFO, "Switched control to tank %d", playerCommander);
+        }
+    }
+
     cloudSystem.update(dt);
 
     accumulator += dt;
@@ -749,7 +797,9 @@ void Game::UpdateBattle(float dt)
             float xj = 0, yj = 0;
             bool fire = false;
 
-            if (n == playerCommander)
+            // Если slipcam активен, игрок не управляет
+            bool isPlayerControlled = (n == playerCommander) && !camera.isSlipCamActive();
+            if (isPlayerControlled)
             {
                 xj = input.getTankX();
                 yj = input.getTankY();
@@ -807,7 +857,6 @@ void Game::UpdateBattle(float dt)
     // Камера следует за танком
     // ============================================================
     const TankData &playerTank = tankSystem.getTank(playerCommander);
-
     Camera3D cam = camera.getCamera();
     Vector3 forward = Vector3Subtract(cam.target, cam.position);
     float fwdLen = Vector3Length(forward);
@@ -817,10 +866,10 @@ void Game::UpdateBattle(float dt)
         forward.y /= fwdLen;
         forward.z /= fwdLen;
     }
-    audioSystem.setListenerOrientation({playerTank.x, playerTank.y, playerTank.z}, forward, cam.up);
+    audioSystem.setListenerOrientation(cam.position, forward, cam.up);
 
-    bool rearView = input.isRearViewPressed();
-    camera.track(playerTank, terrain, rearView);
+    if (!camera.isSlipCamActive())
+        camera.track(playerTank, terrain, input.isRearViewPressed());
 
     if (battleEnded && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
@@ -837,6 +886,29 @@ void Game::CheckBattleEndConditions()
     if (!playerSquadAlive || !enemySquadAlive)
     {
         battleEnded = true;
+
+        // === ПРОГРЕССИЯ ИГРОКА ===
+        // Если игрок победил и прошел текущий уровень
+        if (playerSquadAlive && !enemySquadAlive)
+        {
+            int currentLevel = menuSystem.getResult().level;
+
+            // Если это максимальный доступный уровень и он < 50
+            if (currentLevel == saveData.maxLevel && saveData.maxLevel < 50)
+            {
+                saveData.maxLevel++;
+                SaveSystem::save(saveData);
+                TraceLog(LOG_INFO, "Level completed! New maxLevel: %d", saveData.maxLevel);
+            }
+
+            // Если пройден 50 уровень - игра завершена
+            if (currentLevel == 50 && !saveData.gameCompleted)
+            {
+                saveData.gameCompleted = true;
+                SaveSystem::save(saveData);
+                TraceLog(LOG_INFO, "Game completed!");
+            }
+        }
     }
 }
 
@@ -887,11 +959,73 @@ void Game::DrawBattle()
     EndDrawing();
 }
 
+void Game::StartGameCompleted()
+{
+    currentState = GameState::GAME_COMPLETED;
+    introTimer = 0.0f;
+    introGamma = 0.0f;
+    endGamePlayed = true;
+
+    // Загружаем финальную заставку
+    texEndGame = LoadTexture("data/menu/end.png");
+
+    audioSystem.playEndMusic();
+}
+
+void Game::UpdateGameCompleted(float dt)
+{
+    introTimer += dt * 105.0f;
+
+    // Fade in (ga=ga+1)
+    introGamma += 1.0f;
+    if (introGamma > 255.0f)
+        introGamma = 255.0f;
+
+    // Ожидание клика после полного fade-in
+    bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+
+    if (introGamma >= 255.0f && skip)
+    {
+        // Fade out
+        UnloadTexture(texEndGame);
+
+        texEndGame = {};
+        musicEndGame = {};
+
+        ReturnToMenu();
+    }
+}
+
+void Game::DrawGameCompleted()
+{
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    // Центрирование
+    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+
+    // Отрисовка финальной заставки
+    if (texEndGame.id != 0)
+    {
+        DrawTexture(texEndGame, (int)offsetX, (int)offsetY, WHITE);
+    }
+
+    // Fade-in overlay
+    if (introGamma < 255.0f)
+    {
+        unsigned char alpha = (unsigned char)(255 - introGamma);
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alpha});
+    }
+
+    EndDrawing();
+}
+
 void Game::ReturnToMenu()
 {
     audioSystem.stopMusic();
     currentState = GameState::MAIN_MENU;
-    menuSystem.start(10, false); // Возврат в меню после боя
+    menuSystem.start(saveData.maxLevel, saveData.gameCompleted);
     audioSystem.playMenuMusic();
 }
 
@@ -933,8 +1067,7 @@ float Game::findNearestTankDistance(int &nearestTankId) const
 void Game::updateEngineSounds()
 {
     const TankData &player = tankSystem.getTank(playerCommander);
-    bool changingCamera = false; //(camera.isChanging()); // gam(8)>0 означает что камера переключается
-    audioSystem.updatePlayerEngine(player.rpm, player.energy, player.soundStart, changingCamera);
+    audioSystem.updatePlayerEngine(player.rpm, player.energy, player.soundStart, camera.isSlipCamActive());
 
     // Двигатель ближайшего танка
     NearbyData nearbyData = NearbyData{};

@@ -40,6 +40,8 @@ public:
 
     bool isGamepadConnected() const;
 
+    int getRequestedTank() const; // Возвращает 1-12 если нажата F1-F12, иначе 0
+
 private:
     float tankX, tankY;
     float camX, camY;
