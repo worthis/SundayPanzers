@@ -27,11 +27,12 @@ void Game::Init()
     initGameData();
     loadAssets();
 
-    audioSystem.init();
-    treeSystem.init(&terrain);
+    audioSystem.init(&eventSystem);
+    terrain.init(&eventSystem);
+    treeSystem.init(&eventSystem, &terrain);
     cloudSystem.init(&terrain);
-    tankSystem.init(&audioSystem, &terrain, &treeSystem);
-    bulletSystem.init(&audioSystem, &terrain, &tankSystem, &treeSystem);
+    tankSystem.init(&eventSystem, &terrain);
+    bulletSystem.init(&eventSystem);
     powerUpSystem.init(&audioSystem, &terrain, &tankSystem);
     aiSystem.init(&audioSystem, &tankSystem);
     bulletSystem.loadAssets();
@@ -466,7 +467,7 @@ void Game::UpdateBattleEnding(float dt)
             AIOutput ai = aiSystem.computeInput(n);
             tankSystem.updateTank(n, ai.xj, ai.yj);
             if (ai.fire)
-                bulletSystem.fireBullet(n);
+                tankSystem.fireBullet(n);
         }
 
         for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
@@ -774,7 +775,7 @@ void Game::UpdateBattle(float dt)
 
             tankSystem.updateTank(n, xj, yj);
             if (fire)
-                bulletSystem.fireBullet(n);
+                tankSystem.fireBullet(n);
         }
 
         for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)

@@ -24,18 +24,15 @@ constexpr float FIXED_DT = 1.0f / 100.0f;
 #define MAX_TREES 75
 #define MAX_CLOUDS 10
 #define NUM_BIOMES 6
+#define MAX_TANK_TYPES 8
+#define MAX_BULLETS 55
+#define MAX_HIT_EFFECTS 55
+#define MAX_EXPLOSIONS 4
+#define NUM_PUP 5
 
 // === Камера (DBP: set camera range 6,7450) ===
 #define CAMERA_NEAR 6.0f
 #define CAMERA_FAR 7100.0f
-
-// === Танки ===
-#define MAX_TANKS 56
-#define MAX_TANK_TYPES 8
-
-#define MAX_BULLETS 55
-#define MAX_HIT_EFFECTS 55
-#define MAX_EXPLOSIONS 4
 
 // === Подразделения (DBP: индексация tk#) ===
 #define PLAYER_MIN 1
@@ -50,7 +47,7 @@ constexpr float FIXED_DT = 1.0f / 100.0f;
 #define COMBAT_MAX EXTRA_MAX // PLAYER + ENEMY + GUEST + EXTRA
 #define POWERUP_MIN 51
 #define POWERUP_MAX 55
-#define NUM_PUP 5
+#define OBJECTS_MAX POWERUP_MAX
 
 // === Аудио система ===
 constexpr int MAX_SOUNDS = 12;

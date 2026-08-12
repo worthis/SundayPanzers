@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "GameConfig.h"
+#include "EventSystem.h"
 
 // Точная копия структуры данных из DBP:
 // ter(2,50,50) - массив ландшафта
@@ -20,6 +21,7 @@ public:
     Terrain();
     ~Terrain();
 
+    void init(EventSystem *eventSystem);
     void reset();
     void generate(int biome);                // Аналог maketerrain(l) из DBP
     void buildMesh();                        // Построение mesh из массива высот
@@ -33,6 +35,8 @@ public:
     const TerrainCell &getCell(int x, int z) const { return ter[x][z]; }
 
 private:
+    EventSystem *eventSystem = nullptr;
+
     // ter(2,50,50) из DBP - массив клеток ландшафта
     TerrainCell ter[HEIGHTMAP_SIZE][HEIGHTMAP_SIZE];
 
@@ -56,4 +60,6 @@ private:
 
     void calculateTileIndices();
     Mesh createTerrainMesh();
+
+    void onBulletFlight(const BulletFlightEvent &e) const;
 };

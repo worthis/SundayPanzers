@@ -1,9 +1,8 @@
 #pragma once
 #include "raylib.h"
 #include "GameConfig.h"
-#include "AudioSystem.h"
+#include "EventSystem.h"
 #include "Terrain.h"
-#include "TreeSystem.h"
 #include "Utils.h"
 
 // === Параметры типа танка (из tankloader DBP) ===
@@ -14,7 +13,7 @@ struct TankType
     float maxSpeed;               // tk#(n,8) — макс. скорость
     int fireLimb;                 // tk#(n,16) — limb для стрельбы
     int reloadTime;               // tk#(n,19) — время перезарядки
-    int bulletLength;             // tk#(n,20) — длительность полёта пули
+    int bulletLifeMax;             // tk#(n,20) — длительность полёта пули
     float bulletPower;            // tk#(n,21) — урон пули
     float collisionRange;         // tk#(n,33) — радиус коллизии (1/2 танка)
     float shotAngle;              // tk#(n,36) — начальный угол выстрела
@@ -47,10 +46,9 @@ struct TankData
     float bounceAngle;            // 14: отскок от дерева/танка
     float bounceForce;            // 15: отскок от дерева/танка
     int fireLimb;                 // 16: меш для стрельбы
-    int bulletCounter;            // 17: пуля
     int reloadCounter;            // 18: перезарядка
     int reloadTime;               // 19-21: параметры стрельбы
-    int bulletLength;             // 19-21: параметры стрельбы
+    int bulletLifeMax;             // 19-21: параметры стрельбы
     float bulletPower;            // 19-21: параметры стрельбы
     float bulletScale;            // масштаб модели пули (DBP: scale object n+100,...)
     int hitModelType;             // 1 = hit.glb, 2 = hit2.glb (DBP: типы 7-8 → hit2.x)
@@ -113,7 +111,7 @@ public:
     TankSystem();
     ~TankSystem();
 
-    void init(AudioSystem *audioSystem, Terrain *terrain, TreeSystem *treeSystem);
+    void init(EventSystem *eventSystem, Terrain *terrain);
     void reset();
 
     void spawnExtrasForBiome(int biome);
@@ -128,6 +126,9 @@ public:
     // Обновление физики одного танка (аналог цикла в tanks())
     // xj = -1..1 (поворот), yj = -1..1 (газ/тормоз)
     void updateTank(int n, float xj, float yj);
+
+    // Сделать выстрел
+	void fireBullet(int n);
 
     // Вызывается ОДИН раз за тик ПОСЛЕ updateTank для всех танков
     void updateCollisions();
@@ -159,7 +160,10 @@ public:
     }
 
 private:
-    TankData tanks[MAX_TANKS];
+    EventSystem *eventSystem = nullptr;
+    Terrain *terrain = nullptr;
+
+    TankData tanks[OBJECTS_MAX + 1];
     TankType tankTypes[MAX_TANK_TYPES + 1]; // типы 1-8
 
     Model tankModels[MAX_TANK_TYPES + 1]; // модели t1-t8
@@ -180,10 +184,6 @@ private:
 
     ExtraModelSlot extraSlots[EXTRA_MAX - EXTRA_MIN + 1]; // слоты 46..50 → индексы 0..4
 
-    AudioSystem *audioSystem = nullptr;
-    Terrain *terrain = nullptr;
-    TreeSystem *treeSystem = nullptr;
-
     void initTankTypes();
     void loadTankModels();
     void unloadTankModels();
@@ -193,7 +193,12 @@ private:
     void unloadExtraSlot(int slot);
     void unloadAllExtras();
     void resetTank(int n);
+    void hitTank(int attackerId, int targetId, Vector3 bulletPos, float bulletPower, bool isSuperBullet);
     void applyBounce(int n);
     void updateExtraAnimation(int n);
     void renderExtra(int n) const;
+    void getMuzzlePosition(int n, float &mx, float &my, float &mz) const;
+    void getMuzzleDirection(int n, float &dx, float &dy, float &dz) const;
+
+    void onBulletFlight(const BulletFlightEvent &e);
 };

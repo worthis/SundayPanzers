@@ -1,5 +1,6 @@
 #include "Terrain.h"
 #include "Utils.h"
+#include "GameData.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -14,6 +15,15 @@ Terrain::Terrain() : currentBiome(1)
 Terrain::~Terrain()
 {
     reset();
+}
+
+void Terrain::init(EventSystem *eventSystem)
+{
+    this->eventSystem = eventSystem;
+
+    eventSystem->subscribe<BulletFlightEvent>(
+        [this](const BulletFlightEvent &e)
+        { onBulletFlight(e); });
 }
 
 void Terrain::reset()
@@ -523,22 +533,27 @@ void Terrain::calculateTileIndices()
             // Вычисление номера тайла
             // DBP: nt = 1 + h/dv  (nt — integer, truncation)
             int nt = (int)(1.0f + hForCalc / dv);
-            
+
             // DBP: if nt > 9 then nt = 9
-            if (nt > 9) nt = 9;
+            if (nt > 9)
+                nt = 9;
 
             // DBP: if nt = 8 then nt = 23
-            if (nt == 8) nt = 23;
+            if (nt == 8)
+                nt = 23;
 
             // DBP: if nt = 9 then nt = 24
-            if (nt == 9) nt = 24;
+            if (nt == 9)
+                nt = 24;
 
             // 20% шанс получить "альтернативный" тайл (ряд 2)
             if (rnd(100) > 80 && nt < 8)
                 nt = nt + 8;
 
-            if (nt < 1) nt = 1;
-            if (nt > 24) nt = 24;
+            if (nt < 1)
+                nt = 1;
+            if (nt > 24)
+                nt = 24;
 
             // ВАЖНО: в DBP set matrix tile 1,xm,zm,nt
             // где xm - это колонка (X), zm - это строка (Z)
@@ -708,7 +723,7 @@ void Terrain::generate(int biome)
     reset();
 
     currentBiome = biome;
-    
+
     // Выбор биома (аналог select l в DBP)
     switch (biome)
     {
@@ -871,4 +886,31 @@ void Terrain::render() const
         return;
 
     DrawModel(model, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+}
+
+void Terrain::onBulletFlight(const BulletFlightEvent &e) const
+{
+    if (!e.bullet.active)
+        return;
+
+    // check map bounds
+    if (e.bullet.x < 20.0f || e.bullet.x > 4980.0f ||
+        e.bullet.z < 20.0f || e.bullet.z > 4980.0f)
+    {
+        e.bullet.active = false;
+        return; // without hit
+    }
+
+    float h = getHeight(e.bullet.x, e.bullet.z);
+
+    if (h > e.bullet.y)
+    {
+        e.bullet.active = false;
+
+        eventSystem->publish(BulletTerrainHitEvent{
+            .position = {e.bullet.x, e.bullet.y, e.bullet.z},
+            .hitScale = e.bullet.hitScale,
+            .bulletType = e.bullet.bulletType
+        });
+    }
 }

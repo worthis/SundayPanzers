@@ -34,10 +34,43 @@ AudioSystem::~AudioSystem()
     }
 }
 
-void AudioSystem::init()
+void AudioSystem::init(EventSystem *eventSystem)
 {
     if (initialized)
         return;
+
+    this->eventSystem = eventSystem;
+
+    // === Подписки ===
+    eventSystem->subscribe<TankFiredEvent>(
+        [this](const TankFiredEvent &e)
+        { onTankFired(e); });
+
+    eventSystem->subscribe<BulletTerrainHitEvent>(
+        [this](const BulletTerrainHitEvent &e)
+        { onBulletTerrainHit(e); });
+
+    eventSystem->subscribe<BulletTankHitEvent>(
+        [this](const BulletTankHitEvent &e)
+        { onBulletTankHit(e); });
+
+    eventSystem->subscribe<TankDestroyedEvent>(
+        [this](const TankDestroyedEvent &e)
+        { onTankDestroyed(e); });
+
+    eventSystem->subscribe<TankCollisionEvent>(
+        [this](const TankCollisionEvent &e)
+        { onTankCollision(e); });
+
+    eventSystem->subscribe<TankTreeCollisionEvent>(
+        [this](const TankTreeCollisionEvent &e)
+        { onTankTreeCollision(e); });
+
+    /*eventSystem->subscribe<PowerUpPickedEvent>(
+        [this](const PowerUpPickedEvent& e) { onPowerUpPicked(e); });
+
+    eventSystem->subscribe<TurboActivatedEvent>(
+        [this](const TurboActivatedEvent& e) { onTurboActivated(e); });*/
 
     const char *soundFiles[MAX_SOUNDS] = {
         "data/sound/tank.wav",   // tank engine
@@ -49,8 +82,8 @@ void AudioSystem::init()
         "data/sound/pup.wav",    // pup - barrier
         "data/sound/pup2.wav",   // pup - super bullet
         "data/sound/repair.wav", // pup - repair
-        "data/sound/turbo.wav",  // turbo
         "data/sound/elim.wav",   // destroyed
+        "data/sound/turbo.wav",  // turbo
         "data/sound/menu.wav"    // menu click
     };
 
@@ -688,4 +721,42 @@ float AudioSystem::calculatePan(const Vector3 &sourcePos) const
         pan = 1.0f;
 
     return pan;
+}
+
+void AudioSystem::onBulletTerrainHit(const BulletTerrainHitEvent &e)
+{
+    playGroundHit(e.position);
+}
+
+void AudioSystem::onTankFired(const TankFiredEvent &e)
+{
+    playCannonShot(e.position);
+}
+
+void AudioSystem::onBulletTankHit(const BulletTankHitEvent &e)
+{
+    playTankHit(e.position);
+}
+
+void AudioSystem::onTankDestroyed(const TankDestroyedEvent &e)
+{
+    playTankExplosion(e.position);
+
+    TraceLog(LOG_INFO, "AudioSystem::onTankDestroyed = Tank %d destroyed at (%.0f, %.0f, %.0f)", e.tankId, e.position.x, e.position.y, e.position.z);
+
+    if (e.tankId >= PLAYER_MIN && e.tankId <= PLAYER_MAX)
+    {
+        playPlayerDestroyed();
+        TraceLog(LOG_INFO, "AudioSystem::onTankDestroyed = It's players team tank");
+    }
+}
+
+void AudioSystem::onTankCollision(const TankCollisionEvent &e)
+{
+    playCollision(e.position, true);
+}
+
+void AudioSystem::onTankTreeCollision(const TankTreeCollisionEvent &e)
+{
+    playCollision(e.position, false);
 }

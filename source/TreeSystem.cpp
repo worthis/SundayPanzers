@@ -5,7 +5,7 @@
 #include "rlgl.h"
 #include "raymath.h"
 
-TreeSystem::TreeSystem() : terrain(nullptr)
+TreeSystem::TreeSystem()
 {
     for (int i = 0; i < 7; i++)
     {
@@ -33,9 +33,19 @@ void TreeSystem::reset()
     treeCount = 0;
 }
 
-void TreeSystem::init(Terrain *t)
+void TreeSystem::init(EventSystem *eventSystem, Terrain *terrain)
 {
-    terrain = t;
+    this->eventSystem = eventSystem;
+    this->terrain = terrain;
+
+    eventSystem->subscribe<BulletFlightEvent>(
+        [this](const BulletFlightEvent &e)
+        { onBulletFlight(e); });
+
+    eventSystem->subscribe<TankTreeCollisionEvent>(
+        [this](const TankTreeCollisionEvent &e)
+        { onTankTreeCollision(e); });
+
     loadTreeModels();
 }
 
@@ -237,6 +247,7 @@ void TreeSystem::hitTree(int cellX, int cellZ, float angleFromSource)
 {
     if (!terrain)
         return;
+
     if (cellX < 0 || cellX >= HEIGHTMAP_SIZE ||
         cellZ < 0 || cellZ >= HEIGHTMAP_SIZE)
         return;
@@ -373,4 +384,70 @@ void TreeSystem::render() const
             rlPopMatrix();
         }
     }
+}
+
+void TreeSystem::onBulletFlight(const BulletFlightEvent &e)
+{
+    if (!terrain)
+        return;
+
+    if (!e.bullet.active)
+        return;
+
+    int xm = (int)(e.bullet.x / 100.0f);
+    int zm = (int)(e.bullet.z / 100.0f);
+
+    if (xm < 0 || xm >= HEIGHTMAP_SIZE || zm < 0 || zm >= HEIGHTMAP_SIZE)
+        return;
+
+    if (terrain->getCell(xm, zm).objectType != 1)
+        return;
+
+    float h = terrain->getHeight(e.bullet.x, e.bullet.z);
+    float dh = e.bullet.y - h;
+
+    if (dh >= 90.0f)
+        return;
+
+    float cex = xm * 100.0f + 50.0f;
+    float cez = zm * 100.0f + 50.0f;
+
+    bool col = false;
+
+    // DBP: контроль — попадание в крону или в ствол
+    if (dh > 37.0f)
+    {
+        if (fabsf(e.bullet.x - cex) < 40.0f && fabsf(e.bullet.z - cez) < 40.0f)
+            col = true;
+    }
+    else
+    {
+        if (fabsf(e.bullet.x - cex) < 8.0f && fabsf(e.bullet.z - cez) < 8.0f)
+            col = true;
+    }
+
+    if (col)
+    {
+        e.bullet.active = false;
+
+        // DBP: position object 65000, cex, 0, cez
+        //      point object 65000, bul#(n,1), 0, bul#(n,3)
+        //      anb# = object angle y(65000)
+        float hitAngle = atan2f(e.bullet.x - cex, e.bullet.z - cez) * RAD2DEG;
+        if (hitAngle < 0.0f)
+            hitAngle += 360.0f;
+
+        // DBP: damage tree
+        hitTree(xm, zm, hitAngle);
+
+        eventSystem->publish(BulletTerrainHitEvent{
+            .position = {e.bullet.x, e.bullet.y, e.bullet.z},
+            .hitScale = e.bullet.hitScale,
+            .bulletType = e.bullet.bulletType});
+    }
+}
+
+void TreeSystem::onTankTreeCollision(const TankTreeCollisionEvent &e)
+{
+    hitTree(e.cellX, e.cellZ, e.hitAngle);
 }

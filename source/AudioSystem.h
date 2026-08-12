@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "GameConfig.h"
+#include "EventSystem.h"
 #include <string>
 #include <vector>
 #include <array>
@@ -64,7 +65,7 @@ public:
     AudioSystem();
     ~AudioSystem();
 
-    void init();
+    void init(EventSystem *eventSystem);
     void shutdown();
 
     // Музыка
@@ -109,6 +110,8 @@ private:
         float volume = 1.0f;
     };
 
+    EventSystem *eventSystem = nullptr;
+
     bool sound3DEnabled = true;
     Vector3 listenerPosition = Vector3Zero();
     Vector3 listenerForward = {0.0f, 0.0f, 1.0f};
@@ -119,6 +122,13 @@ private:
     float calculatePitch(float rpm, float basePitch, bool isPlayer = false) const;
     float calculatePan(const Vector3 &sourcePos) const;
     int findFreeChannel(std::vector<SoundChannel> &pool) const;
+
+    void onBulletTerrainHit(const BulletTerrainHitEvent &e);
+    void onTankFired(const TankFiredEvent &e);
+    void onBulletTankHit(const BulletTankHitEvent &e);
+    void onTankDestroyed(const TankDestroyedEvent &e);
+    void onTankCollision(const TankCollisionEvent &e);
+    void onTankTreeCollision(const TankTreeCollisionEvent &e);
 
     // Музыка
     Music currentMusic;

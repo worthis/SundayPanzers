@@ -9,13 +9,13 @@
 
 TankSystem::TankSystem()
 {
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i <= MAX_TANK_TYPES; i++)
     {
         tankModels[i] = {};
         modelsLoaded[i] = false;
     }
 
-    for (int i = 0; i < 11; i++)
+    for (int i = 0; i < PLAYER_MAX - 1; i++)
     {
         squadTexNormal[i] = {};
         squadTexDamaged[i] = {};
@@ -23,7 +23,7 @@ TankSystem::TankSystem()
         squadTexLoaded[i] = false;
     }
 
-    for (int i = 0; i < MAX_TANKS; i++)
+    for (int i = 0; i <= OBJECTS_MAX; i++)
     {
         resetTank(i);
     }
@@ -39,10 +39,11 @@ TankSystem::~TankSystem()
 
 void TankSystem::reset()
 {
-    for (int i = 0; i < MAX_TANKS; i++)
+    for (int i = 0; i <= OBJECTS_MAX; i++)
     {
         resetTank(i);
     }
+
     unloadAllExtras();
 }
 
@@ -70,10 +71,9 @@ void TankSystem::resetTank(int n)
     t.bounceAngle = 0;
     t.bounceForce = 0;
     t.fireLimb = 0;
-    t.bulletCounter = 0;
     t.reloadCounter = 0;
     t.reloadTime = 0;
-    t.bulletLength = 0;
+    t.bulletLifeMax = 0;
     t.bulletPower = 0;
     t.bounce = 0;
     t.onGround = false;
@@ -118,7 +118,7 @@ void TankSystem::initTankTypes()
         4.0f,     // maxSpeed
         1,        // fireLimb
         80,       // reloadTime
-        75,       // bulletLength
+        75,       // bulletLifeMax
         6.0f,     // bulletPower
         15.0f,    // collisionRange
         0.0f,     // shotAngle
@@ -294,11 +294,14 @@ void TankSystem::initTankTypes()
         2};
 }
 
-void TankSystem::init(AudioSystem *audioSystem, Terrain *terrain, TreeSystem *treeSystem)
+void TankSystem::init(EventSystem *eventSystem, Terrain *terrain)
 {
-    this->audioSystem = audioSystem;
+    this->eventSystem = eventSystem;
     this->terrain = terrain;
-    this->treeSystem = treeSystem;
+
+    eventSystem->subscribe<BulletFlightEvent>(
+        [this](const BulletFlightEvent &e)
+        { onBulletFlight(e); });
 
     initTankTypes();
     loadTankModels();
@@ -348,13 +351,6 @@ void TankSystem::loadTankModels()
                 TraceLog(LOG_INFO, "Tank %d: fireLimb mesh %d center = (%.1f, %.1f, %.1f)",
                          i, fl, muzzleLocal[i].x, muzzleLocal[i].y, muzzleLocal[i].z);
             }
-            else
-            {
-                // Fallback если fireLimb вне диапазона
-                muzzleLocal[i] = {0, 14, 22};
-                TraceLog(LOG_WARNING, "Tank %d: fireLimb %d out of range (meshCount=%d), using fallback",
-                         i, fl, m.meshCount);
-            }
 
             // DBP: set object specular n,0 : set object n,1,0,1,0,0,0,0
             // Отключаем освещение, ставим цвет WHITE
@@ -396,9 +392,10 @@ void TankSystem::loadTankModels()
 
 void TankSystem::loadTank(int n, int t, int c)
 {
-    if (n < 1 || n >= MAX_TANKS)
+    if (n < PLAYER_MIN || n > OBJECTS_MAX)
         return;
-    if (t < 1 || t > 8)
+
+    if (t < 1 || t > MAX_TANK_TYPES)
         return;
 
     resetTank(n);
@@ -419,7 +416,7 @@ void TankSystem::loadTank(int n, int t, int c)
     tk.maxSpeed = tt.maxSpeed;
     tk.fireLimb = tt.fireLimb;
     tk.reloadTime = tt.reloadTime;
-    tk.bulletLength = tt.bulletLength;
+    tk.bulletLifeMax = tt.bulletLifeMax;
     tk.bulletPower = tt.bulletPower;
     tk.collisionRange = tt.collisionRange;
     tk.shotAngle = tt.shotAngle;
@@ -594,12 +591,11 @@ void TankSystem::loadExtra(int n, int type)
     TankData &tk = tanks[n];
     tk.type = type;
     tk.baseType = type;
-    tk.squadId = 0;        // extra без squad
-    tk.y = -1000.0f;       // DBP: tk#(n,2)=-1000 (падает на землю)
-    tk.animFrame = 1.0f;   // DBP: tk#(n,16)=1
-    tk.aimRatio = 20;      // DBP: tk#(n,32)=20
-    tk.bulletCounter = 75; // DBP: tk#(n,20)=75
-    tk.canFire = 0;        // DBP: tk#(n,43)=0
+    tk.squadId = 0;      // extra без squad
+    tk.y = -1000.0f;     // DBP: tk#(n,2)=-1000 (падает на землю)
+    tk.animFrame = 1.0f; // DBP: tk#(n,16)=1
+    tk.aimRatio = 20;    // DBP: tk#(n,32)=20
+    tk.canFire = 0;      // DBP: tk#(n,43)=0
 
     switch (type)
     {
@@ -677,8 +673,9 @@ void TankSystem::unloadAllExtras()
 
 void TankSystem::placeTank(int n, float x, float z, float yaw)
 {
-    if (n < 1 || n >= MAX_TANKS)
+    if (n < PLAYER_MIN || n > OBJECTS_MAX)
         return;
+
     TankData &tk = tanks[n];
     if (tk.type == 0)
         return;
@@ -689,6 +686,53 @@ void TankSystem::placeTank(int n, float x, float z, float yaw)
     tk.y = terrain ? terrain->getHeight(x, z) : 0.0f;
     tk.bounce = 0;
     tk.onGround = true;
+}
+
+void TankSystem::fireBullet(int n)
+{
+    if (n < PLAYER_MIN || n > TANKS_MAX)
+        return;
+
+    TankData &tk = tanks[n];
+
+    if (tk.type <= 0)
+        return;
+
+    // DBP: if fire=1 and tk#(n,18)=0 and tk#(n,17)=0
+    if (tk.reloadCounter > 0)
+        return;
+
+    if (!tk.canFire)
+        return;
+
+    float mx, my, mz;
+    getMuzzlePosition(n, mx, my, mz);
+
+    float dx, dy, dz;
+    getMuzzleDirection(n, dx, dy, dz);
+
+    // DBP: move object b,6
+    mx += dx * 6.0f;
+    my += dy * 6.0f;
+    mz += dz * 6.0f;
+
+    // DBP: tk#(n,17)=tk#(n,20) : tk#(n,18)=tk#(n,19)
+    tk.reloadCounter = tk.reloadTime;
+    tk.hitCounter = 0;
+
+    eventSystem->publish(TankFiredEvent{
+        .tankId = n,
+        .tankSquadId = tk.squadId,
+        .position = {mx, my, mz},
+        .direction = {dx, dy, dz},
+        .bulletType = tk.hitModelType,
+        .bulletLifeMax = tk.bulletLifeMax,
+        .bulletPower = tk.bulletPower,
+        .bulletGravity = tk.bulletGravity,
+        .bulletScale = tk.bulletScale,
+        .hitScale = tk.hitScale,
+        .isSuperBullet = (tk.superBulletCounter > 0),
+    });
 }
 
 // ============================================================
@@ -740,9 +784,9 @@ void TankSystem::spawnExtrasForBiome(int biome)
 
 void TankSystem::applyBounce(int n)
 {
-    if (n < PLAYER_MIN || n >= MAX_TANKS)
+    if (n < PLAYER_MIN || n > OBJECTS_MAX)
         return;
-        
+
     TankData &tk = tanks[n];
 
     if (tk.bounceForce > 0.0f)
@@ -766,6 +810,13 @@ void TankSystem::updateTank(int n, float xj, float yj)
         return;
     if (!terrain)
         return;
+
+    // Перезарядка
+    if (tk.reloadCounter > 0)
+    {
+        tk.reloadCounter--;
+        tk.hitCounter++;
+    }
 
     // === Сохраняем предыдущее состояние ДЛЯ ИНТЕРПОЛЯЦИИ ===
     tk.prevX = tk.x;
@@ -1047,12 +1098,11 @@ void TankSystem::updateCollisions()
             tk.bounceRoll = (float)(rnd(20) - 10);
             tk.bouncePitch = (float)(rnd(20) - 10);
 
-            // Урон дереву
-            if (treeSystem)
-                treeSystem->hitTree(xm, zm, angle);
-
-            if (audioSystem)
-                audioSystem->playCollision({tk.x, tk.y, tk.z});
+            eventSystem->publish(TankTreeCollisionEvent{
+                .cellX = xm,
+                .cellZ = zm,
+                .position = {tk.x, tk.y, tk.z},
+                .hitAngle = angle});
         }
     }
 
@@ -1107,8 +1157,8 @@ void TankSystem::updateCollisions()
                 if (tkN.type < 0)
                     tkN.bounceForce /= 2.0f;
 
-                if (audioSystem)
-                    audioSystem->playCollision({tkN.x, tkN.y, tkN.z}, true);
+                eventSystem->publish(TankCollisionEvent{
+                    .position = {tkN.x, tkN.y, tkN.z}});
             }
         }
     }
@@ -1116,7 +1166,7 @@ void TankSystem::updateCollisions()
 
 void TankSystem::interpolate(float alpha)
 {
-    for (int n = PLAYER_MIN; n < MAX_TANKS; n++)
+    for (int n = PLAYER_MIN; n <= OBJECTS_MAX; n++)
     {
         TankData &tk = tanks[n];
         if (tk.type == 0)
@@ -1142,7 +1192,7 @@ void TankSystem::interpolate(float alpha)
 
 void TankSystem::render() const
 {
-    for (int n = 1; n < MAX_TANKS; n++)
+    for (int n = 1; n <= OBJECTS_MAX; n++)
     {
         if (n >= EXTRA_MIN && n <= EXTRA_MAX)
         {
@@ -1372,7 +1422,7 @@ void TankSystem::renderExtra(int n) const
 int TankSystem::getActiveCount() const
 {
     int count = 0;
-    for (int n = 1; n < MAX_TANKS; n++)
+    for (int n = 1; n <= OBJECTS_MAX; n++)
     {
         if (tanks[n].type != 0)
             count++;
@@ -1432,6 +1482,203 @@ void TankSystem::loadSquadTextures()
         else
         {
             TraceLog(LOG_WARNING, "Squad texture %d NOT found", i);
+        }
+    }
+}
+
+// ============================================================
+// Позиция дула:
+//   1) Используется muzzleLocal из TankSystem (реальный меш)
+//   2) Порядок вращений: Rz → Rx → Ry (совпадает с рендером)
+// ============================================================
+void TankSystem::getMuzzlePosition(int n, float &mx, float &my, float &mz) const
+{
+    const TankData &tk = getTank(n);
+
+    // === Локальная позиция дула = центр меша fireLimb ===
+    // Вычислен из реальной геометрии модели при загрузке
+    Vector3 local = getMuzzleLocal(tk.baseType);
+
+    // Применяем масштаб танка
+    float lx = local.x * tk.scaleX;
+    float ly = local.y * tk.scaleY;
+    float lz = local.z * tk.scaleZ;
+
+    // Углы танка (DBP: pitch object up = tk#(n,4)+sin(walk)*2)
+    float yaw = tk.yaw;
+    float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f;
+    float roll = tk.roll;
+
+    // Порядок: Scale → Rz(roll) → Rx(pitch) → Ry(yaw+180) → Translate
+    // Это совпадает с матрицей рендера: T * Ry * Rx * Rz * S
+
+    // 1) Rz (roll)
+    float cr = cosDeg(roll), sr = sinDeg(roll);
+    float x1 = lx * cr - ly * sr;
+    float y1 = lx * sr + ly * cr;
+    float z1 = lz;
+
+    // 2) Rx (pitch)
+    float pitchRad = pitch * DEG2RAD;
+    float cp = cosf(pitchRad), sp = sinf(pitchRad);
+    float x2 = x1;
+    float y2 = y1 * cp - z1 * sp;
+    float z2 = y1 * sp + z1 * cp;
+
+    // 3) Ry (yaw + 180 для OpenGL)
+    float yawRad = (yaw + 180.0f) * DEG2RAD;
+    float cy = cosf(yawRad), sy = sinf(yawRad);
+    float x3 = x2 * cy + z2 * sy;
+    float y3 = y2;
+    float z3 = -x2 * sy + z2 * cy;
+
+    // 4) Translate
+    mx = tk.x + x3;
+    my = tk.y + 3.3f + y3; // DBP: position object n,...,tk#(n,2)+3.3,...
+    mz = tk.z + z3;
+}
+
+// ============================================================
+// Направление выстрела
+// ============================================================
+void TankSystem::getMuzzleDirection(int n, float &dx, float &dy, float &dz) const
+{
+    const TankData &tk = getTank(n);
+
+    float yaw = tk.yaw;
+    float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f + tk.shotAngle;
+
+    float pitchRad = pitch * DEG2RAD;
+    float cosP = cosf(pitchRad);
+    float sinP = sinf(pitchRad);
+
+    dx = sinDeg(yaw) * cosP;
+    dy = sinP;
+    dz = cosDeg(yaw) * cosP;
+
+    float len = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (len > 0.0001f)
+    {
+        dx /= len;
+        dy /= len;
+        dz /= len;
+    }
+}
+
+void TankSystem::hitTank(int attackerId, int targetId, Vector3 bulletPos, float bulletPower, bool isSuperBullet)
+{
+    TankData &tk = getTankMut(targetId);
+
+    if (tk.type == 0)
+        return;
+
+    float ddx = tk.x - bulletPos.x;
+    float ddz = tk.z - bulletPos.z;
+    float collAngle = atan2f(ddx, ddz) * RAD2DEG;
+    if (collAngle < 0)
+        collAngle += 360.0f;
+
+    tk.bounceAngle = collAngle;
+    tk.bounceForce = 2.0f;
+    tk.accel /= 2.0f;
+
+    if (tk.type < 0)
+        tk.bounceForce = 1.0f;
+
+    if (tk.type <= 0)
+        return;
+
+    // DBP: abullet#=abs(tk#(c,14)-tk#(c,5))
+    float abullet = fabsf(collAngle - tk.yaw);
+    if (abullet > 180.0f)
+        abullet = 360.0f - abullet;
+
+    float khit = 0.21f + (180.0f - abullet) / 180.0f;
+
+    if (khit < 0.355f)
+        khit *= 0.665f;
+
+    const TankData &tkAttacker = getTank(attackerId);
+
+    if (tkAttacker.squadId == tk.squadId)
+        khit /= 4.0f;
+
+    if (tk.barrierCounter > 0)
+        khit = 0.0f;
+
+    if (isSuperBullet)
+        khit *= 2.0f;
+
+    tk.energy -= bulletPower * khit;
+
+    if (khit > 0.94f)
+        tk.hitCounter = 10;
+
+    // Смена текстуры при 2/3 урона
+    if (tk.energy < tk.maxEnergy / 3.0f && !tk.damaged)
+    {
+        tk.damaged = true;
+    }
+
+    // Уничтожение
+    if (tk.energy < 0.0f)
+    {
+        tk.type = -1;
+        tk.bounceForce = 0;
+        tk.accel = 0;
+        tk.fallForce = 0;
+
+        float h = terrain->getHeight(tk.x, tk.z);
+
+        TraceLog(LOG_INFO, "TankSystem::hitTank = Tank %d destroyed at (%.0f, %.0f, %.0f)", targetId, tk.x, tk.y, tk.z);
+
+        // Публикуем событие уничтожения
+        eventSystem->publish(TankDestroyedEvent{
+            .tankId = targetId,
+            .position = {tk.x, h + 10.0f, tk.z},
+            .squadId = tk.squadId,
+            .explosionRange = 35.0f + tk.collisionRange * 3.0f,
+            .yaw = tk.yaw,
+            .pitch = tk.pitch,
+            .roll = tk.roll});
+    }
+}
+
+void TankSystem::onBulletFlight(const BulletFlightEvent &e)
+{
+    if (!e.bullet.active)
+        return;
+
+    for (int c = PLAYER_MIN; c < COMBAT_MAX; c++)
+    {
+        if (c == e.bullet.owner)
+            continue;
+
+        const TankData &tk = getTank(c);
+        if (tk.type == 0)
+            continue;
+
+        float dx = e.bullet.x - tk.x;
+        float dy = e.bullet.y - (tk.y + tk.collisionHeight);
+        float dz = e.bullet.z - tk.z;
+        float r = sqrtf(dx * dx + dz * dz);
+
+        if (r < (tk.collisionRange + 2.0f) && fabsf(dy) < (tk.collisionHeight + 2.0f))
+        {
+            e.bullet.active = false;
+
+            hitTank(e.bullet.owner, c, {e.bullet.x, e.bullet.y, e.bullet.z}, e.bullet.bulletPower, e.bullet.superBullet);
+
+            eventSystem->publish(BulletTankHitEvent{
+                .tankId = c,
+                .attackerId = e.bullet.owner,
+                .position = {e.bullet.x, e.bullet.y, e.bullet.z},
+                .bulletPower = e.bullet.bulletPower,
+                .isSuperBullet = e.bullet.superBullet,
+                .hitScale = e.bullet.hitScale,
+                .bulletType = e.bullet.bulletType});
+
+            return;
         }
     }
 }

@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "GameConfig.h"
+#include "EventSystem.h"
 #include "AudioSystem.h"
 #include "Terrain.h"
 #include "Skybox.h"
@@ -87,6 +88,7 @@ private:
     HUDSystem hudSystem;
 
     // Игровые системы
+    EventSystem eventSystem;
     AudioSystem audioSystem;
     Terrain terrain;
     Skybox skybox;

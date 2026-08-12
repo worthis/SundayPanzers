@@ -1,7 +1,8 @@
 #pragma once
 #include "raylib.h"
-#include "Terrain.h"
 #include "GameConfig.h"
+#include "Terrain.h"
+#include "EventSystem.h"
 
 // ============================================================
 // DBP: tree(75,3)
@@ -36,7 +37,7 @@ public:
     TreeSystem();
     ~TreeSystem();
 
-    void init(Terrain *terrain);
+    void init(EventSystem *eventSystem, Terrain *terrain);
     void placeTrees(int biome);
     void update();
     void render() const;
@@ -51,6 +52,8 @@ public:
     int getTreeCount() const { return treeCount; }
 
 private:
+    EventSystem *eventSystem = nullptr;
+
     Tree trees[MAX_TREES];
     int treeCount = 0;
     Terrain *terrain = nullptr;
@@ -62,4 +65,7 @@ private:
 
     void loadTreeModels();
     void unloadTreeModels();
+
+    void onBulletFlight(const BulletFlightEvent &e);
+    void onTankTreeCollision(const TankTreeCollisionEvent &e);
 };

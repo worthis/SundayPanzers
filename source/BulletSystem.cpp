@@ -41,12 +41,25 @@ BulletSystem::~BulletSystem()
     }
 }
 
-void BulletSystem::init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem, TreeSystem *treeSystem)
+void BulletSystem::init(EventSystem *eventSystem)
 {
-    this->audioSystem = audioSystem;
-    this->terrain = terrain;
-    this->tankSystem = tankSystem;
-    this->treeSystem = treeSystem;
+    this->eventSystem = eventSystem;
+
+    eventSystem->subscribe<TankFiredEvent>(
+        [this](const TankFiredEvent &e)
+        { onTankFired(e); });
+
+    eventSystem->subscribe<BulletTerrainHitEvent>(
+        [this](const BulletTerrainHitEvent &e)
+        { onBulletTerrainHit(e); });
+
+    eventSystem->subscribe<BulletTankHitEvent>(
+        [this](const BulletTankHitEvent &e)
+        { onBulletTankHit(e); });
+
+    eventSystem->subscribe<TankDestroyedEvent>(
+        [this](const TankDestroyedEvent &e)
+        { onTankDestroyed(e); });
 }
 
 void BulletSystem::reset()
@@ -71,8 +84,6 @@ void BulletSystem::bindTexture(Model &m, const Texture2D &tex)
     {
         m.materials[j].maps[MATERIAL_MAP_DIFFUSE].texture = tex;
         m.materials[j].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-        //m.materials[j].maps[MATERIAL_MAP_EMISSION].texture = tex;
-        //m.materials[j].maps[MATERIAL_MAP_EMISSION].color = WHITE;
         m.materials[j].maps[MATERIAL_MAP_SPECULAR].color = BLACK;
         SetTextureFilter(tex, TEXTURE_FILTER_POINT);
     }
@@ -129,171 +140,13 @@ void BulletSystem::loadAssets()
     setupExplosionMaterial(ballModel);
 }
 
-// ============================================================
-// Позиция дула:
-//   1) Используется muzzleLocal из TankSystem (реальный меш)
-//   2) Порядок вращений: Rz → Rx → Ry (совпадает с рендером)
-// ============================================================
-void BulletSystem::getMuzzlePosition(int n, float &mx, float &my, float &mz) const
-{
-    const TankData &tk = tankSystem->getTank(n);
-    int type = tk.type;
-    if (type < 1 || type > 8)
-        type = 1;
-
-    // === Локальная позиция дула = центр меша fireLimb ===
-    // Вычислен из реальной геометрии модели при загрузке
-    Vector3 local = tankSystem->getMuzzleLocal(type);
-
-    // Применяем масштаб танка
-    float lx = local.x * tk.scaleX;
-    float ly = local.y * tk.scaleY;
-    float lz = local.z * tk.scaleZ;
-
-    // Углы танка (DBP: pitch object up = tk#(n,4)+sin(walk)*2)
-    float yaw = tk.yaw;
-    float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f;
-    float roll = tk.roll;
-
-    // Порядок: Scale → Rz(roll) → Rx(pitch) → Ry(yaw+180) → Translate
-    // Это совпадает с матрицей рендера: T * Ry * Rx * Rz * S
-
-    // 1) Rz (roll)
-    float cr = cosDeg(roll), sr = sinDeg(roll);
-    float x1 = lx * cr - ly * sr;
-    float y1 = lx * sr + ly * cr;
-    float z1 = lz;
-
-    // 2) Rx (pitch)
-    float pitchRad = pitch * DEG2RAD;
-    float cp = cosf(pitchRad), sp = sinf(pitchRad);
-    float x2 = x1;
-    float y2 = y1 * cp - z1 * sp;
-    float z2 = y1 * sp + z1 * cp;
-
-    // 3) Ry (yaw + 180 для OpenGL)
-    float yawRad = (yaw + 180.0f) * DEG2RAD;
-    float cy = cosf(yawRad), sy = sinf(yawRad);
-    float x3 = x2 * cy + z2 * sy;
-    float y3 = y2;
-    float z3 = -x2 * sy + z2 * cy;
-
-    // 4) Translate
-    mx = tk.x + x3;
-    my = tk.y + 3.3f + y3; // DBP: position object n,...,tk#(n,2)+3.3,...
-    mz = tk.z + z3;
-}
-
-// ============================================================
-// Направление выстрела
-// ============================================================
-void BulletSystem::getMuzzleDirection(int n, float &dx, float &dy, float &dz) const
-{
-    const TankData &tk = tankSystem->getTank(n);
-
-    float yaw = tk.yaw;
-    // ИСПРАВЛЕНО: shotDegree → shotAngle
-    float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f + tk.shotAngle;
-
-    float pitchRad = pitch * DEG2RAD;
-    float cosP = cosf(pitchRad);
-    float sinP = sinf(pitchRad);
-
-    dx = sinDeg(yaw) * cosP;
-    dy = sinP;
-    dz = cosDeg(yaw) * cosP;
-
-    float len = sqrtf(dx * dx + dy * dy + dz * dz);
-    if (len > 0.0001f)
-    {
-        dx /= len;
-        dy /= len;
-        dz /= len;
-    }
-}
-
-// ============================================================
-// Выстрел
-// ============================================================
-void BulletSystem::fireBullet(int n)
-{
-    if (n < 1 || n > MAX_BULLETS || !tankSystem)
-        return;
-
-    TankData &tk = tankSystem->getTankMut(n);
-
-    // DBP: if fire=1 and tk#(n,18)=0 and tk#(n,17)=0
-    if (tk.reloadCounter > 0 || tk.bulletCounter > 0)
-        return;
-    if (!tk.canFire)
-        return;
-
-    float mx, my, mz;
-    getMuzzlePosition(n, mx, my, mz);
-
-    float dx, dy, dz;
-    getMuzzleDirection(n, dx, dy, dz);
-
-    // DBP: move object b,6
-    mx += dx * 6.0f;
-    my += dy * 6.0f;
-    mz += dz * 6.0f;
-
-    BulletData &b = bullets[n];
-    b.active = true;
-    b.owner = n;
-    b.x = mx;
-    b.y = my;
-    b.z = mz;
-    b.dirX = dx;
-    b.dirY = dy;
-    b.dirZ = dz;
-    b.gravCounter = 0;
-    b.lifeCounter = tk.bulletLength;
-    b.bulletPower = tk.bulletPower;
-    b.bulletGravity = tk.bulletGravity;
-    b.ownerSquadId = tk.squadId;
-    b.superBullet = (tk.superBulletCounter > 0);
-    b.hitScale = tk.hitScale;
-    b.bulletScale = tk.bulletScale;
-    b.hitModelType = tk.hitModelType;
-
-    // DBP: tk#(n,17)=tk#(n,20) : tk#(n,18)=tk#(n,19)
-    tk.bulletCounter = tk.bulletLength;
-    tk.reloadCounter = tk.reloadTime;
-    tk.hitCounter = 0;
-
-    // Звук выстрела
-    if (audioSystem)
-        audioSystem->playCannonShot({tk.x, tk.y, tk.z});
-}
-
-// ============================================================
-// Обновление — фиксированный тик 100 Гц
-// ============================================================
 void BulletSystem::update()
 {
-    if (!terrain || !tankSystem)
-        return;
-
-    // === Перезарядка танков ===
-    for (int n = 1; n < MAX_TANKS; n++)
-    {
-        TankData &tk = tankSystem->getTankMut(n);
-        if (tk.type == 0)
-            continue;
-
-        if (tk.reloadCounter > 0)
-        {
-            tk.reloadCounter--;
-            tk.hitCounter++;
-        }
-    }
-
-    // === Движение и коллизии пуль ===
+    // === Движение пуль ===
     for (int n = 1; n <= MAX_BULLETS; n++)
     {
         BulletData &b = bullets[n];
+
         if (!b.active)
             continue;
 
@@ -308,52 +161,15 @@ void BulletSystem::update()
         b.gravCounter += b.bulletGravity;
         b.y -= b.gravCounter;
 
-        int dead = 0;
-        int treeIdx = 0;
-        float treeHitAngle = 0.0f;
-
-        if (b.lifeCounter <= 0)
-            dead = 1;
-
-        if (dead == 0)
-            if (checkGroundCollision(b) ||
-                checkTreeCollision(b, treeIdx, treeHitAngle) ||
-                checkMapBounds(b))
-            {
-                dead = 1;
-                if (audioSystem)
-                    audioSystem->playGroundHit({b.x, b.y, b.z});
-            }
-
-        int hitTank = 0;
-        if (dead == 0)
+        if (b.lifeCounter > 0)
         {
-            hitTank = checkTankCollision(b);
-            if (hitTank > 0)
-                dead = 2;
+            // Проверка коллизий
+            eventSystem->publish(BulletFlightEvent{
+                .bullet = b});
         }
-
-        if (dead > 0)
+        else
         {
             b.active = false;
-
-            // ★ DBP: tk#(n,17)=0 — обнуляем, чтобы можно было стрелять снова
-            tankSystem->getTankMut(b.owner).bulletCounter = 0;
-            spawnHitEffect(b.x, b.y, b.z, b.hitScale, b.hitModelType);
-
-            if (dead == 2 && hitTank > 0)
-            {
-                float ddx = tankSystem->getTank(hitTank).x - b.x;
-                float ddz = tankSystem->getTank(hitTank).z - b.z;
-                float collAngle = atan2f(ddx, ddz) * RAD2DEG;
-                if (collAngle < 0)
-                    collAngle += 360.0f;
-
-                applyDamage(hitTank, b, collAngle);
-
-                if (audioSystem)
-                    audioSystem->playTankHit({b.x, b.y, b.z});
-            }
         }
     }
 
@@ -388,172 +204,6 @@ void BulletSystem::update()
 
         if (e.counter >= 80)
             e.active = false;
-    }
-}
-
-// ============================================================
-// Коллизии
-// ============================================================
-
-bool BulletSystem::checkGroundCollision(const BulletData &b) const
-{
-    float h = terrain->getHeight(b.x, b.z);
-    return h > b.y;
-}
-
-bool BulletSystem::checkTreeCollision(BulletData &b, int &treeIndex, float &hitAngle) const
-{
-    int xm = (int)(b.x / 100.0f);
-    int zm = (int)(b.z / 100.0f);
-
-    if (xm < 0 || xm >= HEIGHTMAP_SIZE || zm < 0 || zm >= HEIGHTMAP_SIZE)
-        return false;
-
-    if (terrain->getCell(xm, zm).objectType != 1)
-        return false;
-
-    float h = terrain->getHeight(b.x, b.z);
-    float dh = b.y - h;
-
-    if (dh >= 90.0f)
-        return false;
-
-    float cex = xm * 100.0f + 50.0f;
-    float cez = zm * 100.0f + 50.0f;
-
-    bool col = false;
-
-    // DBP: контроль — попадание в крону или в ствол
-    if (dh > 37.0f)
-    {
-        if (fabsf(b.x - cex) < 40.0f && fabsf(b.z - cez) < 40.0f)
-            col = true;
-    }
-    else
-    {
-        if (fabsf(b.x - cex) < 8.0f && fabsf(b.z - cez) < 8.0f)
-            col = true;
-    }
-
-    if (col)
-    {
-        treeIndex = terrain->getCell(xm, zm).objectValue;
-
-        // DBP: position object 65000, cex, 0, cez
-        //      point object 65000, bul#(n,1), 0, bul#(n,3)
-        //      anb# = object angle y(65000)
-        hitAngle = atan2f(b.x - cex, b.z - cez) * RAD2DEG;
-        if (hitAngle < 0.0f)
-            hitAngle += 360.0f;
-
-        // DBP: damage tree — вызываем TreeSystem
-        if (treeSystem)
-            treeSystem->hitTree(xm, zm, hitAngle);
-    }
-
-    return col;
-}
-
-bool BulletSystem::checkMapBounds(const BulletData &b) const
-{
-    return b.x < 20.0f || b.x > 4980.0f ||
-           b.z < 20.0f || b.z > 4980.0f;
-}
-
-int BulletSystem::checkTankCollision(const BulletData &b) const
-{
-    for (int c = PLAYER_MIN; c < COMBAT_MAX; c++)
-    {
-        if (c == b.owner)
-            continue;
-
-        const TankData &tk = tankSystem->getTank(c);
-        if (tk.type == 0)
-            continue;
-
-        float dx = b.x - tk.x;
-        float dy = b.y - (tk.y + tk.collisionHeight);
-        float dz = b.z - tk.z;
-        float r = sqrtf(dx * dx + dz * dz);
-
-        if (r < (tk.collisionRange + 2.0f) && fabsf(dy) < (tk.collisionHeight + 2.0f))
-            return c;
-    }
-
-    return 0;
-}
-
-// ============================================================
-// Урон
-// ============================================================
-void BulletSystem::applyDamage(int targetIdx, const BulletData &b, float collAngle)
-{
-    TankData &tk = tankSystem->getTankMut(targetIdx);
-    if (tk.type == 0)
-        return;
-
-    tk.bounceAngle = collAngle;
-    tk.bounceForce = 2.0f;
-    tk.accel /= 2.0f;
-
-    if (tk.type < 0)
-        tk.bounceForce = 1.0f;
-
-    if (tk.type <= 0)
-        return;
-
-    // DBP: abullet#=abs(tk#(c,14)-tk#(c,5))
-    float abullet = fabsf(collAngle - tk.yaw);
-    if (abullet > 180.0f)
-        abullet = 360.0f - abullet;
-
-    float khit = 0.21f + (180.0f - abullet) / 180.0f;
-
-    if (khit < 0.355f)
-        khit *= 0.665f;
-
-    if (b.ownerSquadId == tk.squadId)
-        khit /= 4.0f;
-
-    if (tk.barrierCounter > 0)
-        khit = 0.0f;
-
-    if (b.superBullet)
-        khit *= 2.0f;
-
-    tk.energy -= b.bulletPower * khit;
-
-    if (khit > 0.94f)
-        tk.hitCounter = 10;
-
-    // Смена текстуры при 2/3 урона
-    if (tk.energy < tk.maxEnergy / 3.0f && !tk.damaged)
-    {
-        tk.damaged = true;
-    }
-
-    // Уничтожение
-    if (tk.energy < 0.0f)
-    {
-        tk.type = -1;
-        tk.bounceForce = 0;
-        tk.accel = 0;
-        tk.fallForce = 0;
-
-        float h = terrain->getHeight(tk.x, tk.z);
-        float range = 35.0f + tk.collisionRange * 3.0f;
-
-        // DBP: gam(4)=55, gam(5)=range, gam(6)=-1
-        // Кольцо ориентируется по танку, шар — случайный Y
-        spawnExplosion(tk.x, h + 10.0f, tk.z, range,
-                       tk.yaw, tk.pitch, tk.roll);
-
-        if (audioSystem)
-        {
-            audioSystem->playTankExplosion({tk.interpX, tk.interpY, tk.interpZ});
-            if (targetIdx >= PLAYER_MIN && targetIdx <= PLAYER_MAX)
-                audioSystem->playPlayerDestroyed();
-        }
     }
 }
 
@@ -622,7 +272,7 @@ void BulletSystem::render() const
             continue;
 
         // Выбор модели: типы 7-8 → bullet2
-        const Model &mdl = (b.hitModelType == 2) ? bulletModel2 : bulletModel1;
+        const Model &mdl = (b.bulletType == 2) ? bulletModel2 : bulletModel1;
 
         // Направление → углы для рендера
         float yaw = atan2f(b.dirX, b.dirZ) * RAD2DEG;
@@ -710,4 +360,44 @@ void BulletSystem::render() const
         // Возвращаем стандартный alpha blending
         EndBlendMode();
     }
+}
+
+void BulletSystem::onTankFired(const TankFiredEvent &e)
+{
+    BulletData &b = bullets[e.tankId];
+    b.active = true;
+    b.owner = e.tankId;
+    b.x = e.position.x;
+    b.y = e.position.y;
+    b.z = e.position.z;
+    b.dirX = e.direction.x;
+    b.dirY = e.direction.y;
+    b.dirZ = e.direction.z;
+    b.gravCounter = 0;
+    b.lifeCounter = e.bulletLifeMax;
+    b.bulletPower = e.bulletPower;
+    b.bulletGravity = e.bulletGravity;
+    b.ownerSquadId = e.tankSquadId;
+    b.superBullet = e.isSuperBullet;
+    b.hitScale = e.hitScale;
+    b.bulletScale = e.bulletScale;
+    b.bulletType = e.bulletType;
+}
+
+void BulletSystem::onBulletTerrainHit(const BulletTerrainHitEvent &e)
+{
+    spawnHitEffect(e.position.x, e.position.y, e.position.z, e.hitScale, e.bulletType);
+}
+
+void BulletSystem::onBulletTankHit(const BulletTankHitEvent &e)
+{
+    spawnHitEffect(e.position.x, e.position.y, e.position.z, e.hitScale, e.bulletType);
+}
+
+void BulletSystem::onTankDestroyed(const TankDestroyedEvent &e)
+{
+    // DBP: gam(4)=55, gam(5)=range, gam(6)=-1
+    // Кольцо ориентируется по танку, шар — случайный Y
+    spawnExplosion(e.position.x, e.position.y, e.position.z,
+                   e.explosionRange, e.yaw, e.pitch, e.roll);
 }
