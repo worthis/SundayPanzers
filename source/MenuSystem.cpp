@@ -889,10 +889,31 @@ void MenuSystem::drawImageAlpha(Texture2D tex, float x, float y, unsigned char a
 
 void MenuSystem::drawDigits(int value, float x, float y) const
 {
-    int tens = value / 10;
-    int units = value - tens * 10;
-    drawImage(m_texDigits[tens], x, y);
-    drawImage(m_texDigits[units], x + 10, y);
+    if (value < 0) value = 0;
+    if (value > 999) value = 999;
+
+    int hundreds = value / 100;
+    int tens = (value % 100) / 10;
+    int units = value % 10;
+
+    float nx = x;
+
+    if (hundreds > 0 && m_texDigits[hundreds].id != 0)
+    {
+        drawImage(m_texDigits[hundreds], nx, y);
+        nx += 10.0f;
+    }
+    
+    if (m_texDigits[tens].id != 0)
+    {
+        drawImage(m_texDigits[tens], nx, y);
+        nx += 10.0f;
+    }
+    
+    if (m_texDigits[units].id != 0)
+    {
+        drawImage(m_texDigits[units], nx, y);
+    }
 }
 
 // ============================================================
