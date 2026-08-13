@@ -201,4 +201,5 @@ private:
     void getMuzzleDirection(int n, float &dx, float &dy, float &dz) const;
 
     void onBulletFlight(const BulletFlightEvent &e);
+    void onTurboActivated(const TurboActivatedEvent &e);
 };

@@ -74,22 +74,6 @@ private:
 // События боя — точное соответствие точкам вызова в DBP tanks()
 // ============================================================
 
-struct TankFiredEvent
-{
-    int tankId;
-    int tankSquadId;
-    bool isCommander;
-    Vector3 position;
-    Vector3 direction;
-    int bulletType;
-    int bulletLifeMax;
-    float bulletPower;
-    float bulletGravity;
-    float bulletScale;
-    float hitScale;
-    bool isSuperBullet;
-};
-
 struct BulletFlightEvent
 {
     BulletData &bullet;
@@ -113,6 +97,22 @@ struct BulletTankHitEvent
     bool isSuperBullet;
     float hitScale;
     int bulletType;
+};
+
+struct TankFiredEvent
+{
+    int tankId;
+    int tankSquadId;
+    bool isCommander;
+    Vector3 position;
+    Vector3 direction;
+    int bulletType;
+    int bulletLifeMax;
+    float bulletPower;
+    float bulletGravity;
+    float bulletScale;
+    float hitScale;
+    bool isSuperBullet;
 };
 
 // Танк уничтожен
@@ -140,11 +140,11 @@ struct TankTreeCollisionEvent
 };
 
 // DBP: tree(ter(2,xm,zm)-1000,0)=2 (дерево умирает)
-struct TreeDestroyedEvent
+/*struct TreeDestroyedEvent
 {
     int cellX, cellZ;
     float fallAngle; // DBP: tk#(n,14)+180 или anb#+180
-};
+};*/
 
 // DBP: rp<35 (подбор powerup)
 struct PowerUpPickedEvent
@@ -160,19 +160,18 @@ struct TurboActivatedEvent
 {
     int tankId;
     Vector3 position;
-    bool isPlayer;
 };
 
 // DBP: tk#(c,37)<tk#(c,49)/3 and tk#(c,35)=0 (смена текстуры)
-struct TankDamagedEvent
+/*struct TankDamagedEvent
 {
     int tankId;
     Vector3 position;
-};
+};*/
 
 // DBP: powerup 53 (repair) -> tk#(n,35)=0, texture object n,100+...
-struct TankRepairedEvent
+/*struct TankRepairedEvent
 {
     int tankId;
     Vector3 position;
-};
+};*/

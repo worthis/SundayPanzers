@@ -303,6 +303,10 @@ void TankSystem::init(EventSystem *eventSystem, Terrain *terrain)
         [this](const BulletFlightEvent &e)
         { onBulletFlight(e); });
 
+    eventSystem->subscribe<TurboActivatedEvent>(
+        [this](const TurboActivatedEvent &e)
+        { onTurboActivated(e); });
+
     initTankTypes();
     loadTankModels();
     loadSquadTextures();
@@ -817,6 +821,11 @@ void TankSystem::updateTank(int n, float xj, float yj)
         tk.reloadCounter--;
         tk.hitCounter++;
     }
+
+    // Уменьшение hitCounter
+    // DBP: if tk#(n,52)>0 then tk#(n,52)=tk#(n,52)-1
+    if (tk.hitCounter > 0)
+        tk.hitCounter--;
 
     // === Сохраняем предыдущее состояние ДЛЯ ИНТЕРПОЛЯЦИИ ===
     tk.prevX = tk.x;
@@ -1681,4 +1690,15 @@ void TankSystem::onBulletFlight(const BulletFlightEvent &e)
             return;
         }
     }
+}
+
+void TankSystem::onTurboActivated(const TurboActivatedEvent &e)
+{
+    TankData &tk = getTankMut(e.tankId);
+
+    if (tk.type <= 0)
+        return;
+
+    tk.turboCounter = tk.turboTime;
+    tk.turboCharger = tk.turboReload;
 }

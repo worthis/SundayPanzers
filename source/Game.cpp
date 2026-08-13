@@ -36,7 +36,7 @@ void Game::Init()
     tankSystem.init(&eventSystem, &terrain);
     bulletSystem.init(&eventSystem);
     powerUpSystem.init(&audioSystem, &terrain, &tankSystem);
-    aiSystem.init(&audioSystem, &tankSystem);
+    aiSystem.init(&eventSystem, &tankSystem);
     bulletSystem.loadAssets();
     powerUpSystem.loadAssets();
 

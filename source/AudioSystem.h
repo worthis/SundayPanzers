@@ -129,6 +129,7 @@ private:
     void onTankDestroyed(const TankDestroyedEvent &e);
     void onTankCollision(const TankCollisionEvent &e);
     void onTankTreeCollision(const TankTreeCollisionEvent &e);
+    void onTurboActivated(const TurboActivatedEvent &e);
 
     // Музыка
     Music currentMusic;

@@ -2,9 +2,9 @@
 #include "Utils.h"
 #include <cmath>
 
-void AISystem::init(AudioSystem *audioSystem, TankSystem *tankSystem)
+void AISystem::init(EventSystem *eventSystem, TankSystem *tankSystem)
 {
-    this->audioSystem = audioSystem;
+    this->eventSystem = eventSystem;
     this->tankSystem = tankSystem;
 }
 
@@ -17,17 +17,6 @@ void AISystem::update()
     changeTargetClock++;
     if (changeTargetClock > 300)
         changeTargetClock = rnd(10);
-
-    // Уменьшение hitCounter для всех танков
-    // DBP: if tk#(n,52)>0 then tk#(n,52)=tk#(n,52)-1
-    for (int n = PLAYER_MIN; n < COMBAT_MAX; n++)
-    {
-        TankData &tk = tankSystem->getTankMut(n);
-        if (tk.type == 0)
-            continue;
-        if (tk.hitCounter > 0)
-            tk.hitCounter--;
-    }
 }
 
 // ============================================================
@@ -244,7 +233,6 @@ AIOutput AISystem::computeInput(int n)
             {
                 float dx = tg.x - tk.x;
                 float dz = tg.z - tk.z;
-                float r = sqrtf(dx * dx + dz * dz);
 
                 // Вычисляем угол к цели (аналог point object в DBP)
                 float ry = atan2f(dx, dz) * RAD2DEG;
@@ -783,11 +771,9 @@ AIOutput AISystem::computeInput(int n)
     // ============================================================
     if (tb)
     {
-        tk.turboCounter = tk.turboTime;
-        tk.turboCharger = tk.turboReload;
-
-        if (audioSystem)
-            audioSystem->playTurbo({tk.x, tk.y, tk.z});
+        eventSystem->publish(TurboActivatedEvent{
+            .tankId = n,
+            .position = {tk.x, tk.y, tk.z}});
     }
 
     // ============================================================

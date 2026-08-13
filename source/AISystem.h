@@ -1,5 +1,5 @@
 #pragma once
-#include "AudioSystem.h"
+#include "EventSystem.h"
 #include "TankSystem.h"
 #include "GameConfig.h"
 
@@ -14,7 +14,7 @@ struct AIOutput
 class AISystem
 {
 public:
-    void init(AudioSystem *audioSystem, TankSystem *tankSystem);
+    void init(EventSystem *eventSystem, TankSystem *tankSystem);
 
     // Вызывается ОДИН раз за тик ПЕРЕД циклом updateTank
     void update();
@@ -26,16 +26,13 @@ public:
     void setPowupSearchFactor(int v) { powupSearchFactor = v; }
 
 private:
-    AudioSystem *audioSystem = nullptr;
+    EventSystem *eventSystem = nullptr;
     TankSystem *tankSystem = nullptr;
 
     int changeTargetClock = 0;  // DBP: gam(11), 0..300
     int powupSearchFactor = 90; // DBP: gam(12)
 
-    // Поиск ближайшей цели для танка n
-    int findTarget(int n) const;
-    // 2D-дистанция между танками
-    float range2D(int a, int b) const;
-    // 3D-дистанция
-    float range3D(int a, int b) const;
+    int findTarget(int n) const;       // Поиск ближайшей цели для танка n
+    float range2D(int a, int b) const; // 2D-дистанция между танками
+    float range3D(int a, int b) const; // 3D-дистанция
 };

@@ -66,11 +66,12 @@ void AudioSystem::init(EventSystem *eventSystem)
         [this](const TankTreeCollisionEvent &e)
         { onTankTreeCollision(e); });
 
-    /*eventSystem->subscribe<PowerUpPickedEvent>(
-        [this](const PowerUpPickedEvent& e) { onPowerUpPicked(e); });
-
     eventSystem->subscribe<TurboActivatedEvent>(
-        [this](const TurboActivatedEvent& e) { onTurboActivated(e); });*/
+        [this](const TurboActivatedEvent &e)
+        { onTurboActivated(e); });
+
+    /*eventSystem->subscribe<PowerUpPickedEvent>(
+        [this](const PowerUpPickedEvent& e) { onPowerUpPicked(e); });*/
 
     const char *soundFiles[MAX_SOUNDS] = {
         "data/sound/tank.wav",   // tank engine
@@ -759,4 +760,9 @@ void AudioSystem::onTankCollision(const TankCollisionEvent &e)
 void AudioSystem::onTankTreeCollision(const TankTreeCollisionEvent &e)
 {
     playCollision(e.position, false);
+}
+
+void AudioSystem::onTurboActivated(const TurboActivatedEvent &e)
+{
+    playTurbo(e.position);
 }
