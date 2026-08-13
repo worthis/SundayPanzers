@@ -35,7 +35,7 @@ void Game::Init()
     cloudSystem.init(&terrain);
     tankSystem.init(&eventSystem, &terrain);
     bulletSystem.init(&eventSystem);
-    powerUpSystem.init(&audioSystem, &terrain, &tankSystem);
+    powerUpSystem.init(&eventSystem, &terrain, &tankSystem);
     aiSystem.init(&eventSystem, &tankSystem);
     bulletSystem.loadAssets();
     powerUpSystem.loadAssets();
@@ -469,7 +469,7 @@ void Game::UpdateBattleEnding(float dt)
 
         for (int n = 1; n <= COMBAT_MAX; n++)
         {
-            if (tankSystem.getTank(n).type <= 0)
+            if (tankSystem.getTank(n).type == 0)
                 continue;
 
             AIOutput ai = aiSystem.computeInput(n);
@@ -488,8 +488,6 @@ void Game::UpdateBattleEnding(float dt)
 
         accumulator -= FIXED_DT;
     }
-
-    // updateEngineSounds();
 
     // Обработка M для mute музыки (keystate(50))
     if (IsKeyPressed(KEY_M))
@@ -517,15 +515,9 @@ void Game::UpdateBattleEnding(float dt)
     }
     audioSystem.setListenerOrientation(camera.getPosition(), forward, cam.up);
 
-    // if msg>395 then paste image 2003 (click to continue)
-    /*if (battleEndingMessage > 395.0f)
-    {
-        battleEndingClickShown = true;
-    }*/
-
     // Выход: если mv>0 и msg>=400
-    bool skip = (alpha >= 255.0f) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    if (introTimer >= 5.0f && skip)
+    bool skip = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (introTimer >= 400.0f && skip)
     {
         // Проверяем, нужно ли показать финальную заставку
         int currentLevel = menuSystem.getResult().level;
@@ -587,7 +579,7 @@ void Game::DrawBattleEnding()
     }
 
     // if msg>395 then paste image 2003 - "click to continue"
-    if (alpha >= 255.0f && texClick.id != 0)
+    if (introTimer > 395.0f && texClick.id != 0)
     {
         // xof=10*cos(ang#)  yof=10*sin(ang#)
         float xof = 10.0f * cosf(ang * DEG2RAD);
@@ -785,7 +777,7 @@ void Game::UpdateBattle(float dt)
 
         for (int n = 1; n <= COMBAT_MAX; n++)
         {
-            if (tankSystem.getTank(n).type <= 0)
+            if (tankSystem.getTank(n).type == 0)
                 continue;
 
             // Проверка живости (аналог for p=1 to 12 ... if tk#(p,0)>0)

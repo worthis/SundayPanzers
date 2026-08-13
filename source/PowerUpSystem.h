@@ -2,7 +2,7 @@
 
 #include "raylib.h"
 #include "GameConfig.h"
-#include "AudioSystem.h"
+#include "EventSystem.h"
 #include "Terrain.h"
 #include "TankSystem.h"
 
@@ -34,7 +34,7 @@ class PowerUpSystem
 public:
     PowerUpSystem() = default;
 
-    void init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem);
+    void init(EventSystem *eventSystem, Terrain *terrain, TankSystem *tankSystem);
     void loadAssets();
     void update();           // Вращение + таймер появления + синхронизация с TankSystem
     void checkPickup(int n); // Подбор для танка n + decrease counters. Вызывается для КАЖДОГО танка 1..50 каждый тик
@@ -48,11 +48,11 @@ public:
     bool isModelLoaded(int type) const { return modelLoaded[type]; }
 
 private:
-    PowerUpData pups[NUM_PUP];
-    
-    AudioSystem *audioSystem = nullptr;
+    EventSystem *eventSystem = nullptr;
     Terrain *terrain = nullptr;
     TankSystem *tankSystem = nullptr;
+
+    PowerUpData pups[NUM_PUP];
 
     Model models[3]; // 0=pup1(barrier), 1=pup2(superbullet), 2=pup3(repair)
     Texture2D textures[3];

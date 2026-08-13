@@ -307,6 +307,10 @@ void TankSystem::init(EventSystem *eventSystem, Terrain *terrain)
         [this](const TurboActivatedEvent &e)
         { onTurboActivated(e); });
 
+    eventSystem->subscribe<PowerUpPickedEvent>(
+        [this](const PowerUpPickedEvent &e)
+        { onPowerUpPicked(e); });
+
     initTankTypes();
     loadTankModels();
     loadSquadTextures();
@@ -826,6 +830,14 @@ void TankSystem::updateTank(int n, float xj, float yj)
     // DBP: if tk#(n,52)>0 then tk#(n,52)=tk#(n,52)-1
     if (tk.hitCounter > 0)
         tk.hitCounter--;
+
+    // DBP: if tk#(n,50)>0 then tk#(n,50)=tk#(n,50)-1
+    if (tk.barrierCounter > 0)
+        tk.barrierCounter--;
+
+    // DBP: if tk#(n,51)>0 then tk#(n,51)=tk#(n,51)-1
+    if (tk.superBulletCounter > 0)
+        tk.superBulletCounter--;
 
     // === Сохраняем предыдущее состояние ДЛЯ ИНТЕРПОЛЯЦИИ ===
     tk.prevX = tk.x;
@@ -1701,4 +1713,34 @@ void TankSystem::onTurboActivated(const TurboActivatedEvent &e)
 
     tk.turboCounter = tk.turboTime;
     tk.turboCharger = tk.turboReload;
+}
+
+void TankSystem::onPowerUpPicked(const PowerUpPickedEvent &e)
+{
+    TankData &tk = getTankMut(e.tankId);
+
+    if (tk.type <= 0)
+        return;
+
+    switch (e.powerUpType)
+    {
+    case 1:
+        // DBP: if pup<=2 then so=24:tk#(n,50)=tk#(n,50)+1500
+        tk.barrierCounter += 1500;
+        break;
+
+    case 2:
+        tk.energy += tk.maxEnergy / 2.0f;
+        if (tk.energy > tk.maxEnergy)
+            tk.energy = tk.maxEnergy;
+        tk.damaged = false; // DBP: tk#(n,35)=0
+        break;
+
+    case 3:
+        tk.superBulletCounter += 2000;
+        break;
+
+    default:
+        break;
+    }
 }

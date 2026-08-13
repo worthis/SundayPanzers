@@ -202,4 +202,5 @@ private:
 
     void onBulletFlight(const BulletFlightEvent &e);
     void onTurboActivated(const TurboActivatedEvent &e);
+    void onPowerUpPicked(const PowerUpPickedEvent &e);
 };

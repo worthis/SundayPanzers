@@ -146,11 +146,10 @@ struct TankTreeCollisionEvent
     float fallAngle; // DBP: tk#(n,14)+180 или anb#+180
 };*/
 
-// DBP: rp<35 (подбор powerup)
+// Подбор powerup
 struct PowerUpPickedEvent
 {
     int tankId;
-    int powerUpSlot; // 51..55
     int powerUpType; // 1=barrier(51-52), 2=repair(53), 3=superbullet(54-55)
     Vector3 position;
 };

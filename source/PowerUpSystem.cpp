@@ -8,9 +8,9 @@
 // ============================================================
 // Инициализация — DBP makesortie: создание 5 powerup
 // ============================================================
-void PowerUpSystem::init(AudioSystem *audioSystem, Terrain *terrain, TankSystem *tankSystem)
+void PowerUpSystem::init(EventSystem *eventSystem, Terrain *terrain, TankSystem *tankSystem)
 {
-    this->audioSystem = audioSystem;
+    this->eventSystem = eventSystem;
     this->terrain = terrain;
     this->tankSystem = tankSystem;
 
@@ -198,14 +198,16 @@ void PowerUpSystem::checkPickup(int n)
     if (!tankSystem)
         return;
 
-    TankData &tk = tankSystem->getTankMut(n);
-    if (tk.type == 0)
+    const TankData &tk = tankSystem->getTank(n);
+
+    if (tk.type <= 0)
         return;
 
     // DBP: for pup=1 to 5
     for (int i = 0; i < NUM_PUP; i++)
     {
         PowerUpData &p = pups[i];
+
         if (!p.active)
             continue;
 
@@ -224,9 +226,18 @@ void PowerUpSystem::checkPickup(int n)
         switch (p.type)
         {
         case 0: // barrier
-            // DBP: if pup<=2 then so=24:tk#(n,50)=tk#(n,50)+1500
-            tk.barrierCounter += 1500;
-            if (audioSystem) audioSystem->playBarrierPickup({p.x, p.y, p.z});        
+            eventSystem->publish(PowerUpPickedEvent{
+                .tankId = n,
+                .powerUpType = 1,
+                .position = {p.x, p.y, p.z}});
+            break;
+
+        case 1: // superbullet
+            // DBP: if pup>3 then so=25:tk#(n,51)=tk#(n,51)+2000
+            eventSystem->publish(PowerUpPickedEvent{
+                .tankId = n,
+                .powerUpType = 3,
+                .position = {p.x, p.y, p.z}});
             break;
 
         case 2: // repair
@@ -235,31 +246,16 @@ void PowerUpSystem::checkPickup(int n)
             //   if tk#(n,37)>tk#(n,49) then tk#(n,37)=tk#(n,49)
             //   tk#(n,35)=0: texture reset
             //   powup(53): so=28
-            tk.energy += tk.maxEnergy / 2.0f;
-            if (tk.energy > tk.maxEnergy)
-                tk.energy = tk.maxEnergy;
-            tk.damaged = false; // DBP: tk#(n,35)=0
-            if (audioSystem) audioSystem->playRepairPickup({p.x, p.y, p.z});
-            break;
-
-        case 1: // superbullet
-            // DBP: if pup>3 then so=25:tk#(n,51)=tk#(n,51)+2000
-            tk.superBulletCounter += 2000;
-            if (audioSystem) audioSystem->playSuperBulletPickup({p.x, p.y, p.z});
+            eventSystem->publish(PowerUpPickedEvent{
+                .tankId = n,
+                .powerUpType = 2,
+                .position = {p.x, p.y, p.z}});
             break;
         }
 
         // DBP: powup(50+pup) — respawn
         respawn(i);
     }
-
-    // DBP: if tk#(n,50)>0 then tk#(n,50)=tk#(n,50)-1
-    if (tk.barrierCounter > 0)
-        tk.barrierCounter--;
-
-    // DBP: if tk#(n,51)>0 then tk#(n,51)=tk#(n,51)-1
-    if (tk.superBulletCounter > 0)
-        tk.superBulletCounter--;
 }
 
 // ============================================================
@@ -284,9 +280,9 @@ void PowerUpSystem::render() const
 
         rlPushMatrix();
         rlTranslatef(p.x, p.y + hover, p.z);
-        rlRotatef(180.0f + p.angleY, 0.0f, 1.0f, 0.0f);  // yaw (DBP→OpenGL)
-        rlRotatef(180.0f, 1.0f, 0.0f, 0.0f);              // flip по X
-        DrawModel(models[modelIdx], {0,0,0}, 1.0f, WHITE);
+        rlRotatef(180.0f + p.angleY, 0.0f, 1.0f, 0.0f); // yaw (DBP→OpenGL)
+        rlRotatef(180.0f, 1.0f, 0.0f, 0.0f);            // flip по X
+        DrawModel(models[modelIdx], {0, 0, 0}, 1.0f, WHITE);
         rlPopMatrix();
     }
 }

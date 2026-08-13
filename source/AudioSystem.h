@@ -130,6 +130,7 @@ private:
     void onTankCollision(const TankCollisionEvent &e);
     void onTankTreeCollision(const TankTreeCollisionEvent &e);
     void onTurboActivated(const TurboActivatedEvent &e);
+    void onPowerUpPicked(const PowerUpPickedEvent &e);
 
     // Музыка
     Music currentMusic;
