@@ -134,8 +134,6 @@ void TreeSystem::placeTrees(int biome)
     if (!terrain)
         return;
 
-    // TODO. Перенести сюда загрузку дерева для биома и текстуру
-
     treeCount = 0;
 
     for (int t = 0; t < MAX_TREES; t++)

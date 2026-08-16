@@ -125,10 +125,10 @@ void MenuSystem::update(float dt)
     m_tankRotation = wrapValue(m_tankRotation + 0.4f);
 
     // Mouse (with offset correction)
-    Vector2 mouse = GetMousePosition();
+    Vector2 mouse = m_input->getMousePosition();
     float mx = mouse.x - m_offsetX;
     float my = mouse.y - m_offsetY;
-    bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool clicked = m_input->isMouseLeftPressed();
 
     if (m_screen == MenuScreen::SELECT_LEVEL_SQUAD)
         updateSelectLevelSquad(mx, my, clicked);
@@ -220,12 +220,9 @@ void MenuSystem::updateFakeTank()
 
 void MenuSystem::updateSelectLevelSquad(float mx, float my, bool clicked)
 {
-    if (!clicked)
-        return;
-
     int som = 0;
 
-    // === Действия (лямбды, чтобы не дублировать код) ===
+    // === Действия ===
     auto doLevelLeft = [&]()
     {
         m_selectedLevel--;
@@ -297,21 +294,16 @@ void MenuSystem::updateSelectLevelSquad(float mx, float my, bool clicked)
             doNext();
     }
 
-    // === Геймпад ===
-    // Select difficulty level - L/R и LT/RT
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_TRIGGER_1, GAMEPAD_BUTTON_LEFT_TRIGGER_2}))
+    // === Геймпад / Клавиатура ===
+    if (m_input->isMenuLeftPressed())
         doLevelLeft();
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_TRIGGER_1, GAMEPAD_BUTTON_RIGHT_TRIGGER_2}))
+    if (m_input->isMenuRightPressed())
         doLevelRight();
-
-    // Select your squad - left/right (d-pad)
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_FACE_LEFT}))
+    if (m_input->isMenuUpPressed())
         doSquadLeft();
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_FACE_RIGHT}))
+    if (m_input->isMenuDownPressed())
         doSquadRight();
-
-    // Next - A или Start
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_FACE_DOWN, GAMEPAD_BUTTON_MIDDLE_RIGHT}))
+    if (m_input->isMenuConfirmPressed() || m_input->isMenuNextPressed())
         doNext();
 
     if (som == 1)
@@ -322,9 +314,6 @@ void MenuSystem::updateSelectLevelSquad(float mx, float my, bool clicked)
 
 void MenuSystem::updateShop(float mx, float my, bool clicked)
 {
-    if (!clicked)
-        return;
-
     int som = 0;
 
     // === Действия ===
@@ -368,6 +357,15 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
             som = 2;
         }
     };
+    auto doAiReset = [&]()
+    {
+        if (m_playerTanks[m_selectedBox].type > 0 && m_playerTanks[m_selectedBox].ai == m_maxAI)
+        {
+            int diff = (m_maxAI - m_minAI) * 2;
+            m_playerTanks[m_selectedBox].ai = m_minAI;
+            m_creditsUsed -= diff;
+        }
+    };
     auto doAiUp = [&]()
     {
         som = 2;
@@ -381,6 +379,8 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
                 som = 1;
             }
         }
+        else
+            doAiReset();
     };
     auto doAiDown = [&]()
     {
@@ -509,43 +509,26 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
             doBattle();
     }
 
-    // === Геймпад ===
-    // Select box - L/R и LT/RT
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_TRIGGER_1, GAMEPAD_BUTTON_LEFT_TRIGGER_2}))
+    // === Геймпад / Клавиатура ===
+    if (m_input->isMenuLeftPressed())
         doBoxLeft();
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_TRIGGER_1, GAMEPAD_BUTTON_RIGHT_TRIGGER_2}))
+    if (m_input->isMenuRightPressed())
         doBoxRight();
-
-    // Select tank - left/right (d-pad)
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_FACE_LEFT}))
+    if (m_input->isMenuUpPressed())
         doTankLeft();
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_FACE_RIGHT}))
+    if (m_input->isMenuDownPressed())
         doTankRight();
-
-    // Select skill - d-pad up/down
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_FACE_UP}))
-        doAiUp();
-    if (gamepadPressed({GAMEPAD_BUTTON_LEFT_FACE_DOWN}))
-        doAiDown();
-
-    // Buy - A
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_FACE_DOWN}))
+    if (m_input->isMenuConfirmPressed())
         doBuy();
-
-    // Sell - B
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_FACE_RIGHT}))
+    if (m_input->isMenuCancelPressed())
         doSell();
-
-    // Start on this tank (Make commander) - X
-    if (gamepadPressed({GAMEPAD_BUTTON_RIGHT_FACE_LEFT}))
+    if (m_input->isMenuSpecial1Pressed())
         doCommander();
-
-    // Back - Select
-    if (gamepadPressed({GAMEPAD_BUTTON_MIDDLE_LEFT}))
+    if (m_input->isMenuSpecial2Pressed())
+        doAiUp();
+    if (m_input->isMenuBackPressed())
         doBack();
-
-    // Battle - Start
-    if (gamepadPressed({GAMEPAD_BUTTON_MIDDLE_RIGHT}))
+    if (m_input->isMenuNextPressed())
         doBattle();
 
     if (som == 1)
@@ -610,8 +593,11 @@ void MenuSystem::draw()
 
     drawLogo();
 
-    Vector2 mouse = GetMousePosition();
-    drawCursor(mouse.x - m_offsetX, mouse.y - m_offsetY);
+    if (m_input->isMouseEnabled())
+    {
+        Vector2 mouse = m_input->getMousePosition();
+        drawCursor(mouse.x - m_offsetX, mouse.y - m_offsetY);
+    }
 
     // Fade in overlay (analog of set gamma)
     if (m_gamma < 255.0f)
@@ -889,8 +875,10 @@ void MenuSystem::drawImageAlpha(Texture2D tex, float x, float y, unsigned char a
 
 void MenuSystem::drawDigits(int value, float x, float y) const
 {
-    if (value < 0) value = 0;
-    if (value > 999) value = 999;
+    if (value < 0)
+        value = 0;
+    if (value > 999)
+        value = 999;
 
     int hundreds = value / 100;
     int tens = (value % 100) / 10;
@@ -903,13 +891,13 @@ void MenuSystem::drawDigits(int value, float x, float y) const
         drawImage(m_texDigits[hundreds], nx, y);
         nx += 10.0f;
     }
-    
+
     if (m_texDigits[tens].id != 0)
     {
         drawImage(m_texDigits[tens], nx, y);
         nx += 10.0f;
     }
-    
+
     if (m_texDigits[units].id != 0)
     {
         drawImage(m_texDigits[units], nx, y);

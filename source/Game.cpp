@@ -4,16 +4,6 @@
 #include <cmath>
 
 Game::Game()
-    : currentState(GameState::LOGO_INTRO),
-      playerCommander(0),
-      accumulator(0.0f),
-      showDebug(false),
-      playerSquadAlive(true),
-      enemySquadAlive(true),
-      battleEnded(false),
-      introTimer(0.0f),
-      introGamma(0.0f),
-      logoSoundPlayed(false)
 {
 }
 
@@ -144,8 +134,7 @@ void Game::UpdateLogoIntro(float dt)
         logoSoundPlayed = true;
     }
 
-    bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-
+    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed();
     if (introTimer > 350.0f && skip)
     {
         StartGameIntro();
@@ -236,8 +225,7 @@ void Game::UpdateGameIntro(float dt)
     // Камера следит за фейковым танком
     camera.track(introFakeTank, terrain, false);
 
-    bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-
+    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed();
     if (introTimer > 5.0f && skip)
     {
         currentState = GameState::MAIN_MENU;
@@ -326,6 +314,8 @@ void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSqua
     playerSquadAlive = true;
     enemySquadAlive = true;
 
+    input.setTankSelected(playerCommander);
+
     StartBattleIntro();
 }
 
@@ -360,10 +350,7 @@ void Game::UpdateBattleIntro(float dt)
 
     // Выход: если ga>=255 и нажата любая клавиша/мышь
     // В оригинале: mv=abs(joystick x/200)+abs(joystick y/200)+rightkey()+leftkey()+upkey()+downkey()
-    bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
-                IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_LEFT) ||
-                IsKeyDown(KEY_UP) || IsKeyDown(KEY_DOWN);
-
+    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed() || input.isTankMoved();
     if (introTimer >= 5.0f && skip)
     {
         // Переход к бою
@@ -422,7 +409,7 @@ void Game::DrawBattleIntro()
     }
 
     // paste image 84+gam(25),10,10,1 - название сценария
-    if (biome > 0 && biome <= 6)
+    if (biome >= 1 && biome <= NUM_BIOMES)
     {
         DrawTexture(texScenario[biome - 1], 10, 10, WHITE);
     }
@@ -489,12 +476,6 @@ void Game::UpdateBattleEnding(float dt)
         accumulator -= FIXED_DT;
     }
 
-    // Обработка M для mute музыки (keystate(50))
-    if (IsKeyPressed(KEY_M))
-    {
-        audioSystem.toggleMusicMute();
-    }
-
     // === ИНТЕРПОЛЯЦИЯ ===
     float alpha = accumulator / FIXED_DT; // 0.0 .. 1.0
     tankSystem.interpolate(alpha);
@@ -516,7 +497,7 @@ void Game::UpdateBattleEnding(float dt)
     audioSystem.setListenerOrientation(camera.getPosition(), forward, cam.up);
 
     // Выход: если mv>0 и msg>=400
-    bool skip = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool skip = input.isMenuNextPressed();
     if (introTimer >= 400.0f && skip)
     {
         // Проверяем, нужно ли показать финальную заставку
@@ -543,7 +524,7 @@ void Game::DrawBattleEnding()
     terrain.render();
     treeSystem.render();
     cloudSystem.render();
-    tankSystem.render(); // показать останки танков
+    tankSystem.render();
     powerUpSystem.render();
     bulletSystem.render();
     tankSystem.renderShields();
@@ -722,19 +703,16 @@ void Game::UpdateBattle(float dt)
     if (IsKeyPressed(KEY_F1))
         showDebug = !showDebug;
 
-    if (IsKeyPressed(KEY_F3))
-        audioSystem.toggle3DSound();
-
-    if (IsKeyPressed(KEY_ESCAPE))
+    if (input.isQuitPressed())
     {
         ReturnToMenu();
         return;
     }
 
-    if (IsKeyPressed(KEY_T))
+    if (input.isToggleIdPressed())
         showEnemyIDs = !showEnemyIDs;
 
-    // === СМЕНА ТАНКА (F1-F12) ===
+    // === СМЕНА ТАНКА ===
     int requestedTankId = input.getRequestedTank();
     if (requestedTankId > 0 && requestedTankId != playerCommander && !camera.isSlipCamActive())
     {
@@ -833,12 +811,6 @@ void Game::UpdateBattle(float dt)
 
     updateEngineSounds();
 
-    // Обработка M для mute музыки (keystate(50))
-    if (IsKeyPressed(KEY_M))
-    {
-        audioSystem.toggleMusicMute();
-    }
-
     // === ИНТЕРПОЛЯЦИЯ ===
     float alpha = accumulator / FIXED_DT; // 0.0 .. 1.0
     tankSystem.interpolate(alpha);
@@ -863,7 +835,8 @@ void Game::UpdateBattle(float dt)
     if (!camera.isSlipCamActive())
         camera.track(playerTank, terrain, input.isRearViewPressed());
 
-    if (battleEnded && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    bool skip = input.isMenuNextPressed();
+    if (battleEnded && skip)
     {
         StartBattleEnding();
     }
@@ -911,7 +884,6 @@ void Game::DrawBattle()
     BeginMode3D(camera.getCamera());
 
     camera.applyRange();
-
     skybox.render();
     terrain.render();
     treeSystem.render();
@@ -936,16 +908,6 @@ void Game::DrawBattle()
     if (showDebug)
     {
         DrawFPS(10, 10);
-
-        // Индикатор 3D звука
-        if (audioSystem.is3DSoundEnabled())
-        {
-            DrawText("3D Sound: ON  [F3 to toggle]", 10, 30, 16, GREEN);
-        }
-        else
-        {
-            DrawText("3D Sound: OFF [F3 to toggle]", 10, 30, 16, RED);
-        }
     }
 
     EndDrawing();
@@ -974,15 +936,12 @@ void Game::UpdateGameCompleted(float dt)
         introGamma = 255.0f;
 
     // Ожидание клика после полного fade-in
-    bool skip = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-
+    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed() || input.isMenuBackPressed();
     if (introGamma >= 255.0f && skip)
     {
         // Fade out
         UnloadTexture(texEndGame);
-
         texEndGame = {};
-        musicEndGame = {};
 
         ReturnToMenu();
     }

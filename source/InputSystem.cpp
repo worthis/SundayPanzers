@@ -2,54 +2,73 @@
 #include <cmath>
 
 InputSystem::InputSystem()
-    : tankX(0), tankY(0), camX(0), camY(0), lookX(0), lookY(0)
 {
-}
-
-float InputSystem::applyDeadzone(float value) const
-{
-    if (fabsf(value) < DEADZONE)
-        return 0.0f;
-    return value;
 }
 
 void InputSystem::update()
 {
     tankX = 0.0f;
     tankY = 0.0f;
-    camX = 0.0f;
-    camY = 0.0f;
-    lookX = 0.0f;
-    lookY = 0.0f;
 
-    // === Танк: WASD ===
-    if (IsKeyDown(KEY_A))
-        tankX += 1.0f;
-    if (IsKeyDown(KEY_D))
-        tankX -= 1.0f;
-    if (IsKeyDown(KEY_W))
-        tankY -= 1.0f;
-    if (IsKeyDown(KEY_S))
-        tankY += 1.0f;
-
-    // Сохраняем предыдущее состояние ДО чтения нового
-    for (int i = 0; i < MAX_GAMEPAD_BUTTONS; i++)
-    {
-        m_gamepadPrevDown[i] = m_gamepadDown[i];
-    }
-
-    // Читаем текущее состояние всех кнопок геймпада
-    updateGamepadState();
-
-    // === Геймпад ===
+    // Приналичии геймпада отключаем ввод клавуатурой/мышью
     if (IsGamepadAvailable(0))
     {
-        // Левый стик → танк
-        tankX += applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X));
-        tankY += applyDeadzone(GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y));
+        m_mouseEnabled = false;
+        m_mousePos = {0.0f, 0.0f};
+        m_mouseLeftPressed = false;
+
+        // Сохраняем предыдущее состояние
+        for (int i = 0; i < MAX_GAMEPAD_BUTTONS; i++)
+            m_gamepadPrevDown[i] = m_gamepadDown[i];
+
+        // Читаем текущее состояние всех кнопок геймпада
+        updateGamepadState();
+
+        // Левый стик
+        float moveX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
+        float moveY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
+
+        if (fabsf(moveX) > DEADZONE)
+            tankX -= (moveX > 0.0f) ? 1.0f : -1.0f;
+        if (fabsf(moveY) > DEADZONE)
+            tankY -= (moveY > 0.0f) ? 1.0f : -1.0f;
+
+        // D-pad
+        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT)))
+            tankX += 1.0f;
+        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT)))
+            tankX -= 1.0f;
+        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_UP)))
+            tankY -= 1.0f;
+        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
+            tankY += 1.0f;
+    }
+    else
+    {
+        if (IsKeyDown(KEY_A))
+            tankX += 1.0f;
+        if (IsKeyDown(KEY_D))
+            tankX -= 1.0f;
+        if (IsKeyDown(KEY_W))
+            tankY -= 1.0f;
+        if (IsKeyDown(KEY_S))
+            tankY += 1.0f;
+
+        if (IsKeyDown(KEY_LEFT))
+            tankX += 1.0f;
+        if (IsKeyDown(KEY_RIGHT))
+            tankX -= 1.0f;
+        if (IsKeyDown(KEY_UP))
+            tankY -= 1.0f;
+        if (IsKeyDown(KEY_DOWN))
+            tankY += 1.0f;
+
+        m_mouseEnabled = true;
+        m_mousePos = GetMousePosition();
+        m_mouseLeftPressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     }
 
-    // Клампим
+    // Клампим значения
     if (tankX > 1.0f)
         tankX = 1.0f;
     if (tankX < -1.0f)
@@ -62,82 +81,307 @@ void InputSystem::update()
 
 float InputSystem::getTankX() const { return tankX; }
 float InputSystem::getTankY() const { return tankY; }
-float InputSystem::getCamX() const { return camX; }
-float InputSystem::getCamY() const { return camY; }
-float InputSystem::getLookX() const { return lookX; }
-float InputSystem::getLookY() const { return lookY; }
+
+bool InputSystem::isTankMoved() const
+{
+    return fabsf(tankX) > 0.0f || fabsf(tankY) > 0.0f;
+}
 
 bool InputSystem::isFirePressed() const
 {
-    bool c = IsKeyDown(KEY_SPACE);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyDown(KEY_SPACE);
+        c = c || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    }
+    else
+    {
+        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
+    }
     return c;
 }
 
 bool InputSystem::isRearViewPressed() const
 {
-    bool c = IsKeyDown(KEY_RIGHT_CONTROL);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyDown(KEY_RIGHT_ALT);
+        c = c || IsKeyDown(KEY_LEFT_ALT);
+    }
+    else
+    {
+        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP); // X
+    }
     return c;
 }
 
 bool InputSystem::isTurboPressed() const
 {
-    bool c = IsKeyDown(KEY_LEFT_CONTROL);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT);
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_RIGHT_CONTROL);
+        c = c || IsKeyPressed(KEY_LEFT_CONTROL);
+    }
+    else
+    {
+        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
+    }
     return c;
 }
 
 bool InputSystem::isToggleIdPressed() const
 {
-    bool c = IsKeyDown(KEY_T);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP);
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_T);
+    }
+    else
+    {
+        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // Y
+    }
     return c;
 }
 
 bool InputSystem::isNextTankPressed() const
 {
-    if (IsGamepadAvailable(0))
-        return IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
-    return false;
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_E);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1); // R1
+    }
+    return c;
 }
 
 bool InputSystem::isPrevTankPressed() const
 {
-    if (IsGamepadAvailable(0))
-        return IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1);
-    return false;
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_Q);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1); // L1
+    }
+    return c;
 }
 
 bool InputSystem::isQuitPressed() const
 {
-    bool c = IsKeyDown(KEY_Q);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_MIDDLE_RIGHT);
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_ESCAPE);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_MIDDLE_LEFT); // Select
+    }
     return c;
 }
 
-bool InputSystem::isMusicTogglePressed() const
+void InputSystem::setTankSelected(int t)
 {
-    bool c = IsKeyDown(KEY_M);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_TRIGGER_2);
-    return c;
+    if (t >= PLAYER_MIN && t <= PLAYER_MAX)
+        tankSelected = t;
+    else
+        tankSelected = PLAYER_MIN;
 }
 
-bool InputSystem::isFpsTogglePressed() const
+int InputSystem::getRequestedTank()
 {
-    bool c = IsKeyDown(KEY_F);
-    if (IsGamepadAvailable(0))
-        c = c || IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
+    if (m_mouseEnabled)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            if (IsKeyPressed(KEY_F1 + i))
+            {
+                tankSelected = i + 1;
+                return tankSelected;
+            }
+        }
+    }
+    else
+    {
+        if (isNextTankPressed())
+        {
+            tankSelected++;
+            if (tankSelected > PLAYER_MAX)
+                tankSelected = PLAYER_MAX;
+            return tankSelected;
+        }
+        if (isPrevTankPressed())
+        {
+            tankSelected--;
+            if (tankSelected < PLAYER_MIN)
+                tankSelected = PLAYER_MIN;
+            return tankSelected;
+        }
+    }
+
+    return 0;
+}
+
+// === Меню ===
+bool InputSystem::isMenuLeftPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_LEFT);
+        c = c || IsKeyPressed(KEY_A);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_2);      // L2
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT); // D-pad left
+        c = c || (getTankX() > 0.0f);                                       // LStick left
+    }
     return c;
 }
 
+bool InputSystem::isMenuRightPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_RIGHT);
+        c = c || IsKeyPressed(KEY_D);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_2);      // R2
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT); // D-pad right
+        c = c || (getTankX() < 0.0f);                                        // LStick right
+    }
+    return c;
+}
+
+bool InputSystem::isMenuUpPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_UP);
+        c = c || IsKeyPressed(KEY_W);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1);    // L1
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_UP); // D-pad up
+        c = c || (getTankY() > 0.0f);                                     // LStick up
+    }
+    return c;
+}
+
+bool InputSystem::isMenuDownPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_DOWN);
+        c = c || IsKeyPressed(KEY_S);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1);     // R1
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN); // D-pad down
+        c = c || (getTankY() < 0.0f);                                       // LStick down
+    }
+    return c;
+}
+
+bool InputSystem::isMenuConfirmPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_ENTER);
+        c = c || IsKeyPressed(KEY_SPACE);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
+    }
+    return c;
+}
+
+bool InputSystem::isMenuCancelPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_BACKSPACE);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
+    }
+    return c;
+}
+
+bool InputSystem::isMenuSpecial1Pressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_X);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP); // X
+    }
+    return c;
+}
+
+bool InputSystem::isMenuSpecial2Pressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_Y);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // Y
+    }
+    return c;
+}
+
+bool InputSystem::isMenuBackPressed() const
+{
+    return isQuitPressed();
+}
+
+bool InputSystem::isMenuNextPressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_ENTER);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT); // Start
+    }
+    return c;
+}
+
+// === Геймпад ===
 bool InputSystem::isGamepadConnected() const
+{
+    return IsGamepadAvailable(0);
+}
+
+bool InputSystem::isGamepadAvailable() const
 {
     return IsGamepadAvailable(0);
 }
@@ -148,11 +392,6 @@ void InputSystem::updateGamepadState()
     {
         m_gamepadDown[i] = IsGamepadButtonDown(0, i);
     }
-}
-
-bool InputSystem::isGamepadAvailable() const
-{
-    return IsGamepadAvailable(0);
 }
 
 bool InputSystem::isGamepadButtonDown(int button) const
@@ -177,19 +416,4 @@ bool InputSystem::isGamepadAnyPressed(std::initializer_list<int> buttons) const
             return true;
     }
     return false;
-}
-
-int InputSystem::getRequestedTank() const
-{
-    // F1-F10: scancode 59-68
-    // F11-F12: scancode 87-88 (в DBP это было a=>87 and a<=88)
-    // В Raylib: KEY_F1 = 290, KEY_F12 = 301
-
-    for (int i = 0; i < 12; i++)
-    {
-        if (IsKeyPressed(KEY_F1 + i))
-            return i + 1;
-    }
-
-    return 0;
 }

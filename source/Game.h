@@ -89,7 +89,7 @@ private:
     void initFakeTank(float x, float z, float yaw);
     void UpdateFakeTankMovement();
 
-    GameState currentState;
+    GameState currentState = GameState::LOGO_INTRO;
     MenuSystem menuSystem;
     HUDSystem hudSystem;
 
@@ -111,17 +111,17 @@ private:
 
     // Состояние текущего матча
     int playerCommander = 1;
-    float accumulator;
-    bool showDebug = false;
+    float accumulator = 0.0f;
+    bool showDebug = true;
     bool showEnemyIDs = false;
-    bool playerSquadAlive = false;
-    bool enemySquadAlive = false;
+    bool playerSquadAlive = true;
+    bool enemySquadAlive = true;
     bool battleEnded = false;
     int requestedTank = 0;
 
     // Ассеты и состояние для интро
-    float introTimer;
-    float introGamma;
+    float introTimer = 0.0f;
+    float introGamma = 0.0f;
     bool logoSoundPlayed = false;
     Texture2D texLogo = {};
     Texture2D texData1 = {};
@@ -144,6 +144,5 @@ private:
 
     // Ассеты и состояние для конца игры
     Texture2D texEndGame = {};
-    Music musicEndGame = {};
     bool endGamePlayed = false;
 };
