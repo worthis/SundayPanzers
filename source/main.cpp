@@ -14,6 +14,8 @@ int main()
     SetTargetFPS(60);
     DisableCursor();
 
+    SetExitKey(KEY_NULL);
+
     Game game;
     game.Init();
 
