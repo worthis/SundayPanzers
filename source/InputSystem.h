@@ -50,7 +50,14 @@ public:
     bool isGamepadButtonJustPressed(int button) const;
     bool isGamepadAnyPressed(std::initializer_list<int> buttons) const;
 
+    // === Тач ===
+    bool isTouchPressed() const { return m_touchPressed; }
+    Vector2 getTouchPosition() const { return m_touchPos; }
+
 private:
+    static constexpr float DEADZONE = 0.15f;
+    static constexpr int MAX_GAMEPAD_BUTTONS = 32;
+
     float tankX = 0.0f, tankY = 0.0f;
     int tankSelected = 0;
 
@@ -58,8 +65,20 @@ private:
     Vector2 m_mousePos = {0, 0};
     bool m_mouseLeftPressed = false;
 
-    static constexpr float DEADZONE = 0.15f;
-    static constexpr int MAX_GAMEPAD_BUTTONS = 32;
+    Vector2 m_touchPos = {0.0f, 0.0f};
+    bool m_touchPressed = false;
+    int m_prevTouchCount = 0;
+
+    enum class StickDirection
+    {
+        None,
+        Left,
+        Right,
+        Up,
+        Down
+    };
+    StickDirection m_prevLStickDir = StickDirection::None;
+    StickDirection m_currLStickDir = StickDirection::None;
 
     bool m_gamepadDown[MAX_GAMEPAD_BUTTONS] = {};     // текущее состояние
     bool m_gamepadPrevDown[MAX_GAMEPAD_BUTTONS] = {}; // предыдущий кадр

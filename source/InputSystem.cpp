@@ -10,7 +10,7 @@ void InputSystem::update()
     tankX = 0.0f;
     tankY = 0.0f;
 
-    // Приналичии геймпада отключаем ввод клавуатурой/мышью
+    // Приналичии геймпада отключаем ввод клавиатурой/мышью
     if (IsGamepadAvailable(0))
     {
         m_mouseEnabled = false;
@@ -24,6 +24,13 @@ void InputSystem::update()
         // Читаем текущее состояние всех кнопок геймпада
         updateGamepadState();
 
+        // Тач
+        int touchCount = GetTouchPointCount();
+        m_touchPressed = (touchCount > 0 && m_prevTouchCount == 0);
+        if (touchCount > 0)
+            m_touchPos = GetTouchPosition(0);
+        m_prevTouchCount = touchCount;
+
         // Левый стик
         float moveX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
         float moveY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
@@ -33,18 +40,41 @@ void InputSystem::update()
         if (fabsf(moveY) > DEADZONE)
             tankY -= (moveY > 0.0f) ? 1.0f : -1.0f;
 
+        // Определение направления левого стика
+        m_prevLStickDir = m_currLStickDir;
+        if (fabsf(moveX) > DEADZONE || fabsf(moveY) > DEADZONE)
+        {
+            // Определяем доминирующую ось
+            if (fabsf(moveX) > fabsf(moveY))
+            {
+                m_currLStickDir = (moveX > 0.0f) ? StickDirection::Right : StickDirection::Left;
+            }
+            else
+            {
+                m_currLStickDir = (moveY > 0.0f) ? StickDirection::Down : StickDirection::Up;
+            }
+        }
+        else
+        {
+            m_currLStickDir = StickDirection::None;
+        }
+
         // D-pad
-        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT)))
+        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_LEFT))
             tankX += 1.0f;
-        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT)))
+        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
             tankX -= 1.0f;
-        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_UP)))
+        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_UP))
             tankY -= 1.0f;
-        if (IsKeyDown(isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
+        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_DOWN))
             tankY += 1.0f;
     }
     else
     {
+        m_mouseEnabled = true;
+        m_mousePos = GetMousePosition();
+        m_mouseLeftPressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+
         if (IsKeyDown(KEY_A))
             tankX += 1.0f;
         if (IsKeyDown(KEY_D))
@@ -62,10 +92,6 @@ void InputSystem::update()
             tankY -= 1.0f;
         if (IsKeyDown(KEY_DOWN))
             tankY += 1.0f;
-
-        m_mouseEnabled = true;
-        m_mousePos = GetMousePosition();
-        m_mouseLeftPressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     }
 
     // Клампим значения
@@ -93,7 +119,7 @@ bool InputSystem::isFirePressed() const
     if (m_mouseEnabled)
     {
         c = IsKeyDown(KEY_SPACE);
-        c = c || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        c = c || IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     }
     else
     {
@@ -141,7 +167,7 @@ bool InputSystem::isToggleIdPressed() const
     }
     else
     {
-        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // Y
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // Y
     }
     return c;
 }
@@ -241,9 +267,9 @@ bool InputSystem::isMenuLeftPressed() const
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_2);      // L2
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT); // D-pad left
-        c = c || (getTankX() > 0.0f);                                       // LStick left
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_2);                            // L2
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT);                       // D-pad left
+        c = c || (m_currLStickDir == StickDirection::Left && m_prevLStickDir != m_currLStickDir); // LS left
     }
     return c;
 }
@@ -258,9 +284,9 @@ bool InputSystem::isMenuRightPressed() const
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_2);      // R2
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT); // D-pad right
-        c = c || (getTankX() < 0.0f);                                        // LStick right
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_2);                            // R2
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT);                       // D-pad right
+        c = c || (m_currLStickDir == StickDirection::Right && m_prevLStickDir != m_currLStickDir); // LS right
     }
     return c;
 }
@@ -275,9 +301,9 @@ bool InputSystem::isMenuUpPressed() const
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1);    // L1
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_UP); // D-pad up
-        c = c || (getTankY() > 0.0f);                                     // LStick up
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1);                          // L1
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_UP);                       // D-pad up
+        c = c || (m_currLStickDir == StickDirection::Up && m_prevLStickDir != m_currLStickDir); // LS up
     }
     return c;
 }
@@ -292,9 +318,9 @@ bool InputSystem::isMenuDownPressed() const
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1);     // R1
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN); // D-pad down
-        c = c || (getTankY() < 0.0f);                                       // LStick down
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1);                           // R1
+        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN);                       // D-pad down
+        c = c || (m_currLStickDir == StickDirection::Down && m_prevLStickDir != m_currLStickDir); // LS down
     }
     return c;
 }

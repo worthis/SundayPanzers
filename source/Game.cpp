@@ -134,7 +134,10 @@ void Game::UpdateLogoIntro(float dt)
         logoSoundPlayed = true;
     }
 
-    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed();
+    bool skip = input.isMenuConfirmPressed() ||
+                input.isMenuNextPressed() ||
+                input.isTouchPressed();
+
     if (introTimer > 350.0f && skip)
     {
         StartGameIntro();
@@ -225,7 +228,10 @@ void Game::UpdateGameIntro(float dt)
     // Камера следит за фейковым танком
     camera.track(introFakeTank, terrain, false);
 
-    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed();
+    bool skip = input.isMenuConfirmPressed() ||
+                input.isMenuNextPressed() ||
+                input.isTouchPressed();
+
     if (introTimer > 5.0f && skip)
     {
         currentState = GameState::MAIN_MENU;
@@ -350,7 +356,11 @@ void Game::UpdateBattleIntro(float dt)
 
     // Выход: если ga>=255 и нажата любая клавиша/мышь
     // В оригинале: mv=abs(joystick x/200)+abs(joystick y/200)+rightkey()+leftkey()+upkey()+downkey()
-    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed() || input.isTankMoved();
+    bool skip = input.isMenuConfirmPressed() ||
+                input.isMenuNextPressed() ||
+                input.isTankMoved() ||
+                input.isTouchPressed();
+
     if (introTimer >= 5.0f && skip)
     {
         // Переход к бою
@@ -497,7 +507,9 @@ void Game::UpdateBattleEnding(float dt)
     audioSystem.setListenerOrientation(camera.getPosition(), forward, cam.up);
 
     // Выход: если mv>0 и msg>=400
-    bool skip = input.isMenuNextPressed();
+    bool skip = input.isMenuNextPressed() ||
+                input.isTouchPressed();
+
     if (introTimer >= 400.0f && skip)
     {
         // Проверяем, нужно ли показать финальную заставку
@@ -936,7 +948,11 @@ void Game::UpdateGameCompleted(float dt)
         introGamma = 255.0f;
 
     // Ожидание клика после полного fade-in
-    bool skip = input.isMenuConfirmPressed() || input.isMenuNextPressed() || input.isMenuBackPressed();
+    bool skip = input.isMenuConfirmPressed() ||
+                input.isMenuNextPressed() ||
+                input.isMenuBackPressed() ||
+                input.isTouchPressed();
+
     if (introGamma >= 255.0f && skip)
     {
         // Fade out

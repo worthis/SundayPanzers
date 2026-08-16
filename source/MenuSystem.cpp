@@ -126,9 +126,16 @@ void MenuSystem::update(float dt)
 
     // Mouse (with offset correction)
     Vector2 mouse = m_input->getMousePosition();
+    bool clicked = m_input->isMouseLeftPressed();
+
+    if (!clicked && m_input->isTouchPressed())
+    {
+        mouse = m_input->getTouchPosition();
+        clicked = true;
+    }
+
     float mx = mouse.x - m_offsetX;
     float my = mouse.y - m_offsetY;
-    bool clicked = m_input->isMouseLeftPressed();
 
     if (m_screen == MenuScreen::SELECT_LEVEL_SQUAD)
         updateSelectLevelSquad(mx, my, clicked);
