@@ -1,73 +1,88 @@
 #pragma once
 #include "raylib.h"
 #include "GameData.h"
+#include <array>
 #include <functional>
-#include <unordered_map>
-#include <vector>
-#include <typeindex>
-#include <cstdint>
-#include <algorithm>
+#include <cstddef>
 
 class EventSystem
 {
 public:
-    using ListenerId = uint64_t;
+    using ListenerId = size_t;
 
-    // Подписка на событие типа EventType
+    // Максимум подписчиков на один тип события (хватит с запасом)
+    static constexpr size_t MAX_LISTENERS = 16;
+
     template <typename EventType>
     ListenerId subscribe(std::function<void(const EventType &)> callback)
     {
-        auto typeIdx = std::type_index(typeid(EventType));
-        ListenerId id = nextId_++;
+        auto &slots = getSlots<EventType>();
 
-        auto wrapper = [cb = std::move(callback)](const void *event)
+        for (size_t i = 0; i < MAX_LISTENERS; i++)
         {
-            cb(*static_cast<const EventType *>(event));
-        };
-
-        listeners_[typeIdx].push_back({id, std::move(wrapper)});
-        return id;
+            if (!slots[i].active)
+            {
+                slots[i].callback = callback;
+                slots[i].active = true;
+                return i;
+            }
+        }
+        return static_cast<ListenerId>(-1); // нет свободных слотов
     }
 
-    // Публикация события (синхронный вызов всех подписчиков)
     template <typename EventType>
     void publish(const EventType &event)
     {
-        auto typeIdx = std::type_index(typeid(EventType));
-        auto it = listeners_.find(typeIdx);
-        if (it == listeners_.end())
-            return;
+        auto &slots = getSlots<EventType>();
 
-        // Копируем список: защита от отписки внутри колбэка
-        auto snapshot = it->second;
-        for (auto &entry : snapshot)
-            entry.handler(&event);
-    }
+        // Копируем индексы активных слотов на случай,
+        // если колбэк отпишет кого-то во время итерации
+        size_t activeCount = 0;
+        size_t activeIndices[MAX_LISTENERS];
 
-    // Отписка по ID
-    void unsubscribe(ListenerId id)
-    {
-        for (auto &[typeIdx, vec] : listeners_)
+        for (size_t i = 0; i < MAX_LISTENERS; i++)
         {
-            vec.erase(std::remove_if(vec.begin(), vec.end(),
-                                     [id](const Entry &e)
-                                     { return e.id == id; }),
-                      vec.end());
+            if (slots[i].active)
+            {
+                activeIndices[activeCount++] = i;
+            }
+        }
+
+        for (size_t k = 0; k < activeCount; k++)
+        {
+            size_t i = activeIndices[k];
+            if (slots[i].active && slots[i].callback)
+            {
+                slots[i].callback(event);
+            }
         }
     }
 
-    // Очистка (вызывать при выходе из боя)
-    void clear() { listeners_.clear(); }
+    template <typename EventType>
+    void unsubscribe(ListenerId id)
+    {
+        auto &slots = getSlots<EventType>();
+        if (id < MAX_LISTENERS)
+        {
+            slots[id].active = false;
+            slots[id].callback = nullptr;
+        }
+    }
 
 private:
-    struct Entry
+    template <typename EventType>
+    struct ListenerSlot
     {
-        ListenerId id;
-        std::function<void(const void *)> handler;
+        std::function<void(const EventType &)> callback;
+        bool active = false;
     };
 
-    std::unordered_map<std::type_index, std::vector<Entry>> listeners_;
-    ListenerId nextId_ = 1;
+    template <typename EventType>
+    static std::array<ListenerSlot<EventType>, MAX_LISTENERS> &getSlots()
+    {
+        static std::array<ListenerSlot<EventType>, MAX_LISTENERS> slots;
+        return slots;
+    }
 };
 
 // ============================================================
