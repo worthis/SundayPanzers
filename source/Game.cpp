@@ -53,6 +53,11 @@ void Game::Update(float dt)
         break;
     case GameState::MAIN_MENU:
         menuSystem.update(dt);
+        if (menuSystem.isQuitRequested())
+        {
+            quitRequested = true;
+            break;
+        }
         if (menuSystem.isFinished())
         {
             MenuResult res = menuSystem.getResult();

@@ -19,7 +19,7 @@ int main()
     Game game;
     game.Init();
 
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && !game.isQuitRequested())
     {
         float dt = GetFrameTime();
         game.Update(dt);

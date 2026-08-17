@@ -42,6 +42,7 @@ public:
     void shutdown();
 
     bool isFinished() const { return m_finished; }
+    bool isQuitRequested() const { return m_quitRequested; }
     MenuResult getResult() const { return m_result; }
 
 private:
@@ -113,6 +114,7 @@ private:
 
     // Result
     bool m_finished = false;
+    bool m_quitRequested = false;
     MenuResult m_result;
 
     // Centering offset (640x480 -> SCREEN_WIDTH x SCREEN_HEIGHT)

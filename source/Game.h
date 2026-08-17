@@ -49,6 +49,7 @@ public:
     void Update(float dt);
     void Draw();
     void Shutdown();
+    bool isQuitRequested() const { return quitRequested; }
 
 private:
     void loadAssets();
@@ -108,6 +109,8 @@ private:
     InputSystem input;
 
     SaveData saveData;
+
+    bool quitRequested = false;
 
     // Состояние текущего матча
     int playerCommander = 1;

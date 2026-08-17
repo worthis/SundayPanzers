@@ -38,6 +38,7 @@ void MenuSystem::start(int maxLevel, bool gameCompleted)
     m_playerSquad = 1;          // gam(18)=1
     m_screen = MenuScreen::SELECT_LEVEL_SQUAD;
     m_finished = false;
+    m_quitRequested = false;
     m_gamma = 0.0f;
     m_logoAngle = 0.0f;
     m_logoAngle2 = 0.0f;
@@ -227,6 +228,13 @@ void MenuSystem::updateFakeTank()
 
 void MenuSystem::updateSelectLevelSquad(float mx, float my, bool clicked)
 {
+    if (m_input->isQuitPressed())
+    {
+        m_quitRequested = true;
+        m_audioSystem->playMenuCancel();
+        return;
+    }
+
     int som = 0;
 
     // === Действия ===
