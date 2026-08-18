@@ -1310,7 +1310,7 @@ void TankSystem::render() const
         // СУПЕРПУЛЯ — красное кольцо
         // DBP: show limb 200+n,1 if tk#(n,51)>0
         // ============================================
-        if (tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
+        if (tk.type > 0 && tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
         {
             // BeginBlendMode(BLEND_ADDITIVE);
             //  Внешний радиус кольца (чуть больше тени)
@@ -1353,10 +1353,10 @@ void TankSystem::render() const
 // ============================================
 void TankSystem::renderShields() const
 {
-    for (int n = 1; n <= TANKS_MAX; n++)
+    for (int n = PLAYER_MIN; n <= TANKS_MAX; n++)
     {
         const TankData &tk = tanks[n];
-        if (tk.type == 0)
+        if (tk.type <= 0)
             continue;
 
         if (tk.barrierCounter > 0)
