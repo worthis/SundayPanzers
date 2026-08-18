@@ -19,8 +19,8 @@ void MenuSystem::init(InputSystem *input, AudioSystem *audioSystem, Terrain *ter
     m_camera = camera;
 
     // Центрирование: исходное меню 640x480
-    m_offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    m_offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    m_offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    m_offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     loadAssets();
     loadPreviewModels();
@@ -30,12 +30,11 @@ void MenuSystem::init(InputSystem *input, AudioSystem *audioSystem, Terrain *ter
     m_previewRight = LoadRenderTexture(180, 120);
 }
 
-void MenuSystem::start(int maxLevel, bool gameCompleted)
+void MenuSystem::start(int maxLevel, bool gameCompleted, int currentSquad)
 {
     m_maxLevel = maxLevel;
     m_gameCompleted = gameCompleted;
     m_selectedLevel = maxLevel; // gam(15)=gam(14)
-    m_playerSquad = 1;          // gam(18)=1
     m_screen = MenuScreen::SELECT_LEVEL_SQUAD;
     m_finished = false;
     m_quitRequested = false;
@@ -44,6 +43,12 @@ void MenuSystem::start(int maxLevel, bool gameCompleted)
     m_logoAngle2 = 0.0f;
     m_tankRotation = 0.0f;
     m_commander = 0;
+
+    // gam(18)=1
+    if (currentSquad >= 1 && currentSquad <= 10)
+        m_playerSquad = currentSquad;
+    else
+        m_playerSquad = 1;
 
     for (int i = 0; i < 13; i++)
     {
@@ -618,7 +623,7 @@ void MenuSystem::draw()
     if (m_gamma < 255.0f)
     {
         unsigned char alpha = (unsigned char)(255 - m_gamma);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alpha});
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, alpha});
     }
 
     EndDrawing();

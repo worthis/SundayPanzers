@@ -4,6 +4,7 @@
 struct SaveData
 {
     int maxLevel = 10;          // Максимальный доступный уровень (sav(0))
+    int currentSquad = 1;       // Текущий выбранный сквад
     bool gameCompleted = false; // Флаг полного прохождения игры (sav(1))
 };
 

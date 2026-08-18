@@ -8,7 +8,7 @@ namespace HUDConstants
     constexpr float SQUAD_PANEL_Y_OFFSET = 2.0f;
     constexpr float SQUAD_PANEL_ITEM_HEIGHT = 40.0f;
 
-    constexpr float MINIMAP_X = SCREEN_WIDTH - 102.0f - 2.0f;
+    constexpr float MINIMAP_X = 0.0f - 102.0f - 2.0f;
     constexpr float MINIMAP_Y = 1.0f;
     constexpr float MINIMAP_SCALE = 50.0f;
 
@@ -159,8 +159,8 @@ void HUDSystem::render(const TankSystem &tankSystem, const Camera3D &camera, int
     if (!initialized)
         return;
 
-    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     drawSquadPanel(tankSystem, playerCommander, offsetX, offsetY);
     drawMinimap(tankSystem, playerCommander, offsetX, offsetY);
@@ -233,7 +233,7 @@ void HUDSystem::drawMinimap(const TankSystem &tankSystem, int playerCommander,
     if (texMapBounds.id != 0)
     {
         Color tint = {255, 255, 255, 97};
-        DrawTexture(texMapBounds, (int)(HUDConstants::MINIMAP_X), HUDConstants::MINIMAP_Y, tint);
+        DrawTexture(texMapBounds, GetScreenWidth() - (int)(HUDConstants::MINIMAP_X), HUDConstants::MINIMAP_Y, tint);
     }
 
     for (int n = PLAYER_MIN; n <= TANKS_MAX; n++)
@@ -242,7 +242,7 @@ void HUDSystem::drawMinimap(const TankSystem &tankSystem, int playerCommander,
         if (tank.type <= 0 || tank.energy <= 0)
             continue;
 
-        float mapX = HUDConstants::MINIMAP_X + tank.x / HUDConstants::MINIMAP_SCALE;
+        float mapX = (GetScreenWidth() - HUDConstants::MINIMAP_X) + tank.x / HUDConstants::MINIMAP_SCALE;
         float mapY = 103.0f - tank.z / HUDConstants::MINIMAP_SCALE;
 
         if (n == playerCommander)
@@ -396,8 +396,8 @@ void HUDSystem::drawTankIDs(const TankSystem &tankSystem, const Camera3D &camera
 
         Vector2 screenPos = GetWorldToScreen(worldPos, camera);
 
-        if (screenPos.x < -50.0f || screenPos.x > SCREEN_WIDTH + 50.0f ||
-            screenPos.y < -50.0f || screenPos.y > SCREEN_HEIGHT + 50.0f)
+        if (screenPos.x < -50.0f || screenPos.x > GetScreenWidth() + 50.0f ||
+            screenPos.y < -50.0f || screenPos.y > GetScreenHeight() + 50.0f)
             continue;
 
         float scale = 50.0f;
@@ -450,8 +450,8 @@ void HUDSystem::drawTankIDs(const TankSystem &tankSystem, const Camera3D &camera
 
         Vector2 screenPos = GetWorldToScreen(worldPos, camera);
 
-        if (screenPos.x < -50.0f || screenPos.x > SCREEN_WIDTH + 50.0f ||
-            screenPos.y < -50.0f || screenPos.y > SCREEN_HEIGHT + 50.0f)
+        if (screenPos.x < -50.0f || screenPos.x > GetScreenWidth() + 50.0f ||
+            screenPos.y < -50.0f || screenPos.y > GetScreenHeight() + 50.0f)
             continue;
 
         float scale = 50.0f;

@@ -36,7 +36,7 @@ class MenuSystem
 public:
     void init(InputSystem *input, AudioSystem *audioSystem, Terrain *terrain, Skybox *skybox, TreeSystem *treeSystem,
               CloudSystem *cloudSystem, TankSystem *tankSystem, TankCamera *camera);
-    void start(int maxLevel, bool gameCompleted);
+    void start(int maxLevel, bool gameCompleted, int currentSquad);
     void update(float dt);
     void draw();
     void shutdown();

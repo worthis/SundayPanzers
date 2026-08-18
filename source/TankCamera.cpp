@@ -26,7 +26,7 @@ void TankCamera::applyRange()
 {
     float nearPlane = CAMERA_NEAR;
     float fovy = camera.fovy * DEG2RAD;
-    float aspect = (float)SCREEN_WIDTH / SCREEN_HEIGHT;
+    float aspect = (float)GetScreenWidth() / GetScreenHeight();
 
     float top = nearPlane * tanf(fovy / 2.0f);
     float bottom = -top;

@@ -32,6 +32,26 @@ void SaveSystem::load(SaveData &data)
             }
         }
 
+        // Парсим "currentSquad"
+        pos = json.find("\"currentSquad\"");
+        if (pos != std::string::npos)
+        {
+            pos = json.find(':', pos);
+            if (pos != std::string::npos)
+            {
+                pos++;
+                while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t'))
+                    pos++;
+                int value = 0;
+                while (pos < json.length() && json[pos] >= '0' && json[pos] <= '9')
+                {
+                    value = value * 10 + (json[pos] - '0');
+                    pos++;
+                }
+                data.currentSquad = value;
+            }
+        }
+
         // Парсим "gameCompleted"
         pos = json.find("\"gameCompleted\"");
         if (pos != std::string::npos)
@@ -66,16 +86,16 @@ void SaveSystem::save(const SaveData &data)
 {
     char json[256];
     snprintf(json, sizeof(json),
-             "{\n  \"maxLevel\": %d,\n  \"gameCompleted\": %s\n}\n",
-             data.maxLevel, data.gameCompleted ? "true" : "false");
+             "{\n  \"maxLevel\": %d,\n  \"currentSquad\": %d,\n  \"gameCompleted\": %s\n}\n",
+             data.maxLevel, data.currentSquad, data.gameCompleted ? "true" : "false");
 
     unsigned int dataSize = static_cast<unsigned int>(strlen(json));
     bool success = SaveFileData(SAVE_FILENAME, json, dataSize);
 
     if (success)
     {
-        TraceLog(LOG_INFO, "Save data saved: maxLevel=%d, gameCompleted=%d",
-                 data.maxLevel, data.gameCompleted ? 1 : 0);
+        TraceLog(LOG_INFO, "Save data saved: maxLevel=%d, currentSquad =%d, gameCompleted=%d",
+                 data.maxLevel, data.currentSquad, data.gameCompleted ? 1 : 0);
     }
     else
     {

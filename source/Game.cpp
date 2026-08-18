@@ -19,7 +19,12 @@ void Game::Init()
 
     SaveSystem::load(saveData); // Загружаем сохранения
 
+    GameplayConfig gameConfig = config.getGameplayConfig();
+    showDebug = gameConfig.showDebug;
+    showEnemyIDs = gameConfig.showEnemyIDs;
+
     audioSystem.init(&eventSystem);
+    audioSystem.set3DSound(gameConfig.sound3DEnabled);
     terrain.init(&eventSystem);
     treeSystem.init(&eventSystem, &terrain);
     cloudSystem.init(&terrain);
@@ -155,8 +160,8 @@ void Game::DrawLogoIntro()
     ClearBackground(BLACK);
 
     // Центрирование: исходные координаты рассчитаны на 640x480
-    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     // Эффект тряски из оригинала: yu = 300 - et
     float yu = 300.0f - introTimer;
@@ -186,7 +191,7 @@ void Game::DrawLogoIntro()
     if (introGamma < 255.0f)
     {
         unsigned char alpha = (unsigned char)(255 - introGamma);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alpha});
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, alpha});
     }
 
     EndDrawing();
@@ -240,7 +245,7 @@ void Game::UpdateGameIntro(float dt)
     if (introTimer > 5.0f && skip)
     {
         currentState = GameState::MAIN_MENU;
-        menuSystem.start(saveData.maxLevel, saveData.gameCompleted);
+        menuSystem.start(saveData.maxLevel, saveData.gameCompleted, saveData.currentSquad);
     }
 }
 
@@ -259,8 +264,8 @@ void Game::DrawGameIntro()
     EndMode3D();
 
     // Центрирование: исходные координаты рассчитаны на 640x480
-    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     // Рендер 2D заголовка поверх (аналог sprite 1 из DBPro)
     float ang = introTimer * 0.55f;
@@ -288,7 +293,7 @@ void Game::DrawGameIntro()
     if (introGamma < 255.0f)
     {
         unsigned char alphaOverlay = (unsigned char)(255 - introGamma);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alphaOverlay});
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, alphaOverlay});
     }
 
     EndDrawing();
@@ -312,6 +317,9 @@ void Game::StartBattle(int level, int playerSquad, int enemySquad, int guestSqua
     terrain.buildMesh();
     cloudSystem.generate(biome);
     aiSystem.setPowupSearchFactor(96 - level); // gam(12) = 96 - level
+
+    saveData.currentSquad = playerSquad;
+    SaveSystem::save(saveData);
 
     playerCommander = commander;
     makeSortie(tankSystem, level, playerSquad, enemySquad, guestSquad, player, playerCommander);
@@ -354,6 +362,12 @@ void Game::UpdateBattleIntro(float dt)
     if (introGamma > 255.0f)
         introGamma = 255.0f;
 
+    cloudSystem.update(dt);
+    treeSystem.update();
+
+    for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
+        tankSystem.updateTank(n, 0.0f, 0.0f);
+
     // Движение фейкового танка
     UpdateFakeTankMovement();
     // Камера следит за фейковым танком
@@ -385,12 +399,13 @@ void Game::DrawBattleIntro()
     terrain.render();
     treeSystem.render();
     cloudSystem.render();
+    tankSystem.render();
 
     EndMode3D();
 
     // === 2D UI (координаты оригинала 640x480) ===
-    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     // Анимация текста "Sunday Panzers" (как в оригинале)
     // ang#=wrapvalue(ang#+0.95)  ang2#=wrapvalue(ang2#+1.35)
@@ -420,7 +435,7 @@ void Game::DrawBattleIntro()
     if (introGamma < 255.0f)
     {
         unsigned char overlayAlpha = (unsigned char)(255 - introGamma);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, overlayAlpha});
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, overlayAlpha});
     }
 
     // paste image 84+gam(25),10,10,1 - название сценария
@@ -513,10 +528,13 @@ void Game::UpdateBattleEnding(float dt)
 
     // Выход: если mv>0 и msg>=400
     bool skip = input.isMenuNextPressed() ||
+                input.isFirePressed() ||
                 input.isTouchPressed();
 
     if (introTimer >= 400.0f && skip)
     {
+        audioSystem.stopSounds();
+
         // Проверяем, нужно ли показать финальную заставку
         int currentLevel = menuSystem.getResult().level;
         if (currentLevel == 50 && saveData.gameCompleted && !endGamePlayed)
@@ -549,8 +567,8 @@ void Game::DrawBattleEnding()
     EndMode3D();
 
     // === 2D UI ===
-    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     float ang = introTimer * 0.95f;
     float ang2 = introTimer * 1.35f;
@@ -717,9 +735,6 @@ void Game::UpdateFakeTankMovement()
 
 void Game::UpdateBattle(float dt)
 {
-    if (IsKeyPressed(KEY_F1))
-        showDebug = !showDebug;
-
     if (input.isQuitPressed())
     {
         ReturnToMenu();
@@ -727,7 +742,10 @@ void Game::UpdateBattle(float dt)
     }
 
     if (input.isToggleIdPressed())
+    {
         showEnemyIDs = !showEnemyIDs;
+        config.setShowEnemyIDs(showEnemyIDs);
+    }
 
     // === СМЕНА ТАНКА ===
     int requestedTankId = input.getRequestedTank();
@@ -783,9 +801,10 @@ void Game::UpdateBattle(float dt)
 
             float xj = 0, yj = 0;
             bool fire = false;
+            bool isPlayerControlled = (n == playerCommander) &&
+                                      tankSystem.getTank(n).type > 0 &&
+                                      !camera.isSlipCamActive();
 
-            // Если slipcam активен, игрок не управляет
-            bool isPlayerControlled = (n == playerCommander) && !camera.isSlipCamActive();
             if (isPlayerControlled)
             {
                 xj = input.getTankX();
@@ -918,7 +937,7 @@ void Game::DrawBattle()
 
     if (battleEnded)
     {
-        float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
+        float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
         DrawTexture(texBattleOver, 141 + offsetX, 20, WHITE);
     }
 
@@ -974,8 +993,8 @@ void Game::DrawGameCompleted()
     ClearBackground(BLACK);
 
     // Центрирование
-    float offsetX = (SCREEN_WIDTH - 640.0f) / 2.0f;
-    float offsetY = (SCREEN_HEIGHT - 480.0f) / 2.0f;
+    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
+    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     // Отрисовка финальной заставки
     if (texEndGame.id != 0)
@@ -987,7 +1006,7 @@ void Game::DrawGameCompleted()
     if (introGamma < 255.0f)
     {
         unsigned char alpha = (unsigned char)(255 - introGamma);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, alpha});
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, alpha});
     }
 
     EndDrawing();
@@ -997,7 +1016,7 @@ void Game::ReturnToMenu()
 {
     audioSystem.stopMusic();
     currentState = GameState::MAIN_MENU;
-    menuSystem.start(saveData.maxLevel, saveData.gameCompleted);
+    menuSystem.start(saveData.maxLevel, saveData.gameCompleted, saveData.currentSquad);
     audioSystem.playMenuMusic();
 }
 

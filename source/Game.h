@@ -95,6 +95,7 @@ private:
     HUDSystem hudSystem;
 
     // Игровые системы
+    ConfigSystem &config = ConfigSystem::instance();
     EventSystem eventSystem;
     AudioSystem audioSystem;
     Terrain terrain;
