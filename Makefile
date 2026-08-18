@@ -8,7 +8,7 @@ win:
 	@echo "==> Compiling Windows resources (icon + version info)..."
 	x86_64-w64-mingw32-windres -I . meta/app.rc -O coff -o build/app_rc.o
 	@echo "==> Building for Windows (C++)..."
-	x86_64-w64-mingw32-g++ -I source -I/opt/raylib/win/include -O2 -Wall $(shell find source -name '*.cpp') build/app_rc.o -o build/win/sunday_panzers.exe -L/opt/raylib/win/lib -lraylib -lopengl32 -lgdi32 -lwinmm -static
+	x86_64-w64-mingw32-g++ -I source -I/opt/raylib/win/include -O2 -Wall $(shell find source -name '*.cpp') build/app_rc.o -o build/win/sunday_panzers.exe -L/opt/raylib/win/lib -lraylib -lopengl32 -lgdi32 -lwinmm -static -Wl,--dynamicbase,--nxcompat,--high-entropy-va
 	@echo "==> Copying resources to build/win/..."
 	@rm -rf build/win/data
 	@cp -r data build/win/data 2>/dev/null || echo "    [!] Папка data/ не найдена в корне."
