@@ -1,4 +1,5 @@
 #pragma once
+#include "third_party/json.hpp"
 #include <string>
 
 struct SaveData
@@ -6,6 +7,9 @@ struct SaveData
     int maxLevel = 10;          // Максимальный доступный уровень (sav(0))
     int currentSquad = 1;       // Текущий выбранный сквад
     bool gameCompleted = false; // Флаг полного прохождения игры (sav(1))
+
+    // JSON сериализация
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(SaveData, maxLevel, currentSquad, gameCompleted)
 };
 
 class SaveSystem

@@ -1,104 +1,59 @@
 #include "SaveSystem.h"
 #include "raylib.h"
-#include <cstring>
-#include <string>
+#include <fstream>
 
 void SaveSystem::load(SaveData &data)
 {
-    int bytesRead = 0;
-    unsigned char *fileData = LoadFileData(SAVE_FILENAME, &bytesRead);
+    std::ifstream file(SAVE_FILENAME);
 
-    if (fileData != nullptr && bytesRead > 0)
+    if (!file.is_open())
     {
-        std::string json(reinterpret_cast<char *>(fileData), bytesRead);
-
-        // Парсим "maxLevel"
-        size_t pos = json.find("\"maxLevel\"");
-        if (pos != std::string::npos)
-        {
-            pos = json.find(':', pos);
-            if (pos != std::string::npos)
-            {
-                pos++;
-                while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t'))
-                    pos++;
-                int value = 0;
-                while (pos < json.length() && json[pos] >= '0' && json[pos] <= '9')
-                {
-                    value = value * 10 + (json[pos] - '0');
-                    pos++;
-                }
-                data.maxLevel = value;
-            }
-        }
-
-        // Парсим "currentSquad"
-        pos = json.find("\"currentSquad\"");
-        if (pos != std::string::npos)
-        {
-            pos = json.find(':', pos);
-            if (pos != std::string::npos)
-            {
-                pos++;
-                while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t'))
-                    pos++;
-                int value = 0;
-                while (pos < json.length() && json[pos] >= '0' && json[pos] <= '9')
-                {
-                    value = value * 10 + (json[pos] - '0');
-                    pos++;
-                }
-                data.currentSquad = value;
-            }
-        }
-
-        // Парсим "gameCompleted"
-        pos = json.find("\"gameCompleted\"");
-        if (pos != std::string::npos)
-        {
-            pos = json.find(':', pos);
-            if (pos != std::string::npos)
-            {
-                pos++;
-                while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t'))
-                    pos++;
-                if (pos + 4 <= json.length() && json.substr(pos, 4) == "true")
-                    data.gameCompleted = true;
-                else
-                    data.gameCompleted = false;
-            }
-        }
-
-        UnloadFileData(fileData);
-        TraceLog(LOG_INFO, "Save data loaded: maxLevel=%d, gameCompleted=%d",
-                 data.maxLevel, data.gameCompleted ? 1 : 0);
-    }
-    else
-    {
-        data.maxLevel = 10;
-        data.gameCompleted = false;
+        // Файла нет - создаем новый с дефолтными значениями
+        TraceLog(LOG_WARNING, "Save file not found, creating new save with defaults");
+        data = SaveData{};
         save(data);
-        TraceLog(LOG_INFO, "No save file found, created new save with maxLevel=10");
+        return;
+    }
+
+    try
+    {
+        nlohmann::json j;
+        file >> j;
+
+        // Вся десериализация — макросом (from_json)
+        data = j.get<SaveData>();
+
+        TraceLog(LOG_INFO, "Save loaded");
+    }
+    catch (const nlohmann::json::exception &e)
+    {
+        // Битый/нечитаемый файл — сбрасываем в дефолты
+        TraceLog(LOG_ERROR, "Corrupted save file (%s), resetting to defaults", e.what());
+        data = SaveData{};
+        save(data);
     }
 }
 
 void SaveSystem::save(const SaveData &data)
 {
-    char json[256];
-    snprintf(json, sizeof(json),
-             "{\n  \"maxLevel\": %d,\n  \"currentSquad\": %d,\n  \"gameCompleted\": %s\n}\n",
-             data.maxLevel, data.currentSquad, data.gameCompleted ? "true" : "false");
-
-    unsigned int dataSize = static_cast<unsigned int>(strlen(json));
-    bool success = SaveFileData(SAVE_FILENAME, json, dataSize);
-
-    if (success)
+    try
     {
-        TraceLog(LOG_INFO, "Save data saved: maxLevel=%d, currentSquad =%d, gameCompleted=%d",
-                 data.maxLevel, data.currentSquad, data.gameCompleted ? 1 : 0);
+        // Вся сериализация — макросом (to_json)
+        nlohmann::json j = data;
+
+        std::ofstream file(SAVE_FILENAME);
+        if (!file.is_open())
+        {
+            TraceLog(LOG_ERROR, "Cannot open %s for writing", SAVE_FILENAME);
+            return;
+        }
+
+        file << j.dump(2) << std::endl;
+
+        TraceLog(LOG_INFO, "Save written");
     }
-    else
+    catch (const std::exception &e)
     {
-        TraceLog(LOG_ERROR, "Failed to save game data!");
+        TraceLog(LOG_ERROR, "Failed to save: %s", e.what());
     }
 }
