@@ -13,34 +13,9 @@ Game::~Game()
 
 void Game::Init()
 {
-    InitAudioDevice();
-    initGameData();
-    loadAssets();
-
-    SaveSystem::load(saveData); // Загружаем сохранения
-
-    GameplayConfig gameConfig = config.getGameplayConfig();
-    showDebug = gameConfig.showDebug;
-    showEnemyIDs = gameConfig.showEnemyIDs;
-
-    audioSystem.init(&eventSystem);
-    audioSystem.set3DSound(gameConfig.sound3DEnabled);
-    terrain.init(&eventSystem);
-    treeSystem.init(&eventSystem, &terrain);
-    cloudSystem.init(&terrain);
-    tankSystem.init(&eventSystem, &terrain);
-    bulletSystem.init(&eventSystem);
-    powerUpSystem.init(&eventSystem, &terrain, &tankSystem);
-    aiSystem.init(&eventSystem, &tankSystem);
-    bulletSystem.loadAssets();
-    powerUpSystem.loadAssets();
-
-    menuSystem.init(&input, &audioSystem, &terrain, &skybox, &treeSystem, &cloudSystem, &tankSystem, &camera);
-    hudSystem.init();
-
-    introTimer = 0.0f;
-
-    StartLogoIntro();
+    currentState = GameState::LOADING;
+    loadingTimer = 0.0f;
+    assetsLoaded = false;
 }
 
 void Game::Update(float dt)
@@ -50,6 +25,15 @@ void Game::Update(float dt)
 
     switch (currentState)
     {
+    case GameState::LOADING:
+        loadingTimer += dt;
+        if (!assetsLoaded && loadingTimer > 0.5f)
+        {
+            loadAssets();
+            assetsLoaded = true;
+            StartLogoIntro();
+        }
+        break;
     case GameState::LOGO_INTRO:
         UpdateLogoIntro(dt);
         break;
@@ -89,6 +73,9 @@ void Game::Draw()
 {
     switch (currentState)
     {
+    case GameState::LOADING:
+        DrawLoading();
+        break;
     case GameState::LOGO_INTRO:
         DrawLogoIntro();
         break;
@@ -123,6 +110,33 @@ void Game::Shutdown()
     unloadAssets();
 }
 
+void Game::DrawLoading()
+{
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), "LOADING");
+
+    Font defFont = GetFontDefault();
+    float fontSize = 40.0f;
+    Vector2 size = MeasureTextEx(defFont, buf, fontSize, 2.0f);
+
+    float x = (GetScreenWidth() - size.x) * 0.5f;
+    float y = (GetScreenHeight() - size.y) * 0.5f;
+
+    DrawTextEx(defFont, buf, {x, y}, fontSize, 2.0f, WHITE);
+
+    // Подсказка снизу
+    const char *hint = "please wait";
+    Vector2 hintSize = MeasureTextEx(defFont, hint, 20.0f, 1.0f);
+    DrawTextEx(defFont, hint,
+               {(GetScreenWidth() - hintSize.x) * 0.5f, y + size.y + 20.0f},
+               20.0f, 1.0f, GRAY);
+
+    EndDrawing();
+}
+
 // === Логотип разработчика (entra) ===
 void Game::StartLogoIntro()
 {
@@ -144,8 +158,8 @@ void Game::UpdateLogoIntro(float dt)
         logoSoundPlayed = true;
     }
 
-    bool skip = input.isMenuConfirmPressed() ||
-                input.isMenuNextPressed() ||
+    bool skip = input.isMenuNextPressed() ||
+                input.isFirePressed() ||
                 input.isTouchPressed();
 
     if (introTimer > 350.0f && skip)
@@ -1078,6 +1092,15 @@ void Game::updateEngineSounds()
 
 void Game::loadAssets()
 {
+    InitAudioDevice();
+    initGameData();
+
+    SaveSystem::load(saveData); // Загружаем сохранения
+
+    GameplayConfig gameConfig = config.getGameplayConfig();
+    showDebug = gameConfig.showDebug;
+    showEnemyIDs = gameConfig.showEnemyIDs;
+
     // logo assets
     sndLogo = LoadSound("data/sound/logo.wav");
     texLogo = LoadTexture("data/menu/logo.png");
@@ -1104,6 +1127,23 @@ void Game::loadAssets()
     texDefeat = LoadTextureColorKey("data/menu/defeat.png");
     texClick = LoadTextureColorKey("data/menu/click.png");
     texBattleOver = LoadTextureColorKey("data/menu/battleover.png");
+
+    audioSystem.init(&eventSystem);
+    audioSystem.set3DSound(gameConfig.sound3DEnabled);
+    terrain.init(&eventSystem);
+    treeSystem.init(&eventSystem, &terrain);
+    cloudSystem.init(&terrain);
+    tankSystem.init(&eventSystem, &terrain);
+    bulletSystem.init(&eventSystem);
+    powerUpSystem.init(&eventSystem, &terrain, &tankSystem);
+    aiSystem.init(&eventSystem, &tankSystem);
+    bulletSystem.loadAssets();
+    powerUpSystem.loadAssets();
+
+    menuSystem.init(&input, &audioSystem, &terrain, &skybox, &treeSystem, &cloudSystem, &tankSystem, &camera);
+    hudSystem.init();
+
+    introTimer = 0.0f;
 }
 
 void Game::unloadAssets()

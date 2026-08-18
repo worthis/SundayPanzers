@@ -23,6 +23,7 @@
 // Состояния игры (State Machine)
 enum class GameState
 {
+    LOADING,
     LOGO_INTRO,    // entra()
     GAME_INTRO,    // gameintro()
     MAIN_MENU,     // menu()
@@ -56,6 +57,8 @@ private:
     void unloadAssets();
 
     // Логика состояний
+    void DrawLoading();
+
     void StartLogoIntro();
     void UpdateLogoIntro(float dt);
     void DrawLogoIntro();
@@ -111,6 +114,8 @@ private:
 
     SaveData saveData;
 
+    bool assetsLoaded = false;
+    float loadingTimer = 0.0f;
     bool quitRequested = false;
 
     // Состояние текущего матча

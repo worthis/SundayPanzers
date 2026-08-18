@@ -398,6 +398,8 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
                 m_creditsUsed += 2;
                 som = 1;
             }
+            else
+                doAiReset();
         }
         else
             doAiReset();
