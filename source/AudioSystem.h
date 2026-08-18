@@ -96,9 +96,12 @@ public:
     void playMenuClick();  // Звук 29 (menu.wav)
     void playMenuCancel(); // Звук 18 (coll.wav)
 
+    void stopSounds();
+
     void update(float dt); // Главный метод обновления (вызывать в UpdateBattle)
 
     void toggle3DSound();
+    void set3DSound(bool flag);
     bool is3DSoundEnabled() const { return sound3DEnabled; }
     void setListenerOrientation(Vector3 position, Vector3 forward, Vector3 up);
 

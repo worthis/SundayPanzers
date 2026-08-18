@@ -638,6 +638,52 @@ void AudioSystem::playMenuCancel()
     PlaySound(sndMenuCancel);
 }
 
+void AudioSystem::stopSounds()
+{
+    if (poolCannon.size() > 0)
+    {
+        for (size_t i = 0; i < poolCannon.size(); i++)
+        {
+            StopSound(poolCannon[i].sound);
+        }
+    }
+
+    if (poolBulletHit.size() > 0)
+    {
+        for (size_t i = 0; i < poolBulletHit.size(); i++)
+        {
+            StopSound(poolBulletHit[i].sound);
+        }
+    }
+
+    if (poolTankHit.size() > 0)
+    {
+        for (size_t i = 0; i < poolTankHit.size(); i++)
+        {
+            StopSound(poolTankHit[i].sound);
+        }
+    }
+
+    if (poolCollision.size() > 0)
+    {
+        for (size_t i = 0; i < poolCollision.size(); i++)
+        {
+            StopSound(poolCollision[i].sound);
+        }
+    }
+
+    StopSound(sndEnginePlayer);
+    StopSound(sndEngineNearby);
+    StopSound(sndExplosion);
+    StopSound(sndPlayerDestroyed);
+    StopSound(sndRepairPickup);
+    StopSound(sndTurbo);
+    StopSound(sndBarrierPickup);
+    StopSound(sndSuperBulletPickup);
+    StopSound(sndMenuClick);
+    StopSound(sndMenuCancel);
+}
+
 void AudioSystem::update(float dt)
 {
     updateMusic(dt);
@@ -673,6 +719,12 @@ void AudioSystem::toggle3DSound()
 
         TraceLog(LOG_INFO, "3D Sound Positioning: DISABLED (original DBPro behavior)");
     }
+}
+
+void AudioSystem::set3DSound(bool flag)
+{
+    if (sound3DEnabled != flag)
+        toggle3DSound();
 }
 
 void AudioSystem::setListenerOrientation(Vector3 position, Vector3 forward, Vector3 up)
