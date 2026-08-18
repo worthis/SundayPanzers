@@ -252,7 +252,7 @@ void Game::UpdateGameIntro(float dt)
     // Камера следит за фейковым танком
     camera.track(introFakeTank, terrain, false);
 
-    bool skip = input.isMenuConfirmPressed() ||
+    bool skip = input.isFirePressed() ||
                 input.isMenuNextPressed() ||
                 input.isTouchPressed();
 
@@ -377,10 +377,11 @@ void Game::UpdateBattleIntro(float dt)
         introGamma = 255.0f;
 
     cloudSystem.update(dt);
-    treeSystem.update();
-
     for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
         tankSystem.updateTank(n, 0.0f, 0.0f);
+    tankSystem.updateCollisions();
+    treeSystem.update();
+    tankSystem.interpolate(1.0f);
 
     // Движение фейкового танка
     UpdateFakeTankMovement();
@@ -802,7 +803,7 @@ void Game::UpdateBattle(float dt)
         playerSquadAlive = false;
         enemySquadAlive = false;
 
-        for (int n = 1; n <= COMBAT_MAX; n++)
+        for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
         {
             if (tankSystem.getTank(n).type == 0)
                 continue;
@@ -885,11 +886,11 @@ void Game::UpdateBattle(float dt)
     if (!camera.isSlipCamActive())
         camera.track(playerTank, terrain, input.isRearViewPressed());
 
-    bool skip = input.isMenuNextPressed();
+    bool skip = input.isMenuNextPressed() ||
+                input.isTouchPressed();
+
     if (battleEnded && skip)
-    {
         StartBattleEnding();
-    }
 }
 
 void Game::CheckBattleEndConditions()
