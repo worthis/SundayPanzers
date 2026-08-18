@@ -16,6 +16,10 @@ void Game::Init()
     currentState = GameState::LOADING;
     loadingTimer = 0.0f;
     assetsLoaded = false;
+
+    // Центрирование интерфейса: исходные координаты рассчитаны на 640x480
+    offsetX = (GetScreenWidth() - 640.0f) * 0.5f;
+    offsetY = (GetScreenHeight() - 480.0f) * 0.5f;
 }
 
 void Game::Update(float dt)
@@ -173,10 +177,6 @@ void Game::DrawLogoIntro()
     BeginDrawing();
     ClearBackground(BLACK);
 
-    // Центрирование: исходные координаты рассчитаны на 640x480
-    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
-
     // Эффект тряски из оригинала: yu = 300 - et
     float yu = 300.0f - introTimer;
     if (yu < 0)
@@ -239,7 +239,6 @@ void Game::StartGameIntro()
 
 void Game::UpdateGameIntro(float dt)
 {
-    // UpdateMusicStream(musicIntro);
     introTimer += dt * 105.0f;
 
     // Fade in (ga=ga+5 из оригинала)
@@ -277,14 +276,10 @@ void Game::DrawGameIntro()
 
     EndMode3D();
 
-    // Центрирование: исходные координаты рассчитаны на 640x480
-    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
-
     // Рендер 2D заголовка поверх (аналог sprite 1 из DBPro)
     float ang = introTimer * 0.55f;
     float ang2 = introTimer * 1.35f;
-    float alpha = introTimer / 2.0f;
+    float alpha = introTimer * 0.5f;
     if (alpha > 255)
         alpha = 255;
 
@@ -297,7 +292,7 @@ void Game::DrawGameIntro()
                       (float)texTitle.width * scale / 100.0f,
                       (float)texTitle.height * scale / 100.0f};
     // В оригинале: offset sprite 1,253,192 (центр спрайта)
-    Vector2 origin = {dest.width / 2.0f, dest.height / 2.0f};
+    Vector2 origin = {dest.width * 0.5f, dest.height * 0.5f};
 
     // В Raylib цвет с прозрачностью: WHITE с альфой
     Color tint = {255, 255, 255, (unsigned char)alpha};
@@ -418,15 +413,10 @@ void Game::DrawBattleIntro()
 
     EndMode3D();
 
-    // === 2D UI (координаты оригинала 640x480) ===
-    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
-
-    // Анимация текста "Sunday Panzers" (как в оригинале)
     // ang#=wrapvalue(ang#+0.95)  ang2#=wrapvalue(ang2#+1.35)
     float ang = introTimer * 0.95f;
     float ang2 = introTimer * 1.35f;
-    float alpha = introTimer / 2.0f;
+    float alpha = introTimer * 0.5f;
     if (alpha > 255.0f)
         alpha = 255.0f;
 
@@ -442,7 +432,7 @@ void Game::DrawBattleIntro()
         240.0f + offsetY,
         (float)texStart.width * scale / 100.0f,
         (float)texStart.height * scale / 100.0f};
-    Vector2 origin = {dst.width / 2.0f, dst.height / 2.0f};
+    Vector2 origin = {dst.width * 0.5f, dst.height * 0.5f};
     Color tint = {255, 255, 255, (unsigned char)alpha};
     DrawTexturePro(texStart, src, dst, origin, rotation, tint);
 
@@ -581,13 +571,9 @@ void Game::DrawBattleEnding()
 
     EndMode3D();
 
-    // === 2D UI ===
-    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
-
     float ang = introTimer * 0.95f;
     float ang2 = introTimer * 1.35f;
-    float alpha = introTimer / 2.0f;
+    float alpha = introTimer * 0.5f;
     if (alpha > 255.0f)
         alpha = 255.0f;
 
@@ -951,10 +937,7 @@ void Game::DrawBattle()
     hudSystem.render(tankSystem, camera.getCamera(), playerCommander, playerPos, showEnemyIDs);
 
     if (battleEnded)
-    {
-        float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-        DrawTexture(texBattleOver, 141 + offsetX, 20, WHITE);
-    }
+        DrawTexture(texBattleOver, offsetX - texBattleOver.width * 0.5f, 20, WHITE);
 
     if (showDebug)
     {
@@ -1006,10 +989,6 @@ void Game::DrawGameCompleted()
 {
     BeginDrawing();
     ClearBackground(BLACK);
-
-    // Центрирование
-    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 
     // Отрисовка финальной заставки
     if (texEndGame.id != 0)

@@ -22,8 +22,8 @@ struct PlayerTankInfo
 // ============================================================
 void makeSortie(TankSystem &tankSystem,
                 int level,
-                int playerSquad,   // DBP: gam(7)
-                int enemySquad,    // DBP: gam(19)
-                int guestSquad,    // DBP: gam(20)
+                int playerSquad, // DBP: gam(7)
+                int enemySquad,  // DBP: gam(19)
+                int guestSquad,  // DBP: gam(20)
                 const PlayerTankInfo player[13],
                 int &playerCommander);

@@ -32,14 +32,13 @@ public:
                 const Vector3 &playerPos, bool showEnemyIDs, bool isChangingCamera = false);
 
 private:
-    void drawSquadPanel(const TankSystem &tankSystem, int playerCommander,
-                        float offsetX, float offsetY);
-    void drawMinimap(const TankSystem &tankSystem, int playerCommander,
-                     float offsetX, float offsetY);
-    void drawBottomPanel(const TankSystem &tankSystem, int playerCommander,
-                         float offsetX, float offsetY, bool isChangingCamera = false);
-    void drawTankIDs(const TankSystem &tankSystem, const Camera3D &camera,
-                     int playerCommander, const Vector3 &playerPos, bool showEnemyIDs);
+    void drawSquadPanel(const TankSystem &tankSystem, int playerCommander);
+    void drawMinimap(const TankSystem &tankSystem, int playerCommander);
+    void drawBottomPanel(const TankSystem &tankSystem, int playerCommander, bool isChangingCamera = false);
+    void drawTankIDs(const TankSystem &tankSystem, const Camera3D &camera, int playerCommander, const Vector3 &playerPos, bool showEnemyIDs);
+
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
 
     // Текстурные ассеты
     Texture2D texMapBounds; // image 150 - границы карты

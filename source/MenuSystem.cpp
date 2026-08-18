@@ -18,7 +18,7 @@ void MenuSystem::init(InputSystem *input, AudioSystem *audioSystem, Terrain *ter
     m_tankSystem = tankSystem;
     m_camera = camera;
 
-    // Центрирование: исходное меню 640x480
+    // Центрирование интерфейса: исходные координаты рассчитаны на 640x480
     m_offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
     m_offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
 

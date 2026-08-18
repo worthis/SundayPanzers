@@ -140,16 +140,16 @@ void Skybox::render() const
     // Передняя стенка (Z+) — смотрит на север
     rlPushMatrix();
     rlTranslatef(center.x, center.y + halfY, center.z + halfZ);
-    rlRotatef(180.0f, 0, 1, 0);  // Поворот вокруг Y
-    rlRotatef(90.0f, 1, 0, 0); // Поворот вокруг X
+    rlRotatef(180.0f, 0, 1, 0); // Поворот вокруг Y
+    rlRotatef(90.0f, 1, 0, 0);  // Поворот вокруг X
     DrawModel(wall, (Vector3){0, 0, 0}, 1.0f, WHITE);
     rlPopMatrix();
 
     // Задняя стенка (Z-) — смотрит на юг
     rlPushMatrix();
     rlTranslatef(center.x, center.y + halfY, center.z - halfZ);
-    rlRotatef(0.0f, 0, 1, 0); // Поворот вокруг Y
-    rlRotatef(90.0f, 1, 0, 0);  // Поворот вокруг X
+    rlRotatef(0.0f, 0, 1, 0);  // Поворот вокруг Y
+    rlRotatef(90.0f, 1, 0, 0); // Поворот вокруг X
     DrawModel(wall, (Vector3){0, 0, 0}, 1.0f, WHITE);
     rlPopMatrix();
 

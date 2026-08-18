@@ -15,40 +15,32 @@ bool ConfigSystem::loadSettings(const std::string &path)
         return false;
     }
 
-    try
+    json j;
+    file >> j;
+
+    // Display settings
+    if (j.contains("display"))
     {
-        json j;
-        file >> j;
-
-        // Display settings
-        if (j.contains("display"))
-        {
-            auto &disp = j["display"];
-            displayConfig.width = disp.value("width", 1280);
-            displayConfig.height = disp.value("height", 720);
-            displayConfig.fullscreen = disp.value("fullscreen", false);
-            displayConfig.vsync = disp.value("vsync", false);
-            displayConfig.targetFPS = disp.value("targetFPS", 60);
-        }
-
-        // Gameplay settings
-        if (j.contains("gameplay"))
-        {
-            auto &game = j["gameplay"];
-            gameplayConfig.showDebug = game.value("showDebug", true);
-            gameplayConfig.showEnemyIDs = game.value("showEnemyIDs", false);
-            gameplayConfig.musicEnabled = game.value("musicEnabled", true);
-            gameplayConfig.sound3DEnabled = game.value("soundEnabled", true);
-        }
-
-        TraceLog(LOG_INFO, "Settings loaded from %s", path.c_str());
-        return true;
+        auto &disp = j["display"];
+        displayConfig.width = disp.value("width", 1280);
+        displayConfig.height = disp.value("height", 720);
+        displayConfig.fullscreen = disp.value("fullscreen", false);
+        displayConfig.vsync = disp.value("vsync", false);
+        displayConfig.targetFPS = disp.value("targetFPS", 60);
     }
-    catch (const json::exception &e)
+
+    // Gameplay settings
+    if (j.contains("gameplay"))
     {
-        TraceLog(LOG_ERROR, "Failed to parse settings JSON: %s", e.what());
-        return false;
+        auto &game = j["gameplay"];
+        gameplayConfig.showDebug = game.value("showDebug", true);
+        gameplayConfig.showEnemyIDs = game.value("showEnemyIDs", false);
+        gameplayConfig.musicEnabled = game.value("musicEnabled", true);
+        gameplayConfig.sound3DEnabled = game.value("soundEnabled", true);
     }
+
+    TraceLog(LOG_INFO, "Settings loaded from %s", path.c_str());
+    return true;
 }
 
 void ConfigSystem::saveSettings(const std::string &path)

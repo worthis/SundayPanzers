@@ -117,6 +117,8 @@ private:
     bool assetsLoaded = false;
     float loadingTimer = 0.0f;
     bool quitRequested = false;
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
 
     // Состояние текущего матча
     int playerCommander = 1;

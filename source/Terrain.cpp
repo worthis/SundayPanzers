@@ -910,7 +910,6 @@ void Terrain::onBulletFlight(const BulletFlightEvent &e) const
         eventSystem->publish(BulletTerrainHitEvent{
             .position = {e.bullet.x, e.bullet.y, e.bullet.z},
             .hitScale = e.bullet.hitScale,
-            .bulletType = e.bullet.bulletType
-        });
+            .bulletType = e.bullet.bulletType});
     }
 }

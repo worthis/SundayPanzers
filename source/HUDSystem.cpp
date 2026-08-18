@@ -8,7 +8,7 @@ namespace HUDConstants
     constexpr float SQUAD_PANEL_Y_OFFSET = 2.0f;
     constexpr float SQUAD_PANEL_ITEM_HEIGHT = 40.0f;
 
-    constexpr float MINIMAP_X = 0.0f - 102.0f - 2.0f;
+    constexpr float MINIMAP_X = 102.0f + 2.0f;
     constexpr float MINIMAP_Y = 1.0f;
     constexpr float MINIMAP_SCALE = 50.0f;
 
@@ -48,6 +48,10 @@ void HUDSystem::init()
 {
     if (initialized)
         return;
+
+    // Центрирование интерфейса: исходные координаты рассчитаны на 640x480
+    offsetX = (GetScreenWidth() - 640.0f) * 0.5f;
+    offsetY = (GetScreenHeight() - 480.0f) * 0.5f;
 
     texMapBounds = LoadTexture("data/hud/map.png");
     texRedCircle = LoadTexture("data/hud/sq0.png");
@@ -159,17 +163,13 @@ void HUDSystem::render(const TankSystem &tankSystem, const Camera3D &camera, int
     if (!initialized)
         return;
 
-    float offsetX = (GetScreenWidth() - 640.0f) / 2.0f;
-    float offsetY = (GetScreenHeight() - 480.0f) / 2.0f;
-
-    drawSquadPanel(tankSystem, playerCommander, offsetX, offsetY);
-    drawMinimap(tankSystem, playerCommander, offsetX, offsetY);
-    drawBottomPanel(tankSystem, playerCommander, offsetX, offsetY, isChangingCamera);
+    drawSquadPanel(tankSystem, playerCommander);
+    drawMinimap(tankSystem, playerCommander);
+    drawBottomPanel(tankSystem, playerCommander, isChangingCamera);
     drawTankIDs(tankSystem, camera, playerCommander, playerPos, showEnemyIDs);
 }
 
-void HUDSystem::drawSquadPanel(const TankSystem &tankSystem, int playerCommander,
-                               float offsetX, float offsetY)
+void HUDSystem::drawSquadPanel(const TankSystem &tankSystem, int playerCommander)
 {
     for (int n = PLAYER_MIN; n <= PLAYER_MAX; n++)
     {
@@ -227,8 +227,7 @@ void HUDSystem::drawSquadPanel(const TankSystem &tankSystem, int playerCommander
     }
 }
 
-void HUDSystem::drawMinimap(const TankSystem &tankSystem, int playerCommander,
-                            float offsetX, float offsetY)
+void HUDSystem::drawMinimap(const TankSystem &tankSystem, int playerCommander)
 {
     if (texMapBounds.id != 0)
     {
@@ -268,8 +267,7 @@ void HUDSystem::drawMinimap(const TankSystem &tankSystem, int playerCommander,
     }
 }
 
-void HUDSystem::drawBottomPanel(const TankSystem &tankSystem, int playerCommander,
-                                float offsetX, float offsetY, bool isChangingCamera)
+void HUDSystem::drawBottomPanel(const TankSystem &tankSystem, int playerCommander, bool isChangingCamera)
 {
     // gam(8)=0 означает что камера НЕ переключается (slipcam не активен)
     if (isChangingCamera)
@@ -342,8 +340,7 @@ void HUDSystem::drawBottomPanel(const TankSystem &tankSystem, int playerCommande
     }
 }
 
-void HUDSystem::drawTankIDs(const TankSystem &tankSystem, const Camera3D &camera,
-                            int playerCommander, const Vector3 &playerPos, bool showEnemyIDs)
+void HUDSystem::drawTankIDs(const TankSystem &tankSystem, const Camera3D &camera, int playerCommander, const Vector3 &playerPos, bool showEnemyIDs)
 {
     // Вспомогательная функция для проверки, находится ли объект в поле зрения камеры
     auto isInFrontOfCamera = [&camera](const Vector3 &worldPos) -> bool
