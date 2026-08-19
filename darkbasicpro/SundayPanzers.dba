@@ -1,0 +1,4197 @@
+rem ***************************************************************************
+rem *                             Sunday Panzers                              *
+rem *                                                                         *
+rem *                      By Bertone Ermes - Ermesdesign                     *
+rem *                      Start coding 06/09/04 20.52.11                     *
+rem *                            ermesjr@libero.it                            *
+rem ***************************************************************************
+rem
+rem Version 1.2 08-12-2004
+rem
+rem ***************************************************************************
+rem *                            start declaring arrays                       *
+rem ***************************************************************************
+rem array calling
+dim ter(2,50,50):rem array for ground
+rem 0 > tipe of object (0 none, 1 tree)
+rem 1 > energy of object
+rem 2 > value of object
+dim tk#(55,52)
+rem tk# is the array of the tank system >> see tank() function
+dim tree(75,3)
+rem 75=number of tree count for hit,0 on off,1 y angle , 2 x swing, 3 amount of x swing
+dim bul#(50,4):rem list of position of the bullets (0 on, 1 x, 2 y , 3 z, 4 gravity effect counter)
+dim hit(50):rem counter of hit (100 to 1, when is 0 hit disappear)
+dim gam(25)
+rem 1> player object
+rem 2> rpm most near
+rem 3> tank most near
+rem 4> counter explosion
+rem 5> range explosion
+rem 6> flag explosion
+rem 7> squad player
+rem 8> camera control
+rem 9> cloud numbers
+rem 10> fps clicker to 100 - 50 fps
+rem 11> clock 300 for change target
+rem 12> rnd factor for powup search
+rem 13> flag counter for fps show
+rem 14> max level
+rem 15> level chosed
+rem 16> scenario number
+rem 17> used for inbox value functions
+rem 18> squad player
+rem 19> squad enemy
+rem 20> squad guest
+rem 21> test start level
+rem 22> player squad control
+rem 23> enemies squad
+rem 24> toggles id tanks
+rem 25> scenario
+dim sav(3):rem array for savegame
+sav(1)=0:sav(0)=0:rem reset gamesav
+dim player(13,4):rem go to makesortie to see
+dim casenemy(50,15):rem 50 difficulty level,15 selections
+dim spec(50,7):rem specifications for difficulty level
+dim cam#(3):rem camera x,y,z
+dim cl#(10,4):rem cloud array(1 range from center,2 start angle,3 height,4 angle factor)
+dim cost(8):rem array for tank expense
+dim lev(50,15):rem array for level specification
+
+rem ***************************************************************************
+rem *                       list of objects / images                          *
+rem ***************************************************************************
+rem list of object
+rem 1-50 tank objects, 101 - 150 bullets, 201-250 shadows, 301-350 hitballs,501-550 bos
+rem 401 ring explosion, 402 ball explosion
+rem 1000 - 1075 trees in scenario
+rem 1076 - 1085 cloud in map
+rem 1100 - sky
+rem list of image
+
+rem 1-12> number player tank info
+rem 13 > start tank message
+rem 21-32> number tank small for left info
+rem 33 > red circle for select
+rem 233-240> tank picture sq1
+rem 34 fps100 - 35 fps50 - 36 cirle red for map
+rem 150>map 151>sq1 152>sq2 153>sq3 ... sq8
+rem 49>image tank destroied in left info
+rem 50-76> energy bars
+rem 77-82> bottom info
+rem 83-84> pup info
+rem 230--- sq tank images
+rem 101-120 > image color for tanks (101-110 tank working - 111 - 120 tank damaged - 121-130 destroyed 10 teams)
+rem 2000-2003 end images
+
+rem ***************************************************************************
+rem *                              start game code                            *
+rem ***************************************************************************
+
+if file exist("sav.gam") then load array "sav.gam",sav():gam(14)=sav(0):gam(15)=gam(14)
+if sav(0)=0 then gam(14)=10:sav(0)=10:save array "sav.gam",sav():gam(15)=gam(14)
+
+gam(18)=1:rem temp initial squad
+timer()=0:rem start timer 0 for rnd purposes
+initialize():rem screen settings, game main array for enemies/player
+entra():rem intro screen ermesdesign :)
+gameintro():rem intro screen game
+loadstuff():rem load sound/main object once a time for all
+rem start loop game
+tomenu:
+menu():rem main menu for select your squad
+sce=1+rnd(1499)/100:ter=lev(gam(15),sce):rem scenario select
+if sav(1)=1 then ter=1+rnd(599)/100:rem if game complete, all scenarios are free at whatever level
+maketerrain(ter):gam(25)=ter:rem build random scenario
+gam(7)=gam(18):rem assigantion squad for player
+gam(12)=96-gam(15):rem rnd factor for powup search
+gam(24)=0:rem number actiavted
+
+rem *******************************************************************************
+rem *                       Initialize world coordinates                          *
+rem *******************************************************************************
+cam#(1)=2500:cam#(2)=1000:cam#(3)=2500:rem initiate camera
+set sound volume 1,0:play sound 1:loop sound 1:rem start calling engine sound
+set sound volume 12,0:play sound 12:loop sound 12:rem start calling engine tank nearsound
+gam(8)=0:rem camera flag resetted
+
+rem *******************************************************************************
+rem *                           Calling intro routine                             *
+rem *******************************************************************************
+
+rem create enemy squads
+rem makesortie is level,enemy squad,guest squad
+makesortie(gam(15),gam(19),gam(20))
+rem making black the screen
+cls 0:ink 0,0:box 0,0,640,480:sync:sleep 200:sync
+cls 0:ink 0,0:box 0,0,640,480:sync:sleep 200:sync
+repotanks():rem first place tank then clean screen
+camintro():rem calling intro cam routine
+gam(13)=450:rem show fps rate variable
+ms=1+rnd(399)/100:load music "music/game"+str$(ms)+".mid",1:rem load music
+rem volume selector music (easy structured)
+if ms=1 then vom=73
+if ms=2 then vom=95
+if ms=3 then vom=84
+if ms=4 then vom=86
+set music volume 1,vom:play music 1:loop music 1:rem play music
+out=0:out2=0:esc=0:rem those variables control the end of the battle
+ink rgb(40,30,20),0:if gam(25)=6 then ink rgb(250,250,250),0:rem color for map compass
+rem *******************************************************************************
+rem *                             Action Game Loop                                *
+rem *******************************************************************************
+repeat
+   tanks():rem calling tank physics/trees/clouds/display subroutines
+   rem tank selection routine
+   a=scancode():cr=0
+   if a=>59 and a<=68 then cr=a-58
+   if a=>87 and a<=88 then cr=a-76
+   if cr>0 and gam(8)=0 and gam(1)<>cr
+      if tk#(cr,0)>0:rem change tank request
+         gam(8)=cr:rem requested tank control
+         tk#(0,1)=tk#(gam(1),1):rem initial coordinate of the moving camera
+         tk#(0,2)=tk#(gam(1),2):rem initial coordinate of the moving camera
+         tk#(0,3)=tk#(gam(1),3):rem initial coordinate of the moving camera
+         position object 65000,tk#(0,1),0,tk#(0,3):rem fake object 65000 facing target
+         point object 65000,tk#(cr,1),0,tk#(cr,3)
+         tk#(0,5)=wrapvalue(object angle y(65000)):rem so the cam have the right angle to start with.
+         gam(1)=0:rem initialize start change camera routine
+      endif
+   endif
+
+   rem procedure to move cam
+   if gam(8)>0 then slipcam()
+
+   rem positioning camera n=object to track
+   n=gam(1):rem n is the object to track
+   track(n):rem track object routine
+
+   rem engine sound routine
+   if tk#(n,0)>0:rem if tank is still alive for player1
+      rpm#=abs(tk#(n,38)):vo#=85+rpm#*4.5:if vo#>93 then vo#=93:rem volume and speed setting
+      set sound speed 1,tk#(n,40)+rpm#*3250
+      if gam(1)=0 then vo#=0:rem if changing cam, no tank engine.
+      set sound volume 1,vo#:rem volume of sound 1
+   endif
+   if tk#(n,0)<0 then set sound volume 1,0:rem if destroied, no sound volume at all
+
+   rem engine sound for tank near routine
+   sps=tk#(gam(3),40)+tk#(gam(3),38)*3150:rem speed tank>>>speed sound
+   if sps<1000 then sps=1000
+   if sps>25000 then sps=25000
+   set sound speed 12,sps
+   vol=105-gam(2)/15:rem volume calcolation for distance
+   if vol>93 then vol=93
+   if vol<0 then vol=0
+   set sound volume 12,vol
+
+   rem selector for 50/100 fps
+   if keystate(33)=0 then clck=0
+   if keystate(33)=1 and clck=0:rem flag clck for click key system
+      clck=1:gam(10)=gam(10)+1:gam(13)=450
+      if gam(10)=2 then gam(10)=0
+      if gam(10)=0 then sync rate 105
+      if gam(10)=1 then sync rate 55
+   endif
+
+   rem show fps info
+   if gam(13)>0
+      gam(13)=gam(13)-1
+      paste image 34+gam(10),612,469
+   endif
+
+   rem fps controls
+   skip=skip+1:if skip=2 then skip=0
+   if gam(10)=0 then sync:goto noskip:rem 100 fps controls
+   if gam(10)=1 and skip=1 then sync:rem 50 fps controls
+   noskip:
+
+   rem id on screen toggle
+   ids=keystate(20)
+   if ids=0 then togg=0
+   if ids=1 and togg=0
+      togg=1
+      gam(24)=gam(24)+1:if gam(24)=2 then gam(24)=0
+   endif
+
+   rem music toggle
+   mut=keystate(50)
+   if mut=0 then musel=0
+   if mut=1 and musel=0
+      musel=1
+      inc muxyc:if muxyc>1 then muxyc=0:set music volume 1,vom
+      if muxyc=1 then set music volume 1,0
+   endif
+
+   rem game counters
+   gam(11)=gam(11)+1:if gam(11)>300 then gam(11)=0+rnd(10):rem flag for change target
+
+   rem go out control
+   gam(22)=0:rem control for player1
+   gam(23)=0:rem control for enemysquad
+   for p=1 to 12
+      if tk#(p,0)>0 then gam(22)=1
+   next p
+   for e=13 to 45
+      if tk#(e,0)>0 then gam(23)=1
+   next e
+   rem if gam(22) is 0 , no players tank so defeat for player
+   rem if gam(23) is 0 , no enemies/guest tank so victory for player
+   out=0
+   if gam(22)=0 or gam(23)=0 then out=1
+   if out=1 then paste image 2000,141,20,1
+   if keystate(16)=1 then out2=1:rem "q" is hit
+   if out2=1 then esc=1:gam(22)=0:rem control "q" key for quit battle.
+   if out=1 and mouseclick() then esc=1:rem mouse click for end battle request
+until esc=1:rem go out battle
+
+rem update savgam()
+nofine=0
+if gam(14)=50 and gam(23)=0
+   if sav(1)=0 then nofine=1
+   sav(1)=1:save array "sav.gam",sav()
+endif
+if gam(15)=gam(14) and gam(14)<50 and gam(23)=0
+   gam(14)=gam(14)+1:sav(0)=gam(14)
+   save array "sav.gam",sav()
+   gam(15)=gam(14)
+endif
+
+camending():rem make final battle sequence
+rem clean data for next match
+for tre=1001 to 1100:rem deleting trees and clouds and sky
+   if object exist(tre) then delete object tre
+sleep 2
+next tre
+for co=45 to 50:rem deleting cows
+   if object exist(co) then delete object co
+   if object exist(co+200) then delete object co+200
+   sleep 2
+next co
+for t=1 to 75:for z=0 to 3:tree(t,z)=0:next z:next t:rem reset tree
+for ob=1 to 55:for v=0 to 52:tk#(ob,v)=0:next v:next ob:rem reset tank
+for g=2 to 13:gam(g)=0:next g:rem reset game
+for cl=1 to 10:for v=1 to 4:cl#(cl,v)=0:next v:next cl:rem reset cloud
+for x=0 to 50:for z=0 to 50:rem reset ground
+   ter(0,x,z)=0:ter(1,x,z)=0:ter(2,x,z)=0
+next z:next x
+rem deleting tanks/hits/bullets/shadows
+for n=1 to 55
+   if object exist(n) then delete object n
+   if object exist(n+100) then delete object n+100
+   if object exist(n+200) then delete object n+200
+   if object exist(n+300) then delete object n+300
+   sleep 10
+next n
+rem control if end game
+if nofine=1
+   load image "end/end.bmp",40000,1
+   load music "music/end.mp3",1
+   set music volume 1,100
+   play music 1
+   ga=1
+   repeat
+      if ga<255 then ga=ga+1:set gamma ga,ga,ga
+      paste image 40000,0,0
+      clk=mouseclick()+spacekey()+joystick fire a()
+      sleep 100
+      sync
+   until ga=255 and clk>0
+
+   for t=255 to 4 step -3
+   set gamma t,t,t
+   set music volume 1,t/2.6
+   sleep 15
+   next t
+   set gamma 1,1,1
+   delete image 40000
+   delete music 1
+   sleep 1500
+endif
+goto tomenu:rem now all is clean,redo menu
+
+rem *******************************************************************************
+rem *                 ARCADE LOOP ENDS HERE - NOW THE FUNCTIONS :)                *
+rem *******************************************************************************
+
+end
+
+function initialize()
+   rem setting up the screen info and display
+   set display mode 640,480,32:sync on:autocam off
+   set camera range 6,7450:sync rate 105:hide mouse
+   rem cost() is the value of the tanks, change as you want, no further mods required :)
+   cost(1)=3:cost(2)=4:cost(3)=6:cost(4)=11
+   cost(5)=14:cost(6)=20:cost(7)=25:cost(8)=40
+   rem start declaring main array for difficulty levels, array casenemy(50,15)
+   rem spec(level,value) controls the attribute of the tanks for each level
+   rem caseenemy(level,value) value 1-15 >> 15 case of enemy tanks selection
+   rem spec(50,7) << AI,AI2,AIM,FIRERATE,ENERGYDECREASER,nr enemytank,nr guest tank
+   restore enelist
+   for r=1 to 50
+   for t=1 to 15
+   read ene
+   casenemy(r,t)=ene:rem assign casenemy()
+   next t
+   for s=1 to 7
+   read spe
+   spec(r,s)=spe:rem assign spec()
+   next t:next r
+
+   rem lev(level,value) is for the player: value 0 is the credits you have
+   rem for the level, 1-15 is the scenario type for the battle
+   for l=1 to 50
+   for rr=0 to 15
+   read le
+   lev(l,rr)=le:rem assign lev()
+   next rr: next l
+   rem end reading boards
+   goto skipdata:rem avoid data statments
+   enelist:
+   rem  t,t,t,t,t,t,t,t,t,t,t,t,t,t,t,ai,ai2,aim,firerate,energydecreaser,nenemy,nguest
+   data 1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,22,993,145,0,0
+   data 1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,22,991,144,1,0
+   data 1,1,1,1,1,1,1,1,1,2,2,2,2,3,3,1,2,22,989,143,2,0
+   data 1,1,1,1,1,1,1,2,2,2,2,2,3,3,3,1,2,21,987,143,2,0
+   data 1,1,1,1,1,1,1,2,2,2,3,3,3,3,3,2,2,21,986,142,3,0
+   data 1,1,1,1,1,2,2,2,2,2,3,3,3,3,3,2,2,21,985,142,3,0
+   data 1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,2,3,20,984,141,4,0
+   data 1,1,1,1,2,2,2,3,3,3,3,3,4,4,4,2,3,20,983,140,4,0
+   data 1,1,1,1,2,2,3,3,3,3,3,3,4,4,4,3,3,20,982,140,5,0
+   data 1,1,1,1,2,2,3,3,3,3,4,4,4,4,4,3,3,20,981,139,5,1
+   data 1,1,1,1,2,2,3,3,3,3,4,4,4,5,5,3,4,19,980,139,6,1
+   data 1,1,1,1,2,3,3,3,3,4,4,4,4,5,5,3,4,19,979,138,6,1
+   data 1,1,1,2,2,3,3,3,3,4,4,4,4,5,5,4,4,19,978,138,7,1
+   data 1,1,1,2,3,3,3,4,4,4,4,4,5,5,5,4,4,18,977,137,7,2
+   data 1,1,2,2,3,3,4,4,4,4,4,4,5,5,6,4,4,18,976,137,8,2
+   data 1,1,2,2,3,3,4,4,4,4,4,5,5,5,6,4,4,17,975,136,9,2
+   data 1,1,2,2,3,3,4,4,4,4,4,5,5,6,6,4,5,17,973,136,10,2
+   data 1,1,2,2,3,3,4,4,4,4,5,5,5,6,6,5,5,16,972,136,11,2
+   data 1,1,2,2,3,3,4,4,4,4,5,5,5,6,6,5,5,16,971,136,12,2
+   data 1,1,2,2,3,3,4,4,4,4,5,5,5,6,6,5,5,16,970,135,12,2
+   data 1,1,2,2,3,3,4,4,4,5,5,5,6,6,6,5,5,16,968,135,13,2
+   data 1,2,2,3,3,4,4,4,4,5,5,5,6,6,6,5,5,16,965,135,14,2
+   data 1,2,3,3,4,4,4,4,5,5,5,5,6,6,6,5,6,15,963,135,14,3
+   data 1,2,3,3,4,4,4,4,5,5,5,5,6,6,6,5,6,15,962,135,15,3
+   data 1,2,3,4,4,4,4,5,5,5,5,5,6,6,6,5,6,15,960,135,16,3
+   data 1,2,3,4,4,4,4,5,5,5,5,6,6,6,6,5,6,15,960,135,16,3
+   data 1,2,3,4,4,4,5,5,5,5,6,6,6,6,7,5,6,14,959,134,17,3
+   data 1,2,3,4,4,4,5,5,5,5,6,6,6,6,7,5,6,14,957,134,17,3
+   data 1,2,3,4,4,5,5,5,5,6,6,6,6,7,7,5,6,14,955,134,18,3
+   data 1,2,3,4,4,5,5,5,5,6,6,6,6,7,7,6,6,14,953,134,18,3
+   data 1,2,3,4,4,5,5,5,5,6,6,6,6,7,7,6,6,14,950,134,19,3
+   data 1,2,3,4,4,5,5,5,5,5,6,6,7,7,7,6,6,14,949,134,19,4
+   data 1,2,3,4,4,5,5,5,5,6,6,6,7,7,7,6,7,14,948,135,20,4
+   data 1,2,3,4,4,5,5,5,5,6,6,6,7,7,8,6,7,13,947,135,20,4
+   data 1,2,3,4,4,5,5,5,6,6,6,7,7,8,8,6,7,13,946,136,21,4
+   data 1,2,3,4,4,5,5,5,6,6,6,7,7,8,8,7,7,13,943,136,21,4
+   data 1,2,3,4,4,5,5,5,6,6,7,7,7,8,8,7,7,13,943,137,22,4
+   data 1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,7,7,13,942,137,22,4
+   data 1,2,3,4,4,5,5,6,6,7,7,7,7,8,8,7,8,13,941,138,23,4
+   data 1,2,3,4,5,5,5,5,6,6,7,7,7,8,8,7,8,13,940,138,23,5
+   data 1,2,3,4,5,5,5,5,6,6,7,7,8,8,8,7,8,13,938,138,24,5
+   data 1,2,3,4,5,5,5,6,6,6,7,7,8,8,8,8,8,13,936,139,24,5
+   data 1,2,3,4,5,5,5,6,6,6,7,7,8,8,8,8,8,12,935,139,25,5
+   data 1,2,3,4,5,5,5,6,6,6,7,7,8,8,8,8,9,12,934,139,25,5
+   data 1,2,3,4,5,5,5,6,6,6,7,7,8,8,8,8,9,12,932,140,26,5
+   data 1,2,3,4,5,5,5,6,6,6,7,7,8,8,8,9,9,12,930,140,26,5
+   data 1,2,3,4,5,5,5,6,6,6,7,7,8,8,8,9,9,12,930,141,27,5
+   data 1,2,3,4,5,5,6,6,6,7,7,7,8,8,8,9,10,11,928,142,27,5
+   data 1,2,3,4,5,5,6,6,6,7,7,7,8,8,8,9,10,11,924,143,27,5
+   data 1,2,3,4,5,5,6,6,6,7,7,7,8,8,8,10,10,10,920,144,27,5
+
+
+   rem data for lev(50,15) 0 is cr value, 15 array for random scenario
+   data 5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+   data 7,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+   data 9,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2
+   data 11,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2
+   data 14,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2
+   data 17,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3
+   data 19,1,1,1,1,1,1,2,2,2,2,2,2,2,2,3
+   data 21,1,1,1,1,1,2,2,2,2,2,2,2,2,2,3
+   data 23,1,1,1,1,2,2,2,2,2,2,2,2,2,3,3
+   data 27,1,1,1,1,2,2,2,2,2,2,2,2,3,3,3
+   data 32,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3
+   data 38,1,1,1,1,2,2,2,2,2,2,3,3,3,3,3
+   data 44,1,1,1,2,2,2,2,2,2,3,3,3,3,3,4
+   data 50,1,1,1,2,2,2,2,2,3,3,3,3,3,4,4
+   data 60,1,1,1,2,2,2,2,2,3,3,3,3,3,4,4
+   data 70,1,1,1,2,2,2,2,3,3,3,3,3,4,4,4
+   data 80,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4
+   data 92,1,1,1,2,2,2,3,3,3,3,4,4,4,4,4
+   data 105,1,1,1,2,2,2,3,3,3,3,4,4,4,4,4
+   data 124,1,1,1,2,2,2,3,3,3,3,4,4,4,4,5
+   data 138,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5
+   data 150,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5
+   data 163,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5
+   data 180,1,1,1,2,2,2,3,3,3,3,4,4,5,5,5
+   data 198,1,1,1,2,2,2,3,3,3,3,4,4,5,5,5
+   data 210,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 232,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 244,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 255,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 269,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 288,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 310,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 320,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 335,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 355,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 375,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 395,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+   data 416,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 435,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 450,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 466,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 475,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 485,1,1,1,2,2,2,3,3,3,4,4,4,5,5,6
+   data 495,1,1,1,2,2,2,3,3,3,4,4,4,5,5,6
+   data 505,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 515,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6
+   data 525,1,1,2,2,3,3,3,4,4,4,5,5,5,6,6
+   data 535,1,1,2,2,3,3,3,4,4,4,5,5,5,6,6
+   data 545,1,1,2,2,3,3,3,4,4,4,5,5,5,6,6
+   data 550,1,2,3,4,5,6,6,6,6,6,6,6,6,6,6
+
+   skipdata:
+   rem loading commons 3d object to clone
+   rem load 8 tank to use forever
+   for t=1 to 8
+      load object "tank/t"+str$(t)+".x",65200+t
+      position object 65200+t,45000,45000,45000
+      hide object 65200+t
+   next t
+   rem load bullet1
+   load object "tank/bullet.x",65210
+   position object 65210,45000,45000,45000
+   hide object 65210
+   rem load bullet2
+   load object "tank/bullet2.x",65211
+   position object 65211,45000,45000,45000
+   hide object 65211
+   rem load shadow
+   load object "tank/shadow.x",65212
+   position object 65212,45000,45000,45000
+   hide object 65212
+   rem load hit
+   load object "tank/hit.x",65213
+   position object 65213,45000,45000,45000
+   hide object 65213
+   rem load hit2
+   load object "tank/hit2.x",65214
+   position object 65214,45000,45000,45000
+   hide object 65214
+   rem load tree1
+   load object "object/tree1.x",65215
+   position object 65215,45000,45000,45000
+   hide object 65215
+   rem load tree2
+   load object "object/tree2.x",65216
+   position object 65216,45000,45000,45000
+   hide object 65216
+   rem load tree3
+   load object "object/cac.x",65217
+   position object 65217,45000,45000,45000
+   hide object 65217
+   rem load tree4
+   load object "object/froz.x",65218
+   position object 65218,45000,45000,45000
+   hide object 65218
+   rem load tree5
+   load object "object/tree5.x",65219
+   position object 65219,45000,45000,45000
+   hide object 65219
+   rem load tree6
+   load object "object/moon.x",65220
+   position object 65220,45000,45000,45000
+   hide object 65220
+   rem load cloud1
+   load object "object/cloud1.x",65221
+   position object 65221,45000,45000,45000
+   hide object 65221
+   rem load cloud2
+   load object "object/cloud2.x",65222
+   position object 65222,45000,45000,45000
+   hide object 65222
+   rem load cloud3
+   load object "object/cloud3.x",65223
+   position object 65223,45000,45000,45000
+   hide object 65223
+   rem load cow
+   load object "extra/cow.x",65224
+   position object 65224,45000,45000,45000
+   hide object 65224
+   rem load camel
+   load object "extra/camel.x",65225
+   position object 65225,45000,45000,45000
+   hide object 65225
+   rem load frozed
+   load object "extra/frozed.x",65226
+   position object 65226,45000,45000,45000
+   hide object 65226
+   rem load alien
+   load object "extra/alien.x",65227
+   position object 65227,45000,45000,45000
+   hide object 65227
+
+
+
+
+
+
+   make matrix 1,5000,5000,50,50
+   rem loading matrix image
+   for t=1 to 6
+   load image "terrain/terrain"+str$(t)+".bmp",350+t,1
+   next t
+endfunction
+
+function loadstuff()
+   rem loading sound and complementary object, images.
+   rem load sound list
+   load sound "sound/tank.wav",1:rem sound for engine
+   for s=2 to 6:load sound "sound/cannon.wav",s:next s:rem tank shot
+   for s=7 to 11:load sound "sound/hit.wav",s:next s:rem bullet on ground
+   for s=13 to 17:load sound "sound/can.wav",s:next s:rem tank hit
+   for s=18 to 22:load sound "sound/coll.wav",s:next s:rem tank collision
+   load sound "sound/tank.wav",12:rem engine tank near
+   load sound "sound/explo.wav",23:rem tank explode
+   load sound "sound/pup.wav",24:rem sound for powerup barrier
+   load sound "sound/pup2.wav",25:rem sound for powerup bullet
+   load sound "sound/turbo.wav",26:rem turbo sound for player
+   load sound "sound/elim.wav",27:set sound volume 27,99:rem eliminated tank
+   load sound "sound/repair.wav",28:set sound volume 28,99:rem repair tank
+   load sound "sound/menu.wav",29:set sound volume 29,99:rem menu sound
+
+   rem loading explosion ring & ball explosion
+   set ambient light 90:rem light for ghosted images
+   load object "object/ring.x",401
+   set object specular 401,0
+   set object 401,1,1,0,0,1,0,0:rem ghost object on 401
+   set object emissive 401,rgb(255,255,20)
+   set object diffuse 401,rgb(255,255,20)
+   hide object 401:position object 401,0,-5000,0
+   load object "object/ball.x",402
+   set object specular 402,0
+   set object 402,1,1,0,0,1,0,0:rem ghost object on 402
+   set object emissive 402,rgb(255,255,20)
+   set object diffuse 402,rgb(255,255,20)
+   hide object 402:position object 402,0,-5000,0
+
+   rem ***********************  loading resident images **************************
+   rem loading images for tank info
+   for t=1 to 12
+   load image "scr/nu"+str$(t)+".bmp",t,1
+   next t
+   rem loading images for tank info enemy
+   for t=501 to 533
+   load image "scr2/enu"+str$(t-500)+".bmp",t,1
+   next t
+   rem loading images for tank info small left
+   for t=21 to 32
+   load image "scr/info"+str$(t-20)+".bmp",t,1
+   next t
+   rem loading images for tank picture small left sq1,sq2,sq3,sq4
+   for t=1 to 8
+   load image "scr/tasqa"+str$(t)+".bmp",232+t,1
+   load image "scr/tasqb"+str$(t)+".bmp",242+t,1
+   load image "scr/tasqc"+str$(t)+".bmp",252+t,1
+   load image "scr/tasqd"+str$(t)+".bmp",262+t,1
+   load image "scr/tasqe"+str$(t)+".bmp",272+t,1
+   load image "scr/tasqf"+str$(t)+".bmp",282+t,1
+   load image "scr/tasqg"+str$(t)+".bmp",292+t,1
+   load image "scr/tasqh"+str$(t)+".bmp",302+t,1
+   load image "scr/tasqi"+str$(t)+".bmp",312+t,1
+   load image "scr/tasqj"+str$(t)+".bmp",322+t,1
+   next t
+   load image "scr/sel.bmp",33,1:rem sel circle red
+   load image "scr/no.bmp",49,1:rem destroyed cross
+   load image "scr/fps1.bmp",34,1:rem fps100
+   load image "scr/fps2.bmp",35,1:rem fps50
+   load image "scr/sq0.bmp",36,1:rem red square for map
+   rem loading images for tank energy small left highlighted
+   for t=50 to 76
+   load image "scr/ene"+str$(t-49)+".bmp",t,1
+   next t
+   load image "scr/map.bmp",150,1:rem map bounds
+   rem load bottom images
+   load image "scr/data1.bmp",77,1:rem charging
+   load image "scr/data2.bmp",78,1:rem reloading
+   load image "scr/data3.bmp",79,1:rem ready
+   load image "scr/data4.bmp",80,1:rem go
+   load image "scr/data5.bmp",81,1:rem bullet
+   load image "scr/data6.bmp",82,1:rem turbo
+   load image "scr/pup1.bmp",83,1:rem barrier info
+   load image "scr/pup2.bmp",84,1:rem bullet info
+   rem name scenarios
+   for s=1 to 6
+   load image "scr/no"+str$(s)+".bmp",84+s,1
+   next s
+   rem load image start scenario
+   load image "scr/start.bmp",13,1
+   ns=10:rem counter for number squad to load
+   rem loading images for tank
+   for i=1 to ns
+      load image "tank/t"+str$(i)+".bmp",100+i,1
+      load image "tank/td"+str$(i)+".bmp",110+i,1
+      load image "tank/tw"+str$(i)+".bmp",120+i,1
+      load image "scr/sq"+str$(i)+".bmp",150+i,1
+   next i
+
+   rem load image for end game
+   load image "end/mouse.bmp",2000,1
+   load image "end/victory.bmp",2001,1
+   load image "end/defeat.bmp",2002,1
+   load image "end/click.bmp",2003,1
+
+
+
+   rem make fake 65000, for rotation purposes in tanks() function
+   make object plain 65000,1,1
+   hide object 65000
+endfunction
+
+function maketerrain(l)
+   rem ***************************************************************************
+   rem *                          terrain creator funtions                       *
+   rem ***************************************************************************
+   rem making terrain with random system
+   rem making matrix 1 and setting at 0,0
+   prepare matrix texture 1,350+l,8,3:fill matrix 1,0,1
+   position matrix 1,0,0,0:set matrix trim 1,0.0025,0.0025
+   set matrix 1,0,0,0,0,1,0,1:position matrix 1,0,0,0
+   rem remember, all the object are without light and mipmapping
+   rem selecting scenario tipe
+   select l
+      case 1:rem scenario grass country
+      rem making the great hills "Crest tipe"
+      if rnd(100)>65:rem the crests isn't always in
+      nseq=rnd(2)+1
+      for s=1 to nseq
+      stx=rnd(38)+1
+      stz=rnd(38)+1
+      hm=20+rnd(200)
+      for x=stx to stx+11
+         ang=16.3*(x-stx)
+         set matrix height 1,x,stz,get matrix height (1,x,stz)+sin(ang)*(hm/10)
+         set matrix height 1,x,stz+1,get matrix height (1,x,stz+1)+sin(ang)*(hm/8)
+         set matrix height 1,x,stz+2,get matrix height (1,x,stz+2)+sin(ang)*(hm/6)
+         set matrix height 1,x,stz+3,get matrix height (1,x,stz+3)+sin(ang)*(hm/3.5)
+         set matrix height 1,x,stz+4,get matrix height (1,x,stz+4)+sin(ang)*(hm/1.5)
+         set matrix height 1,x,stz+5,get matrix height (1,x,stz+5)+sin(ang)*(hm)
+         set matrix height 1,x,stz+6,get matrix height (1,x,stz+6)+sin(ang)*(hm)
+         set matrix height 1,x,stz+7,get matrix height (1,x,stz+7)+sin(ang)*(hm/1.5)
+         set matrix height 1,x,stz+8,get matrix height (1,x,stz+8)+sin(ang)*(hm/3.5)
+         set matrix height 1,x,stz+9,get matrix height (1,x,stz+9)+sin(ang)*(hm/6)
+         set matrix height 1,x,stz+10,get matrix height (1,x,stz+10)+sin(ang)*(hm/8)
+         set matrix height 1,x,stz+11,get matrix height (1,x,stz+11)+sin(ang)*(hm/10)
+      next x
+      next s
+      endif
+      rem making the great hills "breast" tipe
+      nseq=rnd(15)+2
+      for s=1 to nseq
+      stx=rnd(33)+3
+      stz=rnd(33)+3
+      hm=120+rnd(100)
+      if rnd(100)>93 then hm=hm+100
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem making the flat hills "breast" tipe
+      nseq=rnd(23)+9
+      for s=1 to nseq
+      stx=rnd(32)+3
+      stz=rnd(32)+3
+      hm=20+rnd(30)
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem make color heights
+      for xm=0 to 49
+      for zm=0 to 49
+         h=get ground height(1,100*xm+50,100*zm+50)+10
+         dv=45+(h/22)
+         nt=1+h/dv
+         if nt>9 then nt=9
+         if nt=8 then nt=23:rem last height tile are not in sequence
+         if nt=9 then nt=24:rem last height tile are not in sequence
+         if rnd(100)>80 and nt<8 then nt=nt+8
+         set matrix tile 1,xm,zm,nt
+      next zm
+      next xm
+      rem tree placing procedure
+      rem ter array
+      rem 0 > tipe of object (0 none, 1 tree)
+      rem 1 > energy of object
+      rem 2 > value of 3d object
+      startree=1001
+      for t=1 to 75:rem 75 possibility of tree
+         x=4+rnd(41):z=4+rnd(41)
+         rem there is a place for the tree??
+         h=get ground height(1,100*x+50,100*z+50)
+         if h<40 and ter(0,x,z)=0
+            set matrix tile 1,x,z,8:rem ground for tree
+            if rnd(100)>80 then set matrix tile 1,x,z,16:rem alternative ground for tree
+            ter(0,x,z)=1:ter(1,x,z)=2:rem strenght of tree
+            ter(2,x,z)=startree
+            rem load and place a tree
+            clone object startree,65215
+            rem no light, no mipmap
+            set object specular startree,0
+            set object startree,1,1,1,0,0,0,0:set object texture startree,0,0
+            position object startree,x*100+50,h-1,z*100+50
+            rem set a random initial angle and a scale from 95 to 105
+            yrotate object startree,rnd(359)
+            sc=95+rnd(10)
+            scale object startree,sc,sc,sc
+            inc startree
+         endif
+      next t
+      rem make clouds
+      cln=3+rnd(3)
+      gam(9)=cln
+      for ob=1076 to 1076+cln
+         rem load and place a cloud
+         clone object ob,65221
+         rem no light, no mipmap
+         set object specular ob,0
+         set object ob,1,1,1,0,0,0,0:set object texture ob,0,0
+         o=ob-1075
+         rem set range, angle, height
+         cl#(o,1)=rnd(2400)+400
+         cl#(o,2)=rnd(359)
+         cl#(o,4)=rnd(10)/900.0:rem speed cloud
+         position object ob,xc,cl,zc
+         sc=230+rnd(85)
+         scale object ob,sc+rnd(10),sc+rnd(10),sc+rnd(10)
+         rem first position of clouds
+         xc#=2500+cl#(o,1)*cos(cl#(o,2))
+         zc#=2500+cl#(o,1)*sin(cl#(o,2))
+         hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+         position object ob,xc#,hc#,zc#
+         yrotate object ob,wrapvalue(cl#(o,2)+90)
+      next ob
+      rem place cows
+      nc=1+rnd(3)
+      for c=46 to 46+nc
+         tankloader(c,10,0):rem load cow
+         tk#(c,1)=rnd(3000)+1000
+         tk#(c,3)=rnd(3000)+1000
+         tk#(c,5)=rnd(359):rem random placing on map
+      next c
+      rem make borders limit for players
+      for z=3 to 46
+         v1=22:v2=22
+         if z=3 then v1=20:v2=19
+         if z=46 then v1=17:v2=18
+         set matrix tile 1,3,z,v1:set matrix tile 1,46,z,v2
+      next z
+      for x=4 to 45
+         set matrix tile 1,x,3,21:set matrix tile 1,x,46,21
+      next x
+      rem make sky
+      load object "object/sky1.x",1100
+      rem no light, no mipmap, center in the middle the skyboxe
+      set object texture 1100,0,0:set object specular 1100,0
+      set object 1100,1,0,0,0,0,0,0:scale object 1100,7812.2,7000,7812.2
+      position object 1100,2500,-2,2500
+      rem make backdrop color of ground
+      color backdrop rgb(128,166,38)
+   endcase
+
+   case 2:rem scenario mountains
+      rem making the short "Crest tipe"
+      nseq=rnd(3)+3
+      for s=1 to nseq
+      stx=rnd(38)+1
+      stz=rnd(38)+1
+      hm=10+rnd(20)
+      for x=stx to stx+11
+         ang=16.3*(x-stx)
+         set matrix height 1,x,stz,get matrix height (1,x,stz)+sin(ang)*(hm/15)
+         set matrix height 1,x,stz+1,get matrix height (1,x,stz+1)+sin(ang)*(hm/10)
+         set matrix height 1,x,stz+2,get matrix height (1,x,stz+2)+sin(ang)*(hm/8)
+         set matrix height 1,x,stz+3,get matrix height (1,x,stz+3)+sin(ang)*(hm/3.5)
+         set matrix height 1,x,stz+4,get matrix height (1,x,stz+4)+sin(ang)*(hm/1.5)
+         set matrix height 1,x,stz+5,get matrix height (1,x,stz+5)+sin(ang)*(hm)
+         set matrix height 1,x,stz+6,get matrix height (1,x,stz+6)+sin(ang)*(hm)
+         set matrix height 1,x,stz+7,get matrix height (1,x,stz+7)+sin(ang)*(hm/1.5)
+         set matrix height 1,x,stz+8,get matrix height (1,x,stz+8)+sin(ang)*(hm/3.5)
+         set matrix height 1,x,stz+9,get matrix height (1,x,stz+9)+sin(ang)*(hm/8)
+         set matrix height 1,x,stz+10,get matrix height (1,x,stz+10)+sin(ang)*(hm/10)
+         set matrix height 1,x,stz+11,get matrix height (1,x,stz+11)+sin(ang)*(hm/15)
+      next x
+      next s
+      rem making the great mountains
+      nseq=rnd(15)+2
+      for s=1 to nseq
+      stx=rnd(33)+3
+      stz=rnd(33)+3
+      hm=80+rnd(80)
+      if rnd(100)>93 then hm=hm+35
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            vh=xatt
+            if xatt>5 then vh=abs(xatt-11)
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang)*sin(ang2)*hm)+vh*10
+         next xatt
+      next z
+      next s
+      rem making the flat hills "breast" tipe
+      nseq=rnd(23)+9
+      for s=1 to nseq
+      stx=rnd(32)+3
+      stz=rnd(32)+3
+      hm=20+rnd(30)
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            vh=xatt
+            if xatt>5 then vh=abs(xatt-11)
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)+vh*2
+         next xatt
+      next z
+      next s
+      rem make color heights
+      for xm=0 to 49
+      for zm=0 to 49
+         h=get ground height(1,100*xm+50,100*zm+50)+10
+         dv=45+(h/25)
+         nt=1+h/dv
+         if nt>9 then nt=9
+         if nt=8 then nt=23:rem last height tile are not in sequence
+         if nt=9 then nt=24:rem last height tile are not in sequence
+         if rnd(100)>80 and nt<8 then nt=nt+8
+         set matrix tile 1,xm,zm,nt
+      next zm
+      next xm
+      rem tree placing procedure
+      rem ter array
+      rem 0 > tipe of object (0 none, 1 tree)
+      rem 1 > energy of object
+      rem 2 > value of 3d object
+      startree=1001
+      for t=1 to 75:rem 75 possibility of tree
+         x=4+rnd(41):z=4+rnd(41)
+         rem there is a place for the tree??
+         h=get ground height(1,100*x+50,100*z+50)
+         if h<40 and ter(0,x,z)=0
+            set matrix tile 1,x,z,8:rem ground for tree
+            if rnd(100)>80 then set matrix tile 1,x,z,16:rem alternative ground for tree
+            ter(0,x,z)=1:ter(1,x,z)=3:rem strenght of tree
+            ter(2,x,z)=startree
+            rem load and place a tree
+            clone object startree,65216
+            rem no light, no mipmap
+            set object specular startree,0
+            set object startree,1,1,1,0,0,0,0:set object texture startree,0,0
+            position object startree,x*100+50,h-1,z*100+50
+            rem set a random initial angle and a scale from 95 to 110
+            yrotate object startree,rnd(359)
+            sc=95+rnd(15)
+            scale object startree,sc,5+sc,sc
+            inc startree
+         endif
+      next t
+      rem make clouds
+      cln=3+rnd(3)
+      gam(9)=cln
+      for ob=1076 to 1076+cln
+         rem load and place a cloud
+         clone object ob,65221
+         rem no light, no mipmap
+         set object specular ob,0
+         set object ob,1,1,1,0,0,0,0:set object texture ob,0,0
+         o=ob-1075
+         rem set range, angle, height
+         cl#(o,1)=rnd(2400)+400
+         cl#(o,2)=rnd(359)
+         cl#(o,4)=rnd(10)/900.0:rem speed cloud
+         position object ob,xc,cl,zc
+         sc=230+rnd(85)
+         scale object ob,sc+rnd(10),sc+rnd(10),sc+rnd(10)
+         rem first position of clouds
+         xc#=2500+cl#(o,1)*cos(cl#(o,2))
+         zc#=2500+cl#(o,1)*sin(cl#(o,2))
+         hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+         position object ob,xc#,hc#,zc#
+         yrotate object ob,wrapvalue(cl#(o,2)+90)
+      next ob
+      rem place cows (cows are for terrain1 and terrain2)
+      nc=1+rnd(3)
+      for c=46 to 46+nc
+         tankloader(c,10,0):rem load cow
+         tk#(c,1)=rnd(3000)+1000
+         tk#(c,3)=rnd(3000)+1000
+         tk#(c,5)=rnd(359):rem random placing on map
+      next c
+      rem make borders limit for players
+      for z=3 to 46
+         v1=22:v2=22
+         if z=3 then v1=20:v2=19
+         if z=46 then v1=17:v2=18
+         set matrix tile 1,3,z,v1:set matrix tile 1,46,z,v2
+      next z
+      for x=4 to 45
+         set matrix tile 1,x,3,21:set matrix tile 1,x,46,21
+      next x
+      rem make sky
+      load object "object/sky2.x",1100
+      rem no light, no mipmap, center in the middle the skyboxe
+      set object texture 1100,0,0:set object specular 1100,0
+      set object 1100,1,0,0,0,0,0,0:scale object 1100,7812.2,7000,7812.2
+      position object 1100,2500,-2,2500
+      rem make backdrop color of ground
+      color backdrop rgb(132,124,77)
+   endcase
+
+   case 3:rem scenario desert
+      rem making the great dunes
+      nseq=rnd(13)+4
+      for s=1 to nseq
+      stx=rnd(33)+3
+      stz=rnd(33)+3
+      hm=100+rnd(90)
+      if rnd(100)>93 then hm=hm+60
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem making the flat sand hills
+      nseq=rnd(23)+15
+      for s=1 to nseq
+      stx=rnd(32)+3
+      stz=rnd(32)+3
+      hm=10+rnd(30)
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem make color heights
+      for xm=0 to 49
+      for zm=0 to 49
+         h=get ground height(1,100*xm+50,100*zm+50)+10
+         dv=45+(h/30)
+         nt=1+h/dv
+         if nt>9 then nt=9
+         if nt=8 then nt=23:rem last height tile are not in sequence
+         if nt=9 then nt=24:rem last height tile are not in sequence
+         if rnd(100)>80 and nt<8 then nt=nt+8
+         set matrix tile 1,xm,zm,nt
+      next zm
+      next xm
+      rem tree placing procedure
+      rem ter array
+      rem 0 > tipe of object (0 none, 1 tree)
+      rem 1 > energy of object
+      rem 2 > value of 3d object
+      startree=1001
+      for t=1 to 75:rem 75 possibility of tree
+         x=4+rnd(41):z=4+rnd(41)
+         rem there is a place for the tree??
+         h=get ground height(1,100*x+50,100*z+50)
+         if h<40 and ter(0,x,z)=0
+            set matrix tile 1,x,z,8:rem ground for tree
+            if rnd(100)>80 then set matrix tile 1,x,z,16:rem alternative ground for tree
+            ter(0,x,z)=1:ter(1,x,z)=2:rem strenght of tree
+            ter(2,x,z)=startree
+            rem load and place a tree
+            clone object startree,65217
+            rem no light, no mipmap
+            set object specular startree,0
+            set object startree,1,1,1,0,0,0,0:set object texture startree,0,0
+            position object startree,x*100+50,h-1,z*100+50
+            rem set a random initial angle and a scale from 95 to 105
+            yrotate object startree,rnd(359)
+            sc=95+rnd(10)
+            scale object startree,sc,sc+rnd(40)-20,sc
+            inc startree
+         endif
+      next t
+      rem make clouds
+      cln=3+rnd(3)
+      gam(9)=cln
+      for ob=1076 to 1076+cln
+         rem load and place a cloud
+         clone object ob,65222
+         rem no light, no mipmap
+         set object specular ob,0
+         set object ob,1,1,1,0,0,0,0:set object texture ob,0,0
+         o=ob-1075
+         rem set range, angle, height
+         cl#(o,1)=rnd(2400)+400
+         cl#(o,2)=rnd(359)
+         cl#(o,4)=rnd(10)/900.0:rem speed cloud
+         position object ob,xc,cl,zc
+         sc=230+rnd(85)
+         scale object ob,sc+rnd(10),sc+rnd(10),sc+rnd(10)
+         rem first position of clouds
+         xc#=2500+cl#(o,1)*cos(cl#(o,2))
+         zc#=2500+cl#(o,1)*sin(cl#(o,2))
+         hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+         position object ob,xc#,hc#,zc#
+         yrotate object ob,wrapvalue(cl#(o,2)+90)
+      next ob
+      rem place camels
+      nc=1+rnd(3)
+      for c=46 to 46+nc
+         tankloader(c,11,0):rem load camels
+         tk#(c,1)=rnd(3000)+1000
+         tk#(c,3)=rnd(3000)+1000
+         tk#(c,5)=rnd(359):rem random placing on map
+      next c
+      rem make borders limit for players
+      for z=3 to 46
+         v1=22:v2=22
+         if z=3 then v1=20:v2=19
+         if z=46 then v1=17:v2=18
+         set matrix tile 1,3,z,v1:set matrix tile 1,46,z,v2
+      next z
+      for x=4 to 45
+         set matrix tile 1,x,3,21:set matrix tile 1,x,46,21
+      next x
+      rem make sky
+      load object "object/sky3.x",1100
+      rem no light, no mipmap, center in the middle the skyboxe
+      set object texture 1100,0,0:set object specular 1100,0
+      set object 1100,1,0,0,0,0,0,0:scale object 1100,7812.2,7000,7812.2
+      position object 1100,2500,-2,2500
+      rem make backdrop color of ground
+      color backdrop rgb(252,238,174)
+   endcase
+
+   case 4:rem scenario frozed country
+      rem making the great hills "Crest tipe"
+      nseq=rnd(2)+5
+      for s=1 to nseq
+      stx=rnd(38)+1
+      stz=rnd(38)+1
+      hm=20+rnd(20)
+      for x=stx to stx+11
+         ang=16.3*(x-stx)
+         set matrix height 1,x,stz,get matrix height (1,x,stz)+sin(ang)*(hm/10)
+         set matrix height 1,x,stz+1,get matrix height (1,x,stz+1)+sin(ang)*(hm/8)
+         set matrix height 1,x,stz+2,get matrix height (1,x,stz+2)+sin(ang)*(hm/6)
+         set matrix height 1,x,stz+3,get matrix height (1,x,stz+3)+sin(ang)*(hm/3.5)
+         set matrix height 1,x,stz+4,get matrix height (1,x,stz+4)+sin(ang)*(hm/1.5)
+         set matrix height 1,x,stz+5,get matrix height (1,x,stz+5)+sin(ang)*(hm)
+         set matrix height 1,x,stz+6,get matrix height (1,x,stz+6)+sin(ang)*(hm)
+         set matrix height 1,x,stz+7,get matrix height (1,x,stz+7)+sin(ang)*(hm/1.5)
+         set matrix height 1,x,stz+8,get matrix height (1,x,stz+8)+sin(ang)*(hm/3.5)
+         set matrix height 1,x,stz+9,get matrix height (1,x,stz+9)+sin(ang)*(hm/6)
+         set matrix height 1,x,stz+10,get matrix height (1,x,stz+10)+sin(ang)*(hm/8)
+         set matrix height 1,x,stz+11,get matrix height (1,x,stz+11)+sin(ang)*(hm/10)
+      next x
+      next s
+      rem making the great holes
+      nseq=rnd(7)+5
+      for s=1 to nseq
+      stx=rnd(33)+3
+      stz=rnd(33)+3
+      hm=20+rnd(100)
+      if rnd(100)>90 then hm=hm+120
+      hm=-hm
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem making the hills
+      nseq=rnd(20)+11
+      for s=1 to nseq
+      stx=rnd(32)+3
+      stz=rnd(32)+3
+      hm=20+rnd(140)
+      gg=rnd(10):rem k block
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)+gg
+         next xatt
+      next z
+      next s
+      rem make color heights
+      for xm=0 to 49
+      for zm=0 to 49
+         h=get ground height(1,100*xm+50,100*zm+50)+10
+         h=abs(h)
+         dv=31+(h/60)
+         nt=1+h/dv
+         if nt>9 then nt=9
+         if nt=8 then nt=23:rem last height tile are not in sequence
+         if nt=9 then nt=24:rem last height tile are not in sequence
+         if rnd(100)>80 and nt<8 then nt=nt+8
+         set matrix tile 1,xm,zm,nt
+      next zm
+      next xm
+      rem tree placing procedure
+      rem ter array
+      rem 0 > tipe of object (0 none, 1 tree)
+      rem 1 > energy of object
+      rem 2 > value of 3d object
+      startree=1001
+      for t=1 to 75:rem 75 possibility of tree
+         x=4+rnd(41):z=4+rnd(41)
+         rem there is a place for the tree??
+         h1=get ground height(1,100*x+50,100*z+50)
+         h=abs(h1)
+         if h<20 and ter(0,x,z)=0
+            set matrix tile 1,x,z,8:rem ground for tree
+            if rnd(100)>80 then set matrix tile 1,x,z,16:rem alternative ground for tree
+            ter(0,x,z)=1:ter(1,x,z)=2:rem strenght of tree
+            ter(2,x,z)=startree
+            rem load and place a tree
+            clone object startree,65218
+            rem no light, no mipmap
+            set object specular startree,0
+            set object startree,1,1,1,0,0,0,0:set object texture startree,0,0
+            position object startree,x*100+50,h1-1,z*100+50
+            rem set a random initial angle and a scale from 95 to 105
+            yrotate object startree,rnd(359)
+            sc=95+rnd(10)
+            scale object startree,sc,sc,sc
+            inc startree
+         endif
+      next t
+      rem make clouds
+      cln=3+rnd(3)
+      gam(9)=cln
+      for ob=1076 to 1076+cln
+         rem load and place a cloud
+         clone object ob,65222
+         rem no light, no mipmap
+         set object specular ob,0
+         set object ob,1,1,1,0,0,0,0:set object texture ob,0,0
+         o=ob-1075
+         rem set range, angle, height
+         cl#(o,1)=rnd(2400)+400
+         cl#(o,2)=rnd(359)
+         cl#(o,4)=rnd(10)/900.0:rem speed cloud
+         position object ob,xc,cl,zc
+         sc=230+rnd(85)
+         scale object ob,sc+rnd(10),sc+rnd(10),sc+rnd(10)
+         rem first position of clouds
+         xc#=2500+cl#(o,1)*cos(cl#(o,2))
+         zc#=2500+cl#(o,1)*sin(cl#(o,2))
+         hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+         position object ob,xc#,hc#,zc#
+         yrotate object ob,wrapvalue(cl#(o,2)+90)
+      next ob
+      rem place cows
+      nc=1+rnd(3)
+      for c=46 to 46+nc
+         tankloader(c,12,0):rem load cow
+         tk#(c,1)=rnd(3000)+1000
+         tk#(c,3)=rnd(3000)+1000
+         tk#(c,5)=rnd(359):rem random placing on map
+      next c
+      rem make borders limit for players
+      for z=3 to 46
+         v1=22:v2=22
+         if z=3 then v1=20:v2=19
+         if z=46 then v1=17:v2=18
+         set matrix tile 1,3,z,v1:set matrix tile 1,46,z,v2
+      next z
+      for x=4 to 45
+         set matrix tile 1,x,3,21:set matrix tile 1,x,46,21
+      next x
+      rem make sky
+      load object "object/sky4.x",1100
+      rem no light, no mipmap, center in the middle the skyboxe
+      set object texture 1100,0,0:set object specular 1100,0
+      set object 1100,1,0,0,0,0,0,0:scale object 1100,7812.2,7000,7812.2
+      position object 1100,2500,-2,2500
+      rem make backdrop color of ground
+      color backdrop rgb(183,213,239)
+   endcase
+
+   case 5:rem scenario tundra
+      rem making the great hills
+      nseq=rnd(10)+9
+      for s=1 to nseq
+      stx=rnd(33)+3
+      stz=rnd(33)+3
+      hm=105+rnd(90)
+      if rnd(100)>93 then hm=hm+10
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem making the flat hills
+      nseq=rnd(23)+15
+      for s=1 to nseq
+      stx=rnd(32)+3
+      stz=rnd(32)+3
+      hm=10+rnd(30)
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem make color heights
+      for xm=0 to 49
+      for zm=0 to 49
+         h=get ground height(1,100*xm+50,100*zm+50)+10
+         dv=43+(h/28)
+         nt=1+h/dv
+         if nt>9 then nt=9
+         if nt=8 then nt=23:rem last height tile are not in sequence
+         if nt=9 then nt=24:rem last height tile are not in sequence
+         if rnd(100)>80 and nt<8 then nt=nt+8
+         set matrix tile 1,xm,zm,nt
+      next zm
+      next xm
+      rem tree placing procedure
+      rem ter array
+      rem 0 > tipe of object (0 none, 1 tree)
+      rem 1 > energy of object
+      rem 2 > value of 3d object
+      startree=1001
+      for t=1 to 75:rem 75 possibility of tree
+         x=4+rnd(41):z=4+rnd(41)
+         rem there is a place for the tree??
+         h=get ground height(1,100*x+50,100*z+50)
+         if h<40 and ter(0,x,z)=0
+            set matrix tile 1,x,z,8:rem ground for tree
+            if rnd(100)>80 then set matrix tile 1,x,z,16:rem alternative ground for tree
+            ter(0,x,z)=1:ter(1,x,z)=2:rem strenght of tree
+            ter(2,x,z)=startree
+            rem load and place a tree
+            clone object startree,65219
+            rem no light, no mipmap
+            set object specular startree,0
+            set object startree,1,1,1,0,0,0,0:set object texture startree,0,0
+            position object startree,x*100+50,h-1,z*100+50
+            rem set a random initial angle and a scale from 95 to 105
+            yrotate object startree,rnd(359)
+            sc=95+rnd(10)
+            scale object startree,sc,sc+rnd(40)-20,sc
+            inc startree
+         endif
+      next t
+      rem make clouds
+      cln=3+rnd(3)
+      gam(9)=cln
+      for ob=1076 to 1076+cln
+         rem load and place a cloud
+         clone object ob,65221
+         rem no light, no mipmap
+         set object specular ob,0
+         set object ob,1,1,1,0,0,0,0:set object texture ob,0,0
+         o=ob-1075
+         rem set range, angle, height
+         cl#(o,1)=rnd(2400)+400
+         cl#(o,2)=rnd(359)
+         cl#(o,4)=rnd(10)/900.0:rem speed cloud
+         position object ob,xc,cl,zc
+         sc=230+rnd(85)
+         scale object ob,sc+rnd(10),sc+rnd(10),sc+rnd(10)
+         rem first position of clouds
+         xc#=2500+cl#(o,1)*cos(cl#(o,2))
+         zc#=2500+cl#(o,1)*sin(cl#(o,2))
+         hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+         position object ob,xc#,hc#,zc#
+         yrotate object ob,wrapvalue(cl#(o,2)+90)
+      next ob
+      rem place cows
+      nc=1+rnd(3)
+      for c=46 to 46+nc
+         tankloader(c,10,0):rem load camels
+         tk#(c,1)=rnd(3000)+1000
+         tk#(c,3)=rnd(3000)+1000
+         tk#(c,5)=rnd(359):rem random placing on map
+      next c
+      rem make borders limit for players
+      for z=3 to 46
+         v1=22:v2=22
+         if z=3 then v1=20:v2=19
+         if z=46 then v1=17:v2=18
+         set matrix tile 1,3,z,v1:set matrix tile 1,46,z,v2
+      next z
+      for x=4 to 45
+         set matrix tile 1,x,3,21:set matrix tile 1,x,46,21
+      next x
+      rem make sky
+      load object "object/sky5.x",1100
+      rem no light, no mipmap, center in the middle the skyboxe
+      set object texture 1100,0,0:set object specular 1100,0
+      set object 1100,1,0,0,0,0,0,0:scale object 1100,7812.2,7000,7812.2
+      position object 1100,2500,-2,2500
+      rem make backdrop color of ground
+      color backdrop rgb(191,149,124)
+   endcase
+
+case 6:rem scenario the moon
+      rem making the great holes
+      nseq=rnd(7)+5
+      for s=1 to nseq
+      stx=rnd(33)+3
+      stz=rnd(33)+3
+      hm=70+rnd(120)
+      if rnd(100)>90 then hm=hm+120
+      hm=-hm
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)
+         next xatt
+      next z
+      next s
+      rem making the hills
+      nseq=rnd(20)+5
+      for s=1 to nseq
+      stx=rnd(32)+3
+      stz=rnd(32)+3
+      hm=20+rnd(40):if rnd(100)>90 then hm=hm+100
+      gg=rnd(5):rem k block
+      for z=stz to stz+11
+         ang=16.3*(z-stz)
+         for xatt=0 to 11
+            ang2=xatt*16.3
+            set matrix height 1,stx+xatt,z,get matrix height(1,stx+xatt,z)+(sin(ang)*sin(ang2)*hm)+gg
+         next xatt
+      next z
+      next s
+      rem make color heights
+      for xm=0 to 49
+      for zm=0 to 49
+         h=get ground height(1,100*xm+50,100*zm+50)+10
+         h=abs(h)
+         dv=31+(h/60)
+         nt=1+h/dv
+         if nt>9 then nt=9
+         if nt=8 then nt=23:rem last height tile are not in sequence
+         if nt=9 then nt=24:rem last height tile are not in sequence
+         if rnd(100)>80 and nt<8 then nt=nt+8
+         set matrix tile 1,xm,zm,nt
+      next zm
+      next xm
+      rem tree placing procedure
+      rem ter array
+      rem 0 > tipe of object (0 none, 1 tree)
+      rem 1 > energy of object
+      rem 2 > value of 3d object
+      startree=1001
+      for t=1 to 75:rem 75 possibility of tree
+         x=4+rnd(41):z=4+rnd(41)
+         rem there is a place for the tree??
+         h1=get ground height(1,100*x+50,100*z+50)
+         h=abs(h1)
+         if h<20 and ter(0,x,z)=0
+            set matrix tile 1,x,z,8:rem ground for tree
+            if rnd(100)>80 then set matrix tile 1,x,z,16:rem alternative ground for tree
+            ter(0,x,z)=1:ter(1,x,z)=2:rem strenght of tree
+            ter(2,x,z)=startree
+            rem load and place a tree
+            clone object startree,65220
+            rem no light, no mipmap
+            set object specular startree,0
+            set object startree,1,1,1,0,0,0,0:set object texture startree,0,0
+            position object startree,x*100+50,h1-1,z*100+50
+            rem set a random initial angle and a scale from 95 to 105
+            yrotate object startree,rnd(359)
+            sc=95+rnd(10)
+            scale object startree,sc,sc-30+rnd(60),sc
+            inc startree
+         endif
+      next t
+      rem make clouds
+      cln=3+rnd(3)
+      gam(9)=cln
+      for ob=1076 to 1076+cln
+         rem load and place a cloud
+         clone object ob,65223
+         rem no light, no mipmap
+         set object specular ob,0
+         set object ob,1,1,1,0,0,0,0:set object texture ob,0,0
+         o=ob-1075
+         rem set range, angle, height
+         cl#(o,1)=rnd(2400)+400
+         cl#(o,2)=rnd(359)
+         cl#(o,4)=rnd(10)/900.0:rem speed cloud
+         position object ob,xc,cl,zc
+         sc=190+rnd(55)
+         scale object ob,sc,sc,sc
+         rem first position of clouds
+         xc#=2500+cl#(o,1)*cos(cl#(o,2))
+         zc#=2500+cl#(o,1)*sin(cl#(o,2))
+         hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+         position object ob,xc#,hc#,zc#
+         yrotate object ob,wrapvalue(cl#(o,2)+90)
+      next ob
+      rem place aliens
+      nc=1+rnd(3)
+      for c=46 to 46+nc
+         tankloader(c,13,0):rem load aliens
+         tk#(c,1)=rnd(3000)+1000
+         tk#(c,3)=rnd(3000)+1000
+         tk#(c,5)=rnd(359):rem random placing on map
+      next c
+      rem make borders limit for players
+      for z=3 to 46
+         v1=22:v2=22
+         if z=3 then v1=20:v2=19
+         if z=46 then v1=17:v2=18
+         set matrix tile 1,3,z,v1:set matrix tile 1,46,z,v2
+      next z
+      for x=4 to 45
+         set matrix tile 1,x,3,21:set matrix tile 1,x,46,21
+      next x
+      rem make sky
+      load object "object/sky6.x",1100
+      rem no light, no mipmap, center in the middle the skyboxe
+      set object texture 1100,0,0:set object specular 1100,0
+      set object 1100,1,0,0,0,0,0,0:scale object 1100,7812.2,6000,7812.2
+      position object 1100,2500,-2,2500
+      rem make backdrop color of ground
+      color backdrop rgb(131,123,119)
+   endcase
+
+   endselect
+   update matrix 1:rem update the whole matrix
+endfunction
+
+function tanks()
+   rem ***************************************************************************
+   rem *  This is the core of the game, the funcion controlling all the dynamics *
+   rem *      of the game. The player, ranged 1-12 , the enemy, ranged 13-40,    *
+   rem *       the guest squad, ranged 41-45, cows&camels, ranged 46-50 and      *
+   rem *  powerups, ranged 51-55. This function controls also the display data   *
+   rem *  of the map, player info, cloud movings, trees bouncings. Great work.   *
+   rem ***************************************************************************
+
+   rem using array tk#(50,60) for managing physics of tank
+   rem 0 > tank active and n type tank
+   rem 1 > xpos : 2 > ypos : 3 > zpos
+   rem 4 > xangle real : 5 > yangle real : 6 > zangle real
+   rem 7 > yrolmax : 8 > speedmax : 9 > spin angle y
+   rem 10 > accelleration : 11 > force height / fall : 12 > sine walking
+   rem 13 > random counter for sine walking : 14 > angle of tree collision
+   rem 15 > force of tree collision : 16 > limb for fire
+   rem 17 > count for bullet : 18 > time to reload cannon
+   rem 19 > reload time tank : 20 > length bullet : 21 > power bullet
+   rem 22 > bounce force : 23 > on ground : 24 > rnd inclination bounce (-1,1)
+   rem 25 > rnd pitch inclination bounce (-1,1) : > 26 target
+   rem 27 > AI selection : 28 > AI selection counter : 29 > escape angle
+   rem 30 > AI tipology : 31 > fire ratio : 32 > aim ratio number
+   rem 33 > range collision tank : 34 > color id tank : 35 > changed texture flag
+   rem 36 > initial degree shot : 37 > energy tank :38 > rpm for sound engine
+   rem 39 > k magnifier for bullet shot: 40 >k start for sound tank
+   rem 41 > height tank for collision : 42 > gravity bullet : 43 > can fire?
+   rem 44 > Turbo value counter : 45 >turbo charger: 46>time turbo: 47 > counter value
+   rem 48 > id tank for picture : 49 >original energy
+   rem 50 > Barrier flag : 51 > Bullet flag: 52 > i'm hit counter
+
+   rem array suddivision index 1 (tk#(suddivisdion index,value 1-51)
+   rem 1-12 player squad
+   rem 13-40 enemy squad
+   rem 41-45 guest squad
+   rem 46-50 extra object
+   rem 51-55 powerup
+
+   rem map controls
+   sprite 150,537,1,150:rem map bounds
+   set sprite 150,0,1:set sprite alpha 150,38:rem trasparency map
+   obmax=50:rem max object number
+   gam(2)=7500:gam(3)=0:rem resetting rpm listener for sound 12
+   rem start control tanks (1-50 are controlled, 51-55 only collided controls)
+   for n=1 to obmax
+      fire=0:xj#=0:yj#=0:gd=0:rem reset settings to 0 variable input
+      if tk#(n,0)<>0:rem if tank active
+      rem for sound volume calcolation, make range from the listener (gam(1))
+      dxl=tk#(n,1)-tk#(gam(1),1):dzl=tk#(n,3)-tk#(gam(1),3):dyl=tk#(n,2)-tk#(gam(1),2)
+      rp1=sqrt((dxl*dxl)+(dzl*dzl)):rp1=sqrt((rp1*rp1)+(dyl*dyl))
+      if rp1<gam(2) and n<>gam(1) and tk#(n,0)>0 then gam(2)=rp1:gam(3)=n:rem calcolation for sound tanknear
+      rem make control for player squad
+      if n<13
+         rem make left panel info
+         yv=2+(n-1)*40:rem y coordinate
+         rem make tank picture left
+         v=tk#(n,48)+222+gam(7)*10
+         paste image v,5,yv+3,1
+         rem make number
+         paste image n+20,48,yv+10,1
+         if gam(1)=n then paste image 33,47,yv+9,1:rem tank player
+         if tk#(n,50)>0 then paste image 83,64,yv+10,1:rem barrier powup
+         if tk#(n,51)>0 then paste image 84,76,yv+10,1:rem bullet powup
+         rem energy bar
+         v1=tk#(n,37)/tk#(n,49)*26:if v1<0 then v1=0
+         va=26-v1
+         paste image 50+va,14,yv+28,1
+         if tk#(n,0)<0 then paste image 49,4,yv+3,1:rem destroyed tank
+      endif
+      rem make maps info forr all active tanks
+      rem make map points
+      if tk#(n,0)>0 and n<46
+      if gam(1)=n:rem if is the player tank, make the line of the compass
+         xp=538+tk#(n,1)/50
+         zp=103-tk#(n,3)/50
+         xp2=xp-cos(tk#(n,5)+90)*7
+         zp2=zp-sin(tk#(n,5)+90)*7
+         line xp,zp,xp2,zp2
+      endif
+      im=150+tk#(n,34):rem placing point on map
+      paste image im,537+tk#(n,1)/50,102-tk#(n,3)/50
+      if gam(1)=n then paste image 36,536+tk#(n,1)/50,101-tk#(n,3)/50,1
+      endif
+      rem ************************************************************************
+      rem *                         AI control & player control                  *
+      rem ************************************************************************
+      if gam(1)=n and tk#(n,0)>0:rem control tk#(n,0)>0 is for tank active/wreck (-1 is a smashed tank)
+      rem player controls
+      rem read x axe joy or arrowkey and y axe joy or arrowkey + fire tank
+      rem space or p1 button fire tank
+      rem right alt or p2 button rear view
+      rem left alt or p3 button turbo
+      xjr=joystick x()/301:yjr=joystick y()/301
+      xj#=0:yj#=0
+      if abs(xjr)>0:rem joy x axe
+         if xjr>0
+            xj#=1
+         else
+            xj#=-1
+      endif:endif
+      xj#=xj#+rightkey()-leftkey():rem keyboard x axe
+      if abs(yjr)>0:rem joy y axe
+         if yjr>0
+            yj#=1
+         else
+            yj#=-1
+      endif:endif
+      yj#=yj#-upkey()+downkey():rem keyboard y axe
+      fb=joystick fire a()+spacekey():rem fire bullet request
+      turbo=joystick fire c()+keystate(29):rem turbo request
+      if tk#(n,45)<=0 and turbo>0 then tk#(n,44)=tk#(n,46):tk#(n,45)=tk#(n,47):play sound 26:rem turbo control for player
+      if fb>0 then fire=1
+      endif
+
+      rem ************************************************************************
+      rem *                         computer control system                      *
+      rem ************************************************************************
+      if gam(1)<>n and tk#(n,0)>0
+      rem computer control
+      rem direction facing target (tk#(n,26))
+      rem making target designation
+      vt=tk#(n,26):cta=0:rem cta is the variable for change target
+      if tk#(n,26)=0 or tk#(vt,0)<=0 then cta=1
+      if cta=0 and rnd(1000)>(999-(tk#(n,30)/1.5)) then cta=1
+      if gam(11)=0 and rnd(100)>50 then cta=1
+      if cta=1
+      tggot=0:rem no target chosed
+      tgmin=15500:rem highest range possible
+      rem four ways:enemy,player,guest squad or extra (like cows, camels , ecc)
+      if n<13:rem player squad
+         rem control range
+         for t=13 to 45
+            rem range request
+            if tk#(t,0)>0 and tk#(t,50)<1000
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         rem control for powup
+      if tk#(n,50)<=0
+         if rnd(100)>gam(12) and tgmin>400 then tggot=0:tgmin=15000
+         for t=51 to 55
+            rem range request
+            if tk#(t,0)>0
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         endif
+         if tggot>0 then tk#(n,26)=tggot
+      endif
+      if n>12 and n<41:rem enemy squad
+         rem control range
+         for t=1 to 12
+            rem range request
+            if tk#(t,0)>0 and tk#(t,50)<1000
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         for t=41 to 45:rem control for guest squad
+            rem range request
+            if tk#(t,0)>0 and tk#(t,50)<5
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         rem control for powup
+         if tk#(n,50)<=0
+         if rnd(100)>gam(12) and tgmin>500 then tggot=0:tgmin=15000
+         for t=51 to 55
+            rem range request
+            if tk#(t,0)>0
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         endif
+         if tggot>0 then tk#(n,26)=tggot
+      endif
+      if n>40 and n<46:rem guest squad
+         rem control range
+         for t=1 to 40
+            rem range request
+            if tk#(t,0)>0 and tk#(t,50)<100
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         rem control for powup
+         if tk#(n,50)<=0
+         if rnd(100)>gam(12) and tgmin>400 then tggot=0:tgmin=15000
+         for t=51 to 55
+            rem range request
+            if tk#(t,0)>0
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         endif
+         if tggot>0 then tk#(n,26)=tggot
+      endif
+      if n>45:rem extra object
+         rem control range
+         for t=1 to 40
+            rem range request
+            if tk#(t,0)>0
+               dx#=tk#(n,1)-tk#(t,1):dz#=tk#(n,3)-tk#(t,3)
+               r=sqrt((dx#*dx#)+(dz#*dz#))
+               if r<tgmin then tgmin=r:tggot=t
+            endif
+         next t
+         if tggot>0 then tk#(n,26)=tggot
+      endif
+      endif
+      rem range to target
+      tg=tk#(n,26)
+      dx#=tk#(n,1)-tk#(tg,1):dz#=tk#(n,3)-tk#(tg,3):dy#=tk#(tg,2)-tk#(n,2)
+      r=sqrt((dx#*dx#)+(dz#*dz#)):r=sqrt((r*r)+(dy#*dy#)):rem range tank on 2d plane
+      rem heading
+      position object 65000,tk#(n,1),0,tk#(n,3):point object 65000,tk#(tg,1),0,tk#(tg,3)
+      ry#=wrapvalue(object angle y(65000))
+      if tk#(n,27)=3 then ry#=tk#(n,29):rem escape AI activated
+      tan#=wrapvalue(tk#(n,5)-ry#):flag=1:ta=abs(tan#)
+      gd=0:aim=tk#(n,32)
+      if tk#(n,26)>50 then aim=5:rem if heading for a powup, then aim is very good
+      if ta=>(360-aim) or ta<=aim
+         xj#=0:if tk#(n,27)<>3 then gd=1:rem fire calling is ok
+      else
+         if ta>180 then flag=0-flag
+         if tan#>0 then xj#=0-flag
+         if tan#<0 then xj#=flag
+      endif
+      rem control if fire is good
+      if gd=1 and r<550 and rnd(1000)>tk#(n,31) and tk#(n,43)=1 and tk#(n,26)<46 then fire=1
+      rem AI selection
+      if tk#(n,52)>0 then tk#(n,52)=tk#(n,52)-1:rem "i'm hit flag"
+      if tk#(n,27)=0
+         ai=tk#(n,30):tb=0
+         select ai
+         case 1:rem AI tipology 1-very stupid
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>945 and r<650 then tk#(n,27)=1:tk#(n,28)=240+rnd(100)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>945 and r<350 then tk#(n,27)=2:tk#(n,28)=240+rnd(100)
+         rem AI for escape route near
+         if rnd(1000)>955 and r<250 then tk#(n,27)=3:tk#(n,28)=155+rnd(80):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route far
+         if gd=0 and rnd(1000)>995 and r>2500 then tk#(n,27)=3:tk#(n,28)=140+rnd(120):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if gd=0 and rnd(1000)>985 and r>650 and r<1750 then tk#(n,27)=3:tk#(n,28)=140+rnd(120):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route close
+         if gd=1 and rnd(1000)>955 and r<110 then tk#(n,27)=3:tk#(n,28)=125+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>995 and r<500 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 2:rem AI tipology 2- stupid
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>935 and r<650 then tk#(n,27)=1:tk#(n,28)=220+rnd(100)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>935 and r<350 then tk#(n,27)=2:tk#(n,28)=220+rnd(100)
+         rem AI for escape route near
+         if rnd(1000)>965 and r<250 then tk#(n,27)=3:tk#(n,28)=155+rnd(80):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route far
+         if gd=0 and rnd(1000)>996 and r>2500 then tk#(n,27)=3:tk#(n,28)=100+rnd(120):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if gd=0 and rnd(1000)>990 and r>650 and r<1750 then tk#(n,27)=3:tk#(n,28)=100+rnd(120):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route close
+         if gd=1 and rnd(1000)>965 and r<110 then tk#(n,27)=3:tk#(n,28)=125+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>993 and r<650 and r>300 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 3:rem AI tipology 3-less stupid
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>940 and r<650 then tk#(n,27)=1:tk#(n,28)=180+rnd(90)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>940 and r<350 then tk#(n,27)=2:tk#(n,28)=200+rnd(90)
+         rem AI for escape route near
+         if rnd(1000)>975 and r<250 then tk#(n,27)=3:tk#(n,28)=105+rnd(20):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route far
+         if gd=0 and rnd(1000)>995 and r>2500 then tk#(n,27)=3:tk#(n,28)=200+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if gd=0 and rnd(1000)>993 and r>650 and r<1750 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route close
+         if gd=1 and rnd(1000)>970 and r<110 then tk#(n,27)=3:tk#(n,28)=105+rnd(90):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>992 and r<1650 and r>300 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 4:rem AI tipology 4-good
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>920 and r<550 then tk#(n,27)=1:tk#(n,28)=180+rnd(90)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>920 and r<200 then tk#(n,27)=2:tk#(n,28)=200+rnd(90)
+         rem AI for retro and head to target if gd=1
+         if gd=1 and rnd(1000)>955 and r<230 then tk#(n,27)=2:tk#(n,28)=50+rnd(50)
+         rem AI for escape route near
+         if rnd(1000)>955 and r<250 then tk#(n,27)=3:tk#(n,28)=55+rnd(20):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route far
+         if rnd(1000)>995 and r>2500 then tk#(n,27)=3:tk#(n,28)=200+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>990 and r>650 and r<1750 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>990 and r<1650 and r>250 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 5:rem AI tipology 5-damned good
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>935 and r<350 then tk#(n,27)=1:tk#(n,28)=185+rnd(105)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>920 and r<195 then tk#(n,27)=2:tk#(n,28)=200+rnd(90)
+         rem AI for retro and head to target if gd=1
+         if gd=1 and rnd(1000)>935 and r<230 then tk#(n,27)=2:tk#(n,28)=50+rnd(50)
+         rem AI for escape route near
+         if rnd(1000)>965 and r<350 then tk#(n,27)=3:tk#(n,28)=55+rnd(20):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>991 and r>750 and r<1950 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem if i'm hit, escape
+         if tk#(n,52)>0 and rnd(1000)>997 then tk#(n,27)=3:tk#(n,28)=80+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>989 and r<1650 and r>220 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 6:rem AI tipology 6-skilled one
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>935 and r<370 then tk#(n,27)=1:tk#(n,28)=185+rnd(105)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>920 and r<195 then tk#(n,27)=2:tk#(n,28)=200+rnd(90)
+         rem AI for retro and head to target if gd=1
+         if gd=1 and rnd(1000)>935 and r<230 then tk#(n,27)=2:tk#(n,28)=50+rnd(50)
+         rem AI for escape route near
+         if rnd(1000)>970 and r<150 then tk#(n,27)=3:tk#(n,28)=55+rnd(30):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>997 and r>750 and r<1950 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem if i'm hit, escape
+         if tk#(n,52)>0 and rnd(1000)>995 then tk#(n,27)=3:tk#(n,28)=80+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>989 and r<1650 and r>220 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 7:rem AI tipology 7-very killed one
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>930 and r<350 then tk#(n,27)=1:tk#(n,28)=185+rnd(105)
+         rem AI for retro and head to target
+         if gd=0 and rnd(1000)>930 and r<225 then tk#(n,27)=2:tk#(n,28)=200+rnd(90)
+         rem AI for retro and head to target if gd=1
+         if gd=1 and rnd(1000)>935 and r<250 then tk#(n,27)=2:tk#(n,28)=50+rnd(50)
+         rem AI for escape route near
+         if rnd(1000)>972 and r<150 then tk#(n,27)=3:tk#(n,28)=75+rnd(30):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>997 and r>750 and r<2050 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem if i'm hit, escape
+         if tk#(n,52)>0 and gd=0 and rnd(1000)>980 then tk#(n,27)=3:tk#(n,28)=80+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>989 and r<1650 and r>220 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 8:rem AI tipology 8-veteran
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>915 and r<340 then tk#(n,27)=1:tk#(n,28)=185+rnd(105)
+         rem AI for retro and head to target
+         if rnd(1000)>920 and r<225 then tk#(n,27)=2:tk#(n,28)=210+rnd(80)
+         rem AI for escape route near
+         if rnd(1000)>970 and r<160 then tk#(n,27)=3:tk#(n,28)=80+rnd(20):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>997 and r>750 and r<2050 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem if i'm hit, escape
+         if tk#(n,52)>0 and gd=0 and rnd(1000)>975 then tk#(n,27)=3:tk#(n,28)=80+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>989 and r<1650 and r>320 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 9:rem AI tipology 9-super veteran
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>910 and r<330 then tk#(n,27)=1:tk#(n,28)=185+rnd(105)
+         rem AI for retro and head to target
+         if rnd(1000)>920 and r<260 then tk#(n,27)=2:tk#(n,28)=200+rnd(70)
+         rem AI for escape route near
+         if rnd(1000)>970 and r<170 then tk#(n,27)=3:tk#(n,28)=90+rnd(20):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>997 and r>700 and r<1150 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem if i'm hit, escape
+         if tk#(n,52)>0 and gd=0 and rnd(1000)>975 then tk#(n,27)=3:tk#(n,28)=80+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>989 and r<1650 and r>320 and tk#(n,45)<=0 then tb=1
+         endcase
+         case 10:rem AI tipology 10-the ultimate
+         rem AI for stop and aim to target
+         if gd=0 and rnd(1000)>910 and r<310 then tk#(n,27)=1:tk#(n,28)=185+rnd(105)
+         rem AI for retro and head to target
+         if rnd(1000)>920 and r<260 then tk#(n,27)=2:tk#(n,28)=180+rnd(20)
+         rem AI for escape route near
+         if rnd(1000)>980 and r<180 then tk#(n,27)=3:tk#(n,28)=90+rnd(20):tk#(n,29)=ry#+90+rnd(180)
+         rem AI for escape route middle
+         if rnd(1000)>998 and r>750 and r<1150 then tk#(n,27)=3:tk#(n,28)=100+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem if i'm hit, escape
+         if tk#(n,52)>0 and rnd(1000)>978 then tk#(n,27)=3:tk#(n,28)=80+rnd(100):tk#(n,29)=ry#+90+rnd(180)
+         rem turbo chose
+         if gd=0 and rnd(1000)>989 and r<1650 and r>320 and tk#(n,45)<=0 then tb=1
+         endcase
+         endselect
+      endif
+      rem decreasing counter
+      if tk#(n,28)>0 then tk#(n,28)=tk#(n,28)-1:if tk#(n,28)<=0 then tk#(n,27)=0:tk#(n,29)=0
+      rem AI effect
+      if tk#(n,27)=0 and r>(220+tk#(n,33)/2) then yj#=-1:rem if is far, go straight to target
+      if tk#(n,27)=1 then yj#=0:rem stop
+      if tk#(n,27)=2 then yj#=1:rem move backward
+      if tk#(n,27)=3 then yj#=-1:rem move forward, no stop even if is closer
+      rem turbo set
+      if tb=1 then tk#(n,44)=tk#(n,46):tk#(n,45)=tk#(n,47)
+      rem run for powup
+      if tk#(n,26)>50
+         yj#=-1:tk#(n,27)=0:rem no AI for powup selection
+         if r<200 and gd=0 then yj#=0
+         if gd=1 then yj#=-1
+      endif
+      endif
+      rem extra moves ever
+      if n>45 and tk#(n,0)>0 then yj#=-1
+
+      rem ************************************************************************
+      rem *                         Turbo setting                                *
+      rem ************************************************************************
+      if tk#(n,45)>0 then tk#(n,45)=tk#(n,45)-1
+
+      rem ************************************************************************
+      rem *                         PowUpPicker                                  *
+      rem ************************************************************************
+      for pup=1 to 5
+            px=tk#(n,1)-tk#(50+pup,1):pz=tk#(n,3)-tk#(50+pup,3)
+            rp=sqrt((px*px)+(pz*pz)):rem range pup
+            if rp<35
+               if pup<=2 then so=24:tk#(n,50)=tk#(n,50)+1500:powup(50+pup):rem place barrier and place another powerup
+               if pup=3:rem repair pup
+                  tk#(n,37)=tk#(n,37)+tk#(n,49)/2
+                  if tk#(n,37)>tk#(n,49) then tk#(n,37)=tk#(n,49)
+                  tk#(n,35)=0:rem repair texture of tank
+                  texture object n,100+tk#(n,34)
+                  set object specular n,0:set object n,1,0,1,0,0,0,0
+                  set object texture n,0,0:powup(53)
+                  so=28
+               endif
+               if pup>3 then so=25:tk#(n,51)=tk#(n,51)+2000:powup(50+pup):rem place superbullet and place another powerup
+               if rp1<1500
+                  vol=105-rp1/25:if vol>100 then vol=100
+                  set sound volume so,vol:play sound so
+               endif
+            endif
+      next pup
+      if tk#(n,50)>0 then tk#(n,50)=tk#(n,50)-1:rem counter barrier
+      if tk#(n,51)>0 then tk#(n,51)=tk#(n,51)-1:rem counter superbullet
+
+      rem ************************************************************************
+      rem *                         turning/accelleration                        *
+      rem ************************************************************************
+      rem spin y
+      lim#=tk#(n,7):if tk#(n,35)=1 then lim#=lim#*0.8:rem if damaged tank turn slow
+      if xj#<>0
+         tk#(n,9)=tk#(n,9)+(xj#*0.02)
+         if abs(tk#(n,9))>lim#
+            if tk#(n,9)<0 then tk#(n,9)=-lim#
+            if tk#(n,9)>0 then tk#(n,9)=lim#
+         endif
+      endif
+      if xj#=0 and abs(tk#(n,9))=>0.01 then tk#(n,9)=tk#(n,9)/1.05:if abs(tk#(n,9))<=0.05 then tk#(n,9)=0
+      rem turning tank
+      tk#(n,5)=wrapvalue(tk#(n,5)+tk#(n,9))
+      rem accelleration (only id is on ground)
+      if tk#(n,23)=1:rem if is on ground
+         lspd#=tk#(n,8)*(20+tk#(n,30))/20:rem speed limit with ai tipe
+         if tk#(n,35)=1 then lspd#=lspd#*0.75:rem if damaged tank go slow
+         if yj#<>0
+            tk#(n,10)=tk#(n,10)-(yj#*0.028)
+            if tk#(n,10)<-(lspd#/4.3) then tk#(n,10)=-(lspd#/4.3)
+            if tk#(n,10)>lspd# then tk#(n,10)=lspd#
+         endif
+      endif
+      rem inertial accelleration engine stop
+      if (yj#=0 and abs(tk#(n,10))=>0.05) or tk#(n,23)=0 then tk#(n,10)=tk#(n,10)/1.035:if abs(tk#(n,10))<0.05 then tk#(n,10)=0
+
+      rem ************************************************************************
+      rem *                           inclination engine                         *
+      rem ************************************************************************
+      rem finding 2 point for inclination (xax,zax for up dpwm, xaz,zaz for roll)
+      rem this is for pitch (using atan for angle of inclination)
+      hg#=get ground height(1,tk#(n,1),tk#(n,3))
+      xax#=newxvalue(tk#(n,1),tk#(n,5),10)
+      zax#=newzvalue(tk#(n,3),tk#(n,5),10)
+      hx#=get ground height(1,xax#,zax#)-hg#
+      ax#=atan(hx#/10.0)
+      tk#(n,4)=tk#(n,4)+(ax#-tk#(n,4))/20.0:rem inertial angle
+      rem this is for roll (using atan for angle of inclination)
+      xaz#=newxvalue(tk#(n,1),tk#(n,5)-90,10)
+      zaz#=newzvalue(tk#(n,3),tk#(n,5)-90,10)
+      hz#=get ground height(1,xaz#,zaz#)-hg#
+      az#=atan(hz#/10.0)
+      tk#(n,6)=tk#(n,6)+(az#-tk#(n,6))/20.0:rem inertial angle
+
+      rem ***********************************************************************
+      rem *                            gravity / walk                           *
+      rem ***********************************************************************
+      rem force for climb/fall
+      v#=tk#(n,4):if tk#(n,10)<0 then v#=-v#
+      k#=1.0-v#/75.0
+      if tk#(n,44)>0 then k#=k#*2:rem turbo set
+      tk#(n,11)=tk#(n,11)+(k#-tk#(n,11))/10.0:rem inertial variation for climb/fall force
+      f#=tk#(n,11)*tk#(n,10):rem f# is the final result for speed of the tank
+      rem turbo setting
+      if tk#(n,44)>0 then tk#(n,44)=tk#(n,44)-1
+      rem if tk#(n,44)>0 then f#=f#*2
+      rem walking effect for tank
+      if tk#(n,13)>0:rem if walking effect is active
+         tk#(n,12)=wrapvalue(tk#(n,12)+f#*3.75)
+         tk#(n,13)=tk#(n,13)-1
+      endif
+      if tk#(n,13)<=0 and rnd(1000)>970 then tk#(n,13)=rnd(150)+150
+      rem ************************************************************************
+      rem *                           Animate extra object (like cows)           *
+      rem ************************************************************************
+      if n>45 and tk#(n,0)>0
+         tk#(n,16)=tk#(n,16)+tk#(n,19)
+         if tk#(n,16)>50 then tk#(n,16)=tk#(n,16)-50
+         set object frame n,tk#(n,16)
+      endif
+      rem ************************************************************************
+      rem *                           moving tank on the map                     *
+      rem ************************************************************************
+      rem moving tank
+      tk#(n,1)=newxvalue(tk#(n,1),tk#(n,5),f#)
+      tk#(n,3)=newzvalue(tk#(n,3),tk#(n,5),f#)
+      tk#(n,38)=f#:rem rpm value
+      rem limit map position
+      if tk#(n,1)<370 then tk#(n,1)=370:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+      if tk#(n,3)<370 then tk#(n,3)=370:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+      if tk#(n,1)>4630 then tk#(n,1)=4630:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+      if tk#(n,3)>4630 then tk#(n,3)=4630:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+
+      rem ************************************************************************
+      rem *                           collision tree / tank                      *
+      rem ************************************************************************
+      xm=tk#(n,1)/100:zm=tk#(n,3)/100:rem x z coordinate for ter(n,x,z) array
+      if ter(0,xm,zm)=1:rem tree zone
+         rem if hit with tree
+         cex=xm*100+50:cez=zm*100+50
+         if tk#(n,1)<cex+tk#(n,33) and tk#(n,1)>cex-tk#(n,33)
+            if tk#(n,3)<cez+tk#(n,33) and tk#(n,3)>cez-tk#(n,33)
+               rem hit with tree
+               position object 65000,cex,0,cez
+               point object 65000,tk#(n,1),0,tk#(n,3)
+               tk#(n,14)=object angle y(65000)-10+rnd(20):rem irregular bounce
+               tk#(n,15)=0.8+abs(f#)*1.5
+               rem bounce tank
+               tk#(n,22)=abs(tk#(n,10))/1.425:tk#(n,23)=0
+               tk#(n,24)=rnd(20)-10
+               tk#(n,25)=rnd(20)-10
+               rem damage tree
+               if ter(1,xm,zm)<=0
+                  rem dead tree seq
+                  if tree(ter(2,xm,zm)-1000,0)=0
+                     tree(ter(2,xm,zm)-1000,0)=2
+                     tree(ter(2,xm,zm)-1000,1)=tk#(n,14)+180,0
+                     tree(ter(2,xm,zm)-1000,2)=35
+                     ter(0,xm,zm)=0
+                  endif
+                  else:rem bounce tree seq + damage tree
+                  if tree(ter(2,xm,zm)-1000,0)=0
+                     ter(1,xm,zm)=ter(1,xm,zm)-1
+                     tree(ter(2,xm,zm)-1000,0)=1
+                     tree(ter(2,xm,zm)-1000,1)=tk#(n,14)+180,0
+                     tree(ter(2,xm,zm)-1000,2)=35
+                  endif
+               endif
+               rem sound and volume hit tank
+               rem player has ever the sound free
+               if gam(1)=n then play sound 18
+               rem other palyers
+               so=0
+               if rp1<2500 and gam(1)<>n
+                  for s=19 to 22
+                     if sound playing(s)=0 and so=0 then so=s
+                  next s
+                  rem if is in range
+                  if so>0
+                     vol=105-rp1/18:if vol>100 then vol=100
+                     if vol<0 then vol=0
+                     set sound volume so,vol
+                     play sound so
+                  endif
+               endif
+            endif
+         endif
+      endif
+      rem  collision tank
+      if n<obmax:rem if is the last object, don't collide it
+         for c=n+1 to obmax
+         if tk#(c,0)<>0:rem if tank is present
+         rem range calc
+         dx#=tk#(n,1)-tk#(c,1):dz#=tk#(n,3)-tk#(c,3):dy#=tk#(n,2)-tk#(c,2)
+         r=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+         rcol=tk#(n,33)+tk#(c,33):rem radius collision (1/2 range n + 1/2 range c)
+         if r<rcol and abs(dy#)<rcol:rem there is a collision
+            position object 65000,tk#(n,1),0,tk#(n,3)
+            point object 65000,tk#(c,1),0,tk#(c,3)
+            fce#=(abs(tk#(n,10))+abs(tk#(c,10)))/4+2.5
+            tk#(n,14)=wrapvalue(object angle y(65000)-180)
+            tk#(n,15)=fce#:tk#(n,10)=tk#(n,10)/2
+            rem collide oppo
+            tk#(c,14)=wrapvalue(object angle y(65000))
+            tk#(c,15)=fce#:tk#(c,10)=tk#(c,10)/2
+            if tk#(c,0)<0 then tk#(c,15)=tk#(c,15)/2:rem if is a wreck, pull down the shift force
+            if tk#(n,0)<0 then tk#(n,15)=tk#(n,15)/2:rem if is a wreck, pull down the shift force
+            rem sound and volume hit tank
+            rem player has ever the sound free
+            if gam(1)=n then play sound 18
+            rem other palyers
+            so=0
+            if rp1<1500 and gam(1)<>n
+               for s=19 to 22
+                  if sound playing(s)=0 and so=0 then so=s
+               next s
+               rem if is in range
+               if so>0
+                  vol=105-rp1/18:if vol>100 then vol=100
+                  if vol<0 then vol=0
+                  set sound volume so,vol
+                  play sound so
+               endif
+            endif
+         endif
+         endif
+         next c
+      endif
+      rem bounce tank vs tree / vs tank collision routine
+      if tk#(n,15)>0
+         tk#(n,1)=newxvalue(tk#(n,1),tk#(n,14),tk#(n,15))
+         tk#(n,3)=newzvalue(tk#(n,3),tk#(n,14),tk#(n,15))
+         tk#(n,15)=tk#(n,15)/1.05
+         if tk#(n,15)<0.3 then tk#(n,15)=-1
+      endif
+
+      rem ************************************************************************
+      rem *          inclination setting, bounce effect and shadow               *
+      rem ************************************************************************
+      rem height of map at tank position
+      hg#=get ground height(1,tk#(n,1),tk#(n,3)):rem height of ground
+      rem height control of tank and gravity
+      tk#(n,22)=tk#(n,22)-0.115:if tk#(n,22)<-8 then tk#(n,22)=-8
+      tk#(n,2)=tk#(n,2)+tk#(n,22):tk#(n,23)=0
+      if tk#(n,2)<=hg# then tk#(n,2)=hg#:tk#(n,23)=1:rem is on ground
+      rem now setting to 0 the angle of rotation and turn object
+      rotate object n,0,0,0
+      rbounce#=(hg#-tk#(n,2))*tk#(n,24)/1.5
+      hbounce#=(hg#-tk#(n,2))*tk#(n,25)
+      rem controls flip dead cows
+      flipcow#=0:slop#=0
+      if n>45 and tk#(n,0)<0 then flipcow#=180:slop#=20
+      rem turning object
+      turn object right n,tk#(n,5)
+      pitch object up n,(tk#(n,4)+sin(tk#(n,12))*2)-nbounce#/10
+      roll object right n,flipcow#+tk#(n,6)+rbounce#/10+tk#(n,9)*3
+      rem then positioning object
+      position object n,tk#(n,1),slop#+tk#(n,2)+3.3,tk#(n,3)
+      rem placing shadow
+      rotate object n+200,0,0,0
+      turn object right n+200,tk#(n,5)
+      pitch object up n+200,tk#(n,4)
+      roll object right 200+n,tk#(n,6)
+      rem then positioning shadow object
+      position object 200+n,tk#(n,1),hg#+3.5-slop#*10,tk#(n,3)
+      rem barrier on/off flag and super bullet
+      show limb 200+n,1
+      show limb 200+n,2
+      if tk#(n,50)<=0 then hide limb 200+n,2
+      if tk#(n,51)<=0 then hide limb 200+n,1
+
+      rem reset sprite player
+      if n<13 then sprite n,800,700,n
+      if n=>13 and n<46 then sprite n,800,700,500+n-12
+
+      rem place number info
+      if rp1<2500 and tk#(n,0)>0 and n<13:rem if is a player tank
+         if object in screen(n) and object visible(n)
+            position object 65000,tk#(n,1),tk#(n,2)+tk#(n,41)*2+rp1/375+13,tk#(n,3)
+            xt=object screen x(65000):rem coordinates in screen
+            yt=object screen y(65000)
+            sc=50:rem scaling and trasparency function
+            if rp1<500 then sc=100-(rp1/10)
+            scale sprite n,sc
+            ofs=(16*sc)/100
+            sprite n,xt-ofs,yt-ofs-2,n
+            tra=(2500-rp1)/25
+            set sprite alpha n,tra*1.5
+            set sprite n,0,1
+         endif
+      endif
+
+      rem do you want visualization for enemy id letters?
+      if gam(24)=0
+      rem place number info
+      if rp1<2000 and tk#(n,0)>0 and n=>13 and n<46:rem if is a player tank
+         if object in screen(n) and object visible(n)
+            position object 65000,tk#(n,1),tk#(n,2)+tk#(n,41)*2+rp1/375+13,tk#(n,3)
+            xt=object screen x(65000):rem coordinates in screen
+            yt=object screen y(65000)
+            sc=50:rem scaling and trasparency function
+            if rp1<500 then sc=100-(rp1/10)
+            scale sprite n,sc
+            ofs=(16*sc)/100
+            sprite n,xt-ofs,yt-ofs-2,500+n-12
+            tra=(2000-rp1)/20
+            set sprite alpha n,tra*1.5
+            set sprite n,0,1
+         endif
+      endif
+      endif
+
+      rem *********************************************************************
+      rem *                           fire procedure                          *
+      rem *********************************************************************
+      b=n+100:rem number of bullet object
+      if tk#(n,18)>0 then tk#(n,18)=tk#(n,18)-1:tk#(n,52)=tk#(n,52)+1:rem counter for reload cannon
+      rem fire and place bullet sequence
+      if fire=1 and tk#(n,18)=0 and tk#(n,17)=0
+         tk#(n,52)=0
+         lim=tk#(n,16)
+         position object b,limb position x(n,lim),limb position y(n,lim),limb position z(n,lim)
+         rotate object b,0,0,0
+         turn object right b,tk#(n,5)
+         rem show bullet or superbullet
+         hide limb b,1:if tk#(n,51)>0 then show limb b,1
+         rem angle of fire
+         pitch object up b,tk#(n,4)+sin(tk#(n,12))*2+tk#(n,36):rem pitch shot
+         roll object right b,tk#(n,6)
+         tk#(n,17)=tk#(n,20):tk#(n,18)=tk#(n,19)
+         bul#(n,0)=1:bul#(n,4)=0:rem reset bullet
+         show object b:move object b,6:rem show and move a bit the bullet
+         rem for sound volume calcolation, make range from the listener (gam(1))
+         dxl=tk#(n,1)-tk#(gam(1),1):dzl=tk#(n,3)-tk#(gam(1),3):dyl=tk#(n,2)-tk#(gam(1),2)
+         rl=sqrt((dxl*dxl)+(dzl*dzl)):rl=sqrt((rl*rl)+(dyl*dyl))
+         rem sound and volume shot:control if there is a free sound shot
+         rem player has ever the sound free
+         if gam(1)=n then play sound 2
+         rem other palyers
+         so=0
+         if rl<1500 and gam(1)<>n
+            for s=3 to 6
+               if sound playing(s)=0 and so=0 then so=s
+            next s
+            rem if is in range
+            if so>0
+               vol=105-rl/25:if vol>100 then vol=100
+               set sound volume so,vol
+               play sound so
+            endif
+         endif
+      endif
+      rem move bullet if present
+      if tk#(n,17)>0
+         tk#(n,17)=tk#(n,17)-1
+         move object b,8.5:rem bullet speed
+         rem gravity
+         bul#(n,4)=bul#(n,4)+tk#(n,42)
+         bul#(n,1)=object position x(b)
+         bul#(n,2)=object position y(b)-bul#(n,4)
+         bul#(n,3)=object position z(b)
+         position object b,bul#(n,1),bul#(n,2),bul#(n,3)
+         rem ********************************************************************
+         rem *                    dead bullet controls (very huge)              *
+         rem ********************************************************************
+         dead=0:rem bullet is alive
+         if tk#(n,17)=<0 then dead=1:goto hitball
+         h#=get ground height(1,bul#(n,1),bul#(n,3))
+         if h#>bul#(n,2) then dead=1:goto hitball
+         rem collision with trees
+         xm=bul#(n,1)/100:zm=bul#(n,3)/100:rem x z coordinate for ter(n,x,z) array
+         dh=bul#(n,2)-h#
+         if ter(0,xm,zm)=1 and dh<90:rem tree zone
+         rem if hit with tree << important routine!!!
+         cex=xm*100+50:cez=zm*100+50:col=0
+         rem control if hit on the foot or in the middle of the tree
+         if bul#(n,1)<cex+40 and bul#(n,1)>cex-40 and bul#(n,3)<cez+40 and bul#(n,3)>cez-40 and dh>37 then col=1
+         if bul#(n,1)<cex+8 and bul#(n,1)>cex-8 and bul#(n,3)<cez+8 and bul#(n,3)>cez-8 and dh<=37 then col=1
+         rem if collision is ok
+         if col=1
+               rem hit with tree
+               position object 65000,cex,0,cez
+               point object 65000,bul#(n,1),0,bul#(n,3)
+               anb#=object angle y(65000)
+               dead=1:rem bullet die on tree
+               rem damage tree
+               if ter(1,xm,zm)<=0
+                  rem dead tree seq
+                  if tree(ter(2,xm,zm)-1000,0)=0
+                     tree(ter(2,xm,zm)-1000,0)=2
+                     tree(ter(2,xm,zm)-1000,1)=anb#+180,0
+                     tree(ter(2,xm,zm)-1000,2)=35
+                     ter(0,xm,zm)=0
+                  endif
+                  else:rem bounce tree seq + damage tree
+                  if tree(ter(2,xm,zm)-1000,0)=0
+                     ter(1,xm,zm)=ter(1,xm,zm)-1
+                     tree(ter(2,xm,zm)-1000,0)=1
+                     tree(ter(2,xm,zm)-1000,1)=anb#+180,0
+                     tree(ter(2,xm,zm)-1000,2)=35
+                  endif
+               endif
+            endif
+         endif
+         rem limit bullet on map
+         if bul#(n,1)<20 or bul#(n,1)>4980 or bul#(n,3)<20 or bul#(n,3)>4980 then dead=1
+         rem collision with tank
+         for c=1 to obmax
+         if n<>c and tk#(c,0)<>0
+         rem range calc
+         dx#=bul#(n,1)-tk#(c,1):dz#=bul#(n,3)-tk#(c,3):dy#=bul#(n,2)-(tk#(c,2)+tk#(c,41))
+         r=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+         if r<(tk#(c,33)+2) and abs(dy#)<(tk#(c,41)+2):rem there is a collision
+            dead=2:rem bullet is off
+            rem for sound volume calcolation, make range from the listener (gam(1))
+            dxl=bul#(n,1)-tk#(gam(1),1):dzl=bul#(n,3)-tk#(gam(1),3):dyl=bul#(n,2)-tk#(gam(1),2)
+            rl=sqrt((dxl*dxl)+(dzl*dzl)):rl=sqrt((rl*rl)+(dyl*dyl))
+            rem sound and volume boom:control if there is a free sound boom
+            rem player has ever the sound free
+            if gam(1)=c then play sound 13
+            rem other palyers
+            so=0
+            if rl<1500 and gam(1)<>c
+               for s=14 to 17
+                  if sound playing(s)=0 and so=0 then so=s
+               next s
+               rem if is in range
+               if so>0
+                  vol=105-rl/25:if vol>100 then vol=100
+                  set sound volume so,vol
+                  play sound so
+               endif
+            endif
+            if tk#(c,0)<>0:rem if tank collided is not a wreck
+               position object 65000,bul#(n,1),0,bul#(n,3)
+               point object 65000,tk#(c,1),0,tk#(c,3)
+               tk#(c,14)=wrapvalue(object angle y(65000))
+               tk#(c,15)=2:tk#(c,10)=tk#(c,10)/2
+               if tk#(c,0)<0 then tk#(c,15)=1:rem low shift if is a wreck
+               rem control only if tank isn't a wreck
+               if tk#(c,0)>0
+               rem calcolation of impact degree
+               abullet#=abs(tk#(c,14)-tk#(c,5)):if abullet#>180 then abullet#=360-abullet#
+               rem energy decrease routine
+               khit#=0.21+(180-abullet#)/180
+               if khit#<0.355 then khit#=khit#*0.665
+               if tk#(n,34)=tk#(c,34) then khit#=khit#/4:rem 1/4 damage if tanks are of the same squad
+               if tk#(c,50)>0 then khit#=0:rem barrier
+               if tk#(n,51)>0 then khit#=khit#*2:rem superbullet effect
+               tk#(c,37)=tk#(c,37)-(tk#(n,21)*khit#)
+               if khit#>0.94 then tk#(c,52)=10:rem "i'm hit! from rear" flag
+               rem control energy managing
+               rem control if is a tank *******************************************
+               if c<46
+               if tk#(c,37)<tk#(c,49)/3 and tk#(c,35)=0:rem change texture for 2/3 damaged
+                  texture object c,110+tk#(c,34)
+                  tk#(c,35)=1
+                  set object specular c,0
+                  set object c,1,0,1,0,0,0,0
+                  set object texture c,0,0
+               endif
+               rem energy control for dead
+               if tk#(c,37)<0
+                  rem dead enemy sequence
+                  tk#(c,0)=-1:rem flag for present but dead
+                  tk#(c,15)=0:rem no lateral shift for dead
+                  tk#(c,10)=0:rem stop tank destroied
+                  tk#(c,11)=0:rem no further acceleration for destroyed tank
+                  rem make sound if is a player tank destroied
+                  if c<13 then play sound 27
+                  rem place texture for destroyed tank
+                  texture object c,120+tk#(c,34)
+                  set object specular c,0
+                  set object c,1,0,1,0,0,0,0
+                  set object texture c,0,0
+                  rem placing explosion
+                  gam(4)=55
+                  gam(5)=35+(tk#(c,33)*3)
+                  gam(6)=-1
+                  for o=401 to 402
+                     show object o:dead=3
+                     position object o,tk#(c,1),h#+10,tk#(c,3)
+                     if o=401
+                        rotate object o,0,0,0:rem the angle is the same of the tank hit
+                        rbounce#=(h#-tk#(c,2))*tk#(c,24)/1.5
+                        hbounce#=(h#-tk#(c,2))*tk#(c,25)
+                        turn object right o,tk#(c,5)
+                        pitch object up o,(tk#(c,4)+sin(tk#(c,12))*2)-nbounce#/10
+                        roll object right o,tk#(c,6)+4-rnd(8)+rbounce#/10+tk#(c,9)*3
+                     endif
+                     if o=402 then rotate object o,0,rnd(359),0
+                  next o
+               endif
+               endif
+               rem control if is a tank *******************************************
+               if c>45
+               rem energy control for dead
+               if tk#(c,37)<0
+                  rem dead enemy sequence
+                  tk#(c,0)=-1:rem flag for present but dead
+                  tk#(c,15)=0:rem no lateral shift for dead
+                  tk#(c,10)=0:rem stop cow destroied
+                  tk#(c,11)=0:rem no further acceleration for destroyed cow
+                  rem placing explosion
+                  gam(4)=55
+                  gam(5)=35+(tk#(c,33)*3)
+                  gam(6)=-1
+                  for o=401 to 402
+                     show object o:dead=3
+                     position object o,tk#(c,1),h#+10,tk#(c,3)
+                     if o=401
+                        rotate object o,0,0,0:rem the angle is the same of the tank hit
+                        rbounce#=(h#-tk#(c,2))*tk#(c,24)/1.5
+                        hbounce#=(h#-tk#(c,2))*tk#(c,25)
+                        turn object right o,tk#(c,5)
+                        pitch object up o,(tk#(c,4)+sin(tk#(c,12))*2)-nbounce#/10
+                        roll object right o,tk#(c,6)+4-rnd(8)+rbounce#/10+tk#(c,9)*3
+                     endif
+                     if o=402 then rotate object o,0,rnd(359),0
+                  next o
+               endif
+               endif
+               rem ***************************************************************
+               endif
+            endif
+         endif
+         endif
+         next c
+         rem ********************************************************************
+         rem *                 dead bullet placing sound and erasing            *
+         rem ********************************************************************
+         hitball:
+         if dead>0
+            hide object b:position object b,10000,10000,100+n*100
+            bul#(n,0)=0:tk#(n,17)=0
+            hit(n)=100:position object n+300,bul#(n,1),bul#(n,2),bul#(n,3)
+            yrotate object n+300,rnd(360):show object n+300
+            rem 2 case of bullet sound
+            if dead=1:rem dead bullet
+            rem for sound volume calcolation, make range from the listener (gam(1))
+            dxl=bul#(n,1)-tk#(gam(1),1):dzl=bul#(n,3)-tk#(gam(1),3):dyl=bul#(n,2)-tk#(gam(1),2)
+            rl=sqrt((dxl*dxl)+(dzl*dzl)):rl=sqrt((rl*rl)+(dyl*dyl))
+            rem sound and volume boom:control if there is a free boom
+            rem other palyers
+            so=0
+            if rl<1500
+               for s=7 to 11
+                  if sound playing(s)=0 and so=0 then so=s
+               next s
+               rem if there is a sound free
+               if so>0
+                  vol=105-rl/25:if vol>100 then vol=100
+                  set sound volume so,vol
+                  play sound so
+               endif
+            endif
+            endif
+            if dead=3:rem dead tank
+            rem for sound volume calcolation, make range from the listener (gam(1))
+            dxl=bul#(n,1)-tk#(gam(1),1):dzl=bul#(n,3)-tk#(gam(1),3):dyl=bul#(n,2)-tk#(gam(1),2)
+            rl=sqrt((dxl*dxl)+(dzl*dzl)):rl=sqrt((rl*rl)+(dyl*dyl))
+            rem sound and volume dead
+            if rl<1500:rem if is in range to hear
+               vol=105-rl/25:if vol>100 then vol=100
+               set sound volume 23,vol
+               play sound 23
+            endif
+            endif
+         endif
+      endif
+      rem ********************************************************************
+      rem *                         hitball sequence                         *
+      rem ********************************************************************
+      if hit(n)>0
+         hit(n)=hit(n)-3
+         sc=(20+(100-hit(n))/1.25)*tk#(n,39)
+         scale object n+300,sc,sc,sc
+         yrotate object 300+n,wrapvalue(object angle y(n+300)+3)
+         if hit(n)<4 then hit(n)=0:hide object n+300
+      endif
+   rem control to next tank
+   endif
+   next n
+
+   rem managing dead explosion
+   if gam(4)<80
+      r1=(1.8*(95-gam(4)*1.1)*gam(5))/100:r2=(1.9*(95-gam(4)/1.1)*gam(5))/100
+      scale object 401,r1,r1,r1:scale object 402,r2,r2,r2
+      gam(4)=gam(4)+gam(6)
+      if gam(4)<1 then gam(6)=2
+      if gam(4)=>80 then hide object 401:hide object 402
+   endif
+
+   rem managing powup
+   for o=51 to 55
+      yrotate object o,wrapvalue(object angle y(o)+0.65)
+      if tk#(o,0)=0
+         tk#(o,4)=tk#(o,4)-1
+         if tk#(o,4)=<0 then show object o:tk#(o,0)=1
+      endif
+   next o
+
+   rem incinate tree when hit
+   for t=1 to 75
+      if tree(t,0)=1:rem if there is a tree to bounce
+         tree(t,2)=tree(t,2)-1
+         tree(t,3)=tree(t,3)+tree(t,2)
+         rotate object t+1000,tree(t,3)/10,tree(t,1),0
+         if tree(t,3)<=0 then tree(t,3)=0:tree(t,0)=0
+      endif
+      if tree(t,0)=2:rem if there is a tree to dead
+         tree(t,3)=tree(t,3)+tree(t,2)
+         rotate object t+1000,tree(t,3)/10,tree(t,1),0
+         if tree(t,3)=>1700 then tree(t,3)=0:tree(t,0)=0:delete object 1000+t
+      endif
+   next t
+
+   rem ************************** clouds routine *********************************
+   for ob=1076 to 1076+gam(9)
+      o=ob-1075:rem rotate clound on center map
+      cl#(o,2)=wrapvalue(cl#(o,2)+cl#(o,4))
+      xc#=2500+cl#(o,1)*cos(cl#(o,2))
+      zc#=2500+cl#(o,1)*sin(cl#(o,2))
+      hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+      rem limit map
+      if xc#<470 then xc#=470
+      if xc#>4530 then xc#=4530
+      if zc#<470 then zc#=470
+      if zc#>4530 then zc#=4530
+      rem positioning cloud
+      position object ob,xc#,hc#,zc#
+      yrotate object ob,wrapvalue(cl#(o,2)+90)
+   next ob
+
+   rem ************************ display info routines ****************************
+   rem bottom bar controls
+   if gam(8)=0:rem if tank is under player control
+      paste image 82,169,429,1
+      if tk#(gam(1),45)>0 then im=77:dp=0
+      if tk#(gam(1),45)<=0 then im=79:dp=0
+      if tk#(gam(1),44)>0 then im=80:dp=2
+      paste image im,195,430+dp,1
+      paste image 81,347,429,1
+      if tk#(gam(1),18)<=0 then im=79
+      if tk#(gam(1),18)>0 then im=78
+      paste image im,375,430,1
+   endif
+
+endfunction
+
+function tankloader(n,t,c)
+   rem ************************************************************************
+   rem *            Function to load tanks, bullets and shadows               *
+   rem ************************************************************************
+   tk#(n,0)=t:tk#(n,48)=t:tk#(n,34)=c
+
+   rem n is object number(1-50) ,t is the tipe of tank ,c is colour
+   select t
+      case 1
+      clone object n,65200+t
+      scale object n,100,110,100
+      texture object n,100+c
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.99:rem steering value
+      tk#(n,8)=4:rem max speed value
+      tk#(n,16)=1:hide limb n,1:rem limb to fire tank
+      tk#(n,19)=80:rem reload time
+      tk#(n,20)=75:rem bullet counter
+      tk#(n,21)=6:rem power of bullet
+      tk#(n,33)=15:rem range collision (1/2 tank dimension)
+      tk#(n,36)=0:rem initial degree shot
+      tk#(n,37)=35:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=0.7:rem k magnifier for bullet shot himpact
+      tk#(n,40)=22500:rem k start sound engine
+      tk#(n,41)=17:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.025:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=350:rem time of turbo
+      tk#(n,47)=800:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65210
+      scale object n+100,100,100,100
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,108,108,108
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65213
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 2
+      clone object n,65200+t
+      scale object n,102,105,100
+      texture object n,100+c
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.90:rem steering value
+      tk#(n,8)=3.75:rem max speed value
+      tk#(n,16)=3:hide limb n,3:rem limb to fire tank
+      tk#(n,19)=95:rem reload time
+      tk#(n,20)=90:rem bullet counter
+      tk#(n,21)=8:rem power of bullet
+      tk#(n,33)=20:rem range collision (1/2 tank dimension)
+      tk#(n,36)=-0.5:rem initial degree shot
+      tk#(n,37)=50:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=0.95:rem k magnifier for bullet shot himpact
+      tk#(n,40)=14000:rem k start sound engine
+      tk#(n,41)=17.5:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.033:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=300:rem time of turbo
+      tk#(n,47)=600:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65210
+      scale object n+100,130,130,130
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,120,120,120
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65213
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 3
+      clone object n,65200+t
+      scale object n,102,105,100
+      texture object n,100+c
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.92:rem steering value
+      tk#(n,8)=3.65:rem max speed value
+      tk#(n,16)=4:hide limb n,4:rem limb to fire tank
+      tk#(n,19)=100:rem reload time
+      tk#(n,20)=95:rem bullet counter
+      tk#(n,21)=9:rem power of bullet
+      tk#(n,33)=20.3:rem range collision (1/2 tank dimension)
+      tk#(n,36)=-0.1:rem initial degree shot
+      tk#(n,37)=60:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=0.96:rem k magnifier for bullet shot himpact
+      tk#(n,40)=14500:rem k start sound engine
+      tk#(n,41)=19.5:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.030:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=300:rem time of turbo
+      tk#(n,47)=700:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65210
+      scale object n+100,130,130,130
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,120,120,120
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65213
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 4
+      clone object n,65200+t
+      texture object n,100+c
+      scale object n,100,98,100
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.83:rem steering value
+      tk#(n,8)=3:rem max speed value
+      tk#(n,16)=3:hide limb n,3:rem limb to fire tank
+      tk#(n,19)=125:rem reload time
+      tk#(n,20)=120:rem bullet counter
+      tk#(n,21)=11:rem power of bullet
+      tk#(n,33)=22:rem range collision (1/2 tank dimension)
+      tk#(n,36)=0:rem initial degree shot
+      tk#(n,37)=75:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=1:rem k magnifier for bullet shot himpact
+      tk#(n,40)=11000:rem k start sound engine
+      tk#(n,41)=20:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.03:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=450:rem time of turbo
+      tk#(n,47)=1500:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65210
+      scale object n+100,140,140,140
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,125,125,125
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65213
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 5
+      clone object n,65200+t
+      texture object n,100+c
+      scale object n,100,95,100
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.85:rem steering value
+      tk#(n,8)=3.4:rem max speed value
+      tk#(n,16)=1:hide limb n,1:rem limb to fire tank
+      tk#(n,19)=135:rem reload time
+      tk#(n,20)=130:rem bullet counter
+      tk#(n,21)=13:rem power of bullet
+      tk#(n,33)=22:rem range collision (1/2 tank dimension)
+      tk#(n,36)=-0.1:rem initial degree shot
+      tk#(n,37)=90:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=1:rem k magnifier for bullet shot himpact
+      tk#(n,40)=10000:rem k start sound engine
+      tk#(n,41)=20:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.033:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=450:rem time of turbo
+      tk#(n,47)=1000:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65210
+      scale object n+100,150,150,150
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,145,145,145
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65213
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 6
+      clone object n,65200+t
+      texture object n,100+c
+      scale object n,100,99,101
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.75:rem steering value
+      tk#(n,8)=2.7:rem max speed value
+      tk#(n,16)=3:hide limb n,3:rem limb to fire tank
+      tk#(n,19)=145:rem reload time
+      tk#(n,20)=110:rem bullet counter
+      tk#(n,21)=15:rem power of bullet
+      tk#(n,33)=22:rem range collision (1/2 tank dimension)
+      tk#(n,36)=-0.15:rem initial degree shot
+      tk#(n,37)=105:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=1.35:rem k magnifier for bullet shot himpact
+      tk#(n,40)=7000:rem k start sound engine
+      tk#(n,41)=20:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.033:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=310:rem time of turbo
+      tk#(n,47)=1100:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65210
+      scale object n+100,180,180,180
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,145,145,145
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65213
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 7
+      clone object n,65200+t
+      texture object n,100+c
+      scale object n,100,101,101
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.8:rem steering value
+      tk#(n,8)=3.9:rem max speed value
+      tk#(n,16)=1:hide limb n,1:rem limb to fire tank
+      tk#(n,19)=115:rem reload time
+      tk#(n,20)=100:rem bullet counter
+      tk#(n,21)=20:rem power of bullet
+      tk#(n,33)=25:rem range collision (1/2 tank dimension)
+      tk#(n,36)=-1.8:rem initial degree shot
+      tk#(n,37)=125:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=1.65:rem k magnifier for bullet shot himpact
+      tk#(n,40)=5000:rem k start sound engine
+      tk#(n,41)=21:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.01:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=600:rem time of turbo
+      tk#(n,47)=3000:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65211
+      scale object n+100,200,200,200
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,145,145,145
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65214
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 8
+      clone object n,65200+t
+      texture object n,100+c
+      scale object n,105,101,101
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.7:rem steering value
+      tk#(n,8)=3.1:rem max speed value
+      tk#(n,16)=1:hide limb n,1:rem limb to fire tank
+      tk#(n,19)=150:rem reload time
+      tk#(n,20)=150:rem bullet counter
+      tk#(n,21)=24:rem power of bullet
+      tk#(n,33)=29:rem range collision (1/2 tank dimension)
+      tk#(n,36)=-1:rem initial degree shot
+      tk#(n,37)=140:tk#(n,49)=tk#(n,37):rem energy
+      tk#(n,39)=1.75:rem k magnifier for bullet shot himpact
+      tk#(n,40)=5500:rem k start sound engine
+      tk#(n,41)=21:rem range collision height tank (1/2 tank height)
+      tk#(n,42)=0.008:rem gravity
+      tk#(n,43)=1:rem 1 can fire, 0 can't fire
+      tk#(n,46)=2000:rem time of turbo
+      tk#(n,47)=5000:rem reload turbo time
+      rem loading bullet (bullet is 100+n object)
+      clone object n+100,65211
+      scale object n+100,210,210,210
+      set object specular n+100,0
+      set object n+100,1,0,0,0,0,0,0
+      hide object n+100:position object n+100,0,-5000,0
+      rem make shadow (shadow is 200+n object)
+      clone object n+200,65212
+      scale object n+200,155,155,155
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      rem loading hitball (hitball is 300+n object)
+      clone object n+300,65214
+      set object specular n+300,0
+      set object n+300,1,0,1,0,0,0,0
+      ghost object on 300+n
+      hit(n)=0
+      hide object n+300:position object n+300,0,-5000,0
+      endcase
+
+      case 10:rem cow(50 frames)
+      tk#(n,2)=-1000
+      clone object n,65224
+      scale object n,220,220,220
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.5:rem steering value
+      tk#(n,8)=0.25:rem max speed value
+      tk#(n,16)=1:rem cow frame counter
+      tk#(n,19)=0.4:rem anim speed
+      tk#(n,20)=75:rem bullet counter
+      tk#(n,32)=20:rem aim direction factor
+      tk#(n,33)=17:rem range collision (1/2 tank dimension)
+      tk#(n,37)=1:rem energy
+      tk#(n,41)=13:rem range collision height tank (1/2 tank height)
+      tk#(n,43)=0:rem 1 can fire, 0 can't fire
+      rem make shadow (shadow is 200+n object)
+      load object "tank/shadow.x",n+200
+      scale object n+200,75,75,75
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      endcase
+
+      case 11:rem camel(50 frames)
+      tk#(n,2)=-1000
+      clone object n,65225
+      scale object n,220,220,220
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.4:rem steering value
+      tk#(n,8)=0.22:rem max speed value
+      tk#(n,16)=1:rem cow frame counter
+      tk#(n,19)=0.37:rem anim speed
+      tk#(n,20)=75:rem bullet counter
+      tk#(n,32)=20:rem aim direction factor
+      tk#(n,33)=17:rem range collision (1/2 tank dimension)
+      tk#(n,37)=1.5:rem energy
+      tk#(n,41)=14:rem range collision height tank (1/2 tank height)
+      tk#(n,43)=0:rem 1 can fire, 0 can't fire
+      rem make shadow (shadow is 200+n object)
+      load object "tank/shadow.x",n+200
+      scale object n+200,77,77,80
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      endcase
+
+      case 12:rem frozed sheep(50 frames)
+      tk#(n,2)=-1000
+      clone object n,65226
+      scale object n,225,230,225
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.4:rem steering value
+      tk#(n,8)=0.22:rem max speed value
+      tk#(n,16)=1:rem cow frame counter
+      tk#(n,19)=0.37:rem anim speed
+      tk#(n,20)=75:rem bullet counter
+      tk#(n,32)=20:rem aim direction factor
+      tk#(n,33)=17:rem range collision (1/2 tank dimension)
+      tk#(n,37)=1.5:rem energy
+      tk#(n,41)=14:rem range collision height tank (1/2 tank height)
+      tk#(n,43)=0:rem 1 can fire, 0 can't fire
+      rem make shadow (shadow is 200+n object)
+      load object "tank/shadow.x",n+200
+      scale object n+200,79,77,80
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      endcase
+
+      case 13:rem moon alien(50 frames)
+      tk#(n,2)=-1000
+      clone object n,65227
+      scale object n,225,225,225
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      rem setting for tank
+      tk#(n,7)=0.2:rem steering value
+      tk#(n,8)=0.20:rem max speed value
+      tk#(n,16)=1:rem cow frame counter
+      tk#(n,19)=0.37:rem anim speed
+      tk#(n,20)=75:rem bullet counter
+      tk#(n,32)=20:rem aim direction factor
+      tk#(n,33)=12:rem range collision (1/2 tank dimension)
+      tk#(n,37)=1.5:rem energy
+      tk#(n,41)=12:rem range collision height tank (1/2 tank height)
+      tk#(n,43)=0:rem 1 can fire, 0 can't fire
+      rem make shadow (shadow is 200+n object)
+      load object "tank/shadow.x",n+200
+      scale object n+200,50,65,50
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n+200,0:set object n+200,1,0,1,0,1,0,0
+      set object texture n+200,0,0:ghost object on n+200,1
+      endcase
+   endselect
+
+   rem speciality setting
+   select c
+      case 1:rem the slug
+      tk#(n,7)=tk#(n,7)/1.05:rem turning
+      tk#(n,8)=tk#(n,8)/1.05:rem speed
+      tk#(n,21)=tk#(n,21)*1.05:rem firepower
+      tk#(n,37)=tk#(n,37)*1.05:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 2:rem the braves
+      tk#(n,7)=tk#(n,7)*1.05:rem turning
+      tk#(n,8)=tk#(n,8)*1.05:rem speed
+      tk#(n,21)=tk#(n,21)/1.05:rem firepower
+      tk#(n,37)=tk#(n,37)*1:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 3:rem the smashers
+      tk#(n,7)=tk#(n,7)/1.07:rem turning
+      tk#(n,8)=tk#(n,8)/1.07:rem speed
+      tk#(n,21)=tk#(n,21)*1.10:rem firepower
+      tk#(n,37)=tk#(n,37)*1.10:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 4:rem the yanks
+      tk#(n,7)=tk#(n,7)/1:rem turning
+      tk#(n,8)=tk#(n,8)/1:rem speed
+      tk#(n,21)=tk#(n,21)*1:rem firepower
+      tk#(n,37)=tk#(n,37)*1:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 5:rem the Hooks
+      tk#(n,7)=tk#(n,7)*1.1:rem turning
+      tk#(n,8)=tk#(n,8)*1.1:rem speed
+      tk#(n,21)=tk#(n,21)/1.15:rem firepower
+      tk#(n,37)=tk#(n,37)*1.1:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 6:rem the boars
+      tk#(n,7)=tk#(n,7)*1.1:rem turning
+      tk#(n,8)=tk#(n,8)*1.1:rem speed
+      tk#(n,21)=tk#(n,21)*1.135:rem firepower
+      tk#(n,37)=tk#(n,37)/1.05:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 7:rem the bullets
+      tk#(n,7)=tk#(n,7)*1.1:rem turning
+      tk#(n,8)=tk#(n,8)*1.1:rem speed
+      tk#(n,21)=tk#(n,21)*1.135:rem firepower
+      tk#(n,37)=tk#(n,37)*1.105:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 8:rem the kisses
+      tk#(n,7)=tk#(n,7)*1.12:rem turning
+      tk#(n,8)=tk#(n,8)*1.12:rem speed
+      tk#(n,21)=tk#(n,21)*1.25:rem firepower
+      tk#(n,37)=tk#(n,37)*1.25:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 9:rem the skulls
+      tk#(n,7)=tk#(n,7)*1.2:rem turning
+      tk#(n,8)=tk#(n,8)*1.2:rem speed
+      tk#(n,21)=tk#(n,21)*1.35:rem firepower
+      tk#(n,37)=tk#(n,37)*1.35:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+      case 10:rem the butchers, the Riddick's squad
+      tk#(n,7)=tk#(n,7)*1.25:rem turning
+      tk#(n,8)=tk#(n,8)*1.25:rem speed
+      tk#(n,21)=tk#(n,21)*1.55:rem firepower
+      tk#(n,37)=tk#(n,37)*1.75:tk#(n,49)=tk#(n,37):rem energy
+      endcase
+   endselect
+endfunction
+
+function makesortie(l,se,sg)
+rem l is level of difficulty, se is squad primary enemy,sg is guest squad
+rem player(10,n)n
+rem 1 tipe tank
+rem 3 ai tank
+rem gam(7)=player squad
+rem this function start to determinate the squad of the enemies
+rem tankloader(n,t,c) where n is the object number, t tank tipe, c squad
+rem casenemy(r,t) r difficulty, t case.
+rem list of spec(n,d)
+rem n,1=ai1 : n,2=ai2 : n,3=aim : n,4=firerate : n,5=energy decreaser
+rem n,6=number of enemy : n,7=number of tanks of guest squad
+rem main enemy squad
+ne=spec(l,6)
+for e=13 to 13+ne
+   rem deciding ai on the reading of spec()
+   tk#(e,30)=spec(l,1)
+   if rnd(100)>65 then tk#(e,30)=spec(l,2)
+   rem skill enemy
+   tk#(e,26)=0:tk#(e,5)=180:rem initaial target=0:head at bottom of the map
+   tk#(e,32)=spec(l,3)
+   tk#(e,31)=spec(l,4)-rnd(4)
+   rem tipe selection
+   what=1+rnd(15):if what>15 then what=15
+   tipe=casenemy(l,what)
+   rem loading tank
+   tankloader(e,tipe,se)
+   rem energy decreaser
+   tk#(e,37)=(tk#(e,37)*100)/spec(l,5):tk#(e,49)=tk#(e,37)
+   rem positioning tank
+   degx=4000/(2+ne):v=e-12:rem suddivide grid to make tanks aligned on their side
+   tk#(e,1)=500+(degx*v)
+   tk#(e,2)=-1000
+   tk#(e,3)=5000
+next e
+rem guest enemy squad
+ne=0
+if spec(l,7)>0 then ne=1+rnd(spec(l,7)):if ne>4 then ne=4
+if ne>0
+ne=ne-1
+for e=41 to 41+ne
+   rem deciding ai on the reading of spec()
+   tk#(e,30)=spec(l,1)
+   rem skill enemy
+   tk#(e,26)=0:tk#(e,5)=rnd(359):rem placed at random
+   tk#(e,32)=spec(l,3)+3:rem more idiot than enemy
+   tk#(e,31)=spec(l,4)
+   rem tipe selection
+   what=1+rnd(15):if what>15 then what=15
+   tipe=casenemy(l,what)
+   rem loading tank
+   tankloader(e,tipe,sg)
+   rem energy decreaser
+   tk#(e,37)=(tk#(e,37)*100)/spec(l,5):tk#(e,49)=tk#(e,37)
+   rem positioning tank
+   degx=4000/(2+ne):v=e-40:rem suddivide grid to make tanks aligned on their side
+   tk#(e,1)=500+(degx*v)
+   tk#(e,2)=-1000
+   tk#(e,3)=2200+rnd(600)
+next e
+endif
+rem now for player squad
+npa=0:rem number of player active=0
+for np=1 to 12:if player(np,1)>0 then inc npa
+next np
+entry=0
+for p=1 to 12
+if player(p,1)>0
+   if gam(1)=0 then gam(1)=p:rem if commander is not selected
+   tk#(p,30)=player(p,3)
+   inc entry
+   rem skill enemy
+   tk#(p,26)=0:tk#(p,5)=0:rem initaial target=0:head at top of the map
+   tk#(p,32)=22-player(p,3)*1.4-rnd(1):rem aim factor
+   tk#(p,31)=980-player(p,3)*1.4-rnd(15):rem fire factor
+   rem loading tank
+   tip=player(p,1):sp=gam(7)
+   tankloader(p,tip,sp)
+   rem positioning tank
+   degx=4000/(1+npa)::rem suddivide grid to make tanks aligned on their side
+   tk#(p,1)=500+(degx*entry)
+   tk#(e,2)=-1000
+   tk#(p,3)=100
+endif
+next p
+rem make the first 5 powups (2 energy,2 bullet)
+for p=1 to 2:rem makeing the first 2 energy
+      o=50+p
+      load object "object/pup1.x",o
+      scale object o,100,100,100
+      set object specular o,0
+      set object o,1,0,1,0,0,0,0
+      set object texture o,0,0
+      powup(o):rem make powup
+      tk#(o,4)=1550+rnd(200):rem first time ever powup on map
+next p
+   rem make repair pup
+      load object "object/pup3.x",53
+      scale object 53,100,100,100
+      set object specular 53,0
+      set object 53,1,0,1,0,0,0,0
+      set object texture 53,0,0
+      powup(53):rem make powup
+      tk#(53,4)=4500+rnd(200):rem first time ever powup on map
+for p=4 to 5:rem makeing the 2 superbullet energy
+      o=50+p
+      load object "object/pup2.x",o
+      scale object o,100,100,100
+      set object specular o,0
+      set object o,1,0,1,0,0,0,0
+      set object texture o,0,0
+      powup(o):rem make powup
+      tk#(o,4)=1550+rnd(200):rem first time ever powup on map
+next p
+endfunction
+
+function track(n)
+   rem n is the object to track
+   rem calling reverse
+   rv=joystick fire b()+keystate(157):if rv>1 then rv=1
+   rem calling camera position
+   tx#=newxvalue(tk#(n,1),tk#(n,5),-175+rv*375)
+   tz#=newzvalue(tk#(n,3),tk#(n,5),-175+rv*375)
+   rem camera on tree?
+   xcm=tx#/100:zcm=tz#/100:htree=0
+   obs=ter(0,xcm,zcm):if obs=1 then htree=40
+   rem height of camera
+   ty#=get ground height(1,tx#,tz#)+105+htree+tk#(n,2)/11
+   rem inertial camera
+   cam#(1)=cam#(1)+(tx#-cam#(1))/14
+   cam#(2)=cam#(2)+(ty#-cam#(2))/16
+   cam#(3)=cam#(3)+(tz#-cam#(3))/16
+   position camera cam#(1),cam#(2),cam#(3)
+   point camera tk#(n,1),tk#(n,2)+30,tk#(n,3)
+endfunction
+
+function slipcam()
+   n=0:tg=gam(8):rem the function is the normal move tank, adapted to camera
+   tgx#=tk#(tg,1)
+   tgz#=tk#(tg,3)
+   dx#=tk#(n,1)-tgx#:dz#=tk#(n,3)-tgz#
+   r#=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+   rem heading
+   position object 65000,tk#(n,1),0,tk#(n,3)
+   point object 65000,tgx#,0,tgz#
+   tk#(n,5)=wrapvalue(object angle y(65000))
+   rem moving tank
+   f#=6+r#/125
+   tk#(n,1)=newxvalue(tk#(n,1),tk#(n,5),f#)
+   tk#(n,3)=newzvalue(tk#(n,3),tk#(n,5),f#)
+   tk#(n,2)=get ground height(1,tk#(n,1),tk#(n,3))
+   rem limit map
+   if tk#(n,1)<370 then tk#(n,1)=370
+   if tk#(n,3)<370 then tk#(n,3)=370
+   if tk#(n,1)>4630 then tk#(n,1)=4630
+   if tk#(n,3)>4630 then tk#(n,3)=4630
+   rem if range to control tank
+   if r#<7.5 then gam(1)=gam(8):gam(8)=0
+endfunction
+
+function camintro()
+   rem function for intro tank
+   rem centering cam
+   cam#(1)=2500:cam#(2)=1000:cam#(3)=2500
+   msg=0
+   rem make fake object 0 to track
+   tgx#=500+rnd(4000):tgz#=500+rnd(4000)
+   n=0:tk#(n,1)=500+rnd(4000):tk#(n,3)=500+rnd(4000)
+   ga=0
+   rem make start routine
+   pnt:
+   ga=ga+5:if ga>255 then ga=255
+   set gamma ga,ga,ga
+   dx#=tk#(n,1)-tgx#:dz#=tk#(n,3)-tgz#
+   r#=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+   if r#<110 or rnd(100)>97 then tgx#=500+rnd(4000):tgz#=500+rnd(4000):rem change target if range is close
+   rem heading point intro
+   position object 65000,tk#(n,1),0,tk#(n,3)
+   point object 65000,tgx#,0,tgz#
+   ry#=wrapvalue(object angle y(65000))
+   tan#=wrapvalue(tk#(n,5)-ry#):flag=1:ta=abs(tan#)
+   if ta=>355 or ta<=5
+      xj#=0
+   else
+      if ta>180 then flag=0-flag
+      if tan#>0 then xj#=0-flag
+      if tan#<0 then xj#=flag
+   endif
+   if xj#<>0
+      tk#(n,9)=tk#(n,9)+(xj#*0.05)
+      if abs(tk#(n,9))>0.7
+         if tk#(n,9)<0 then tk#(n,9)=-0.7
+         if tk#(n,9)>0 then tk#(n,9)=0.7
+      endif
+   endif
+   if xj#=0 and abs(tk#(n,9))=>0.05 then tk#(n,9)=tk#(n,9)/1.15:if abs(tk#(n,9))<=0.06 then tk#(n,9)=0
+   rem turning tank
+   tk#(n,5)=wrapvalue(tk#(n,5)+tk#(n,9))
+   rem bounce tank
+   if rnd(1000)>997 and b#=0 then b#=0.001:ac#=10+rnd(30)
+   if b#>0 then b#=b#+ac#:ac#=ac#-0.5:if b#<0 then b#=0
+   rem moving tank
+   f#=0.5+r#/500
+   tk#(n,1)=newxvalue(tk#(n,1),tk#(n,5),f#)
+   tk#(n,3)=newzvalue(tk#(n,3),tk#(n,5),f#)
+   tk#(n,2)=get ground height(1,tk#(n,1),tk#(n,3))+b#/10
+   rem limit map
+   if tk#(n,1)<370 then tk#(n,1)=370
+   if tk#(n,3)<370 then tk#(n,3)=370
+   if tk#(n,1)>4630 then tk#(n,1)=4630
+   if tk#(n,3)>4630 then tk#(n,3)=4630
+   track(0)
+   rem animate text
+   ang#=wrapvalue(ang#+0.95)
+   ang2#=wrapvalue(ang2#+1.35)
+   msg=msg+1:if msg>510 then msg=510
+   sprite 1,320,240,13
+   set sprite 1,0,1
+   offset sprite 1,189,15
+   set sprite alpha 1,msg/2
+   rotate sprite 1,cos(ang#)*12
+   scale sprite 1,100+sin(ang2#)*25
+   rem paste scenario image
+   paste image 84+gam(25),10,10,1
+   rem sync call
+   sync
+   rem go out if joystick fire or spacekey
+   mv=abs(joystick x()/200)+abs(joystick y()/200)+rightkey()+leftkey()+upkey()+downkey()
+   if mv>0 and ga=>255 then goto out
+   goto pnt
+   out:
+   delete sprite 1
+endfunction
+
+function powup(o)
+   rem o is the number of powup
+   rem 51-52 energy
+   rem 53 repair
+   rem 54-55 bullet
+   coord:
+   x=500+rnd(4000)
+   z=500+rnd(4000)
+   xm=x/100:zm=z/100
+   if ter(0,xm,zm)=1 then goto coord
+   y#=get ground height(1,x,z)
+   position object o,x,y#,z
+   hide object o
+   tk#(o,0)=0
+   tk#(o,1)=x
+   tk#(o,3)=z
+   tk#(o,2)=y#
+   tk#(o,5)=rnd(359)
+   yrotate object o,tk#(o,5)
+   tk#(o,4)=2500+rnd(2500):rem rnd apparition powup
+   if o=53 then tk#(o,4)=tk#(o,4)+3500:rem rnd apparition powup
+endfunction
+
+function gameintro()
+   rem function for intro game (like intro scenario)
+   rem centering cam
+   cam#(1)=2500:cam#(2)=1000:cam#(3)=2500
+   msg=0
+   rem create random terrain
+   cls 0:sync
+   load image "scr/title.bmp",60000,1
+   load music "music/intro.mp3",1
+   tr=1+rnd(599)/100
+   maketerrain(tr)
+   rem fake object to track
+   make object plain 65000,1,1:hide object 65000
+   rem play music intro
+   play music 1:loop music 1:set music volume 1,95
+   rem make fake object 0 to track
+   tgx#=500+rnd(4000):tgz#=500+rnd(4000)
+   n=0:tk#(n,1)=500+rnd(4000):tk#(n,3)=500+rnd(4000)
+   ga=0
+   rem make start routine
+   pnt2:
+   ga=ga+5:if ga>255 then ga=255
+   set gamma ga,ga,ga
+   dx#=tk#(n,1)-tgx#:dz#=tk#(n,3)-tgz#
+   r#=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+   if r#<110 or rnd(100)>97 then tgx#=500+rnd(4000):tgz#=500+rnd(4000):rem change target if range is close
+   rem heading point section
+   position object 65000,tk#(n,1),0,tk#(n,3)
+   point object 65000,tgx#,0,tgz#
+   ry#=wrapvalue(object angle y(65000))
+   tan#=wrapvalue(tk#(n,5)-ry#):flag=1:ta=abs(tan#)
+   if ta=>355 or ta<=5
+      xj#=0
+   else
+      if ta>180 then flag=0-flag
+      if tan#>0 then xj#=0-flag
+      if tan#<0 then xj#=flag
+   endif
+   if xj#<>0
+      tk#(n,9)=tk#(n,9)+(xj#*0.05)
+      if abs(tk#(n,9))>0.7
+         if tk#(n,9)<0 then tk#(n,9)=-0.7
+         if tk#(n,9)>0 then tk#(n,9)=0.7
+      endif
+   endif
+   if xj#=0 and abs(tk#(n,9))=>0.05 then tk#(n,9)=tk#(n,9)/1.15:if abs(tk#(n,9))<=0.06 then tk#(n,9)=0
+   rem turning tank
+   tk#(n,5)=wrapvalue(tk#(n,5)+tk#(n,9))
+   rem bounce tank
+   if rnd(1000)>997 and b#=0 then b#=0.001:ac#=10+rnd(30)
+   if b#>0 then b#=b#+ac#:ac#=ac#-0.5:if b#<0 then b#=0
+   rem moving tank
+   f#=0.5+r#/500
+   tk#(n,1)=newxvalue(tk#(n,1),tk#(n,5),f#)
+   tk#(n,3)=newzvalue(tk#(n,3),tk#(n,5),f#)
+   tk#(n,2)=get ground height(1,tk#(n,1),tk#(n,3))+b#/10
+   rem limit map
+   if tk#(n,1)<370 then tk#(n,1)=370
+   if tk#(n,3)<370 then tk#(n,3)=370
+   if tk#(n,1)>4630 then tk#(n,1)=4630
+   if tk#(n,3)>4630 then tk#(n,3)=4630
+   track(0)
+   rem animate text
+   ang#=wrapvalue(ang#+0.55)
+   ang2#=wrapvalue(ang2#+1.35)
+   msg=msg+1:if msg>510 then msg=510
+   sprite 1,320,240,60000:set sprite 1,0,1
+   offset sprite 1,253,192
+   set sprite alpha 1,msg/2
+   rotate sprite 1,cos(ang#)*20
+   scale sprite 1,75+sin(ang2#)*40
+   sync
+   rem go out if joystick fire or spacekey
+   mv=spacekey()+joystick fire a()+mouseclick()
+   if mv>0 and msg=>5 then goto out2
+   goto pnt2
+   out2:
+   rem fading
+   alph=msg/2:vad#=255/alph:rem fading sprite 1 value
+   for t=255 to 1 step -3
+   v=t/2.7:set music volume 1,v
+   set sprite alpha 1,t/vad#
+   set gamma t,t,t
+   sleep 15
+   next t
+   delete sprite 1
+   delete music 1
+   delete image 60000
+   delete object 65000
+   rem resetting color 0 (1st attemp)
+   sleep 15
+   cls 0:sync:cls 0:sync
+   ink 0,0:box 0,0,640,480
+   sync
+   randomize timer()
+   rem clean data matrix
+   for tre=1001 to 1100:rem deleting trees and clouds and sky
+   if object exist(tre) then delete object tre
+   next tre
+   for co=45 to 50:rem deleting cows
+   if object exist(co) then delete object co
+   if object exist(co+200) then delete object co+200
+   next co
+   for t=1 to 75:for z=0 to 3:tree(t,z)=0:next z:next t:rem reset tree
+   for ob=1 to 55:for v=0 to 52:tk#(ob,v)=0:next v:next ob:rem reset tank
+   for g=2 to 13:gam(g)=0:next g:rem reset game
+   for cl=1 to 10:for v=1 to 4:cl#(cl,v)=0:next v:next cl:rem reset cloud
+   for x=0 to 50:for z=0 to 50
+   ter(0,x,z)=0:ter(1,x,z)=0:ter(2,x,z)=0
+   next z:next x:rem reset ground
+endfunction
+
+function repotanks()
+   rem using clone of tanks() for fisrts placing tank
+   rem start control tanks (1-50)
+   for n=1 to 50
+      if tk#(n,0)>0:rem if tank active
+      rem ************************************************************************
+      rem *                           inclination engine                         *
+      rem ************************************************************************
+      rem finding 2 point for inclination (xax,zax for up dpwm, xaz,zaz for roll)
+      rem this is for pitch (using atan for angle of inclination)
+      hg#=get ground height(1,tk#(n,1),tk#(n,3))
+      xax#=newxvalue(tk#(n,1),tk#(n,5),10)
+      zax#=newzvalue(tk#(n,3),tk#(n,5),10)
+      hx#=get ground height(1,xax#,zax#)-hg#
+      ax#=atan(hx#/10.0)
+      tk#(n,4)=tk#(n,4)+(ax#-tk#(n,4))/20.0:rem inertial angle
+      rem this is for roll (using atan for angle of inclination)
+      xaz#=newxvalue(tk#(n,1),tk#(n,5)-90,10)
+      zaz#=newzvalue(tk#(n,3),tk#(n,5)-90,10)
+      hz#=get ground height(1,xaz#,zaz#)-hg#
+      az#=atan(hz#/10.0)
+      tk#(n,6)=tk#(n,6)+(az#-tk#(n,6))/20.0:rem inertial angle
+      rem ************************************************************************
+      rem *                           moving tank on the map                     *
+      rem ************************************************************************
+      rem moving tank
+      rem limit map position
+      if tk#(n,1)<370 then tk#(n,1)=370:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+      if tk#(n,3)<370 then tk#(n,3)=370:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+      if tk#(n,1)>4630 then tk#(n,1)=4630:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+      if tk#(n,3)>4630 then tk#(n,3)=4630:tk#(n,10)=tk#(n,10)/1.015:tk#(n,27)=0:tk#(n,29)=0:tk#(n,26)=51
+
+      rem ************************************************************************
+      rem *          inclination setting, bounce effect and shadow               *
+      rem ************************************************************************
+      rem height of map at tank position
+      hg#=get ground height(1,tk#(n,1),tk#(n,3)):rem height of ground
+      rem height control of tank and gravity
+      tk#(n,22)=tk#(n,22)-0.115:if tk#(n,22)<-10 then tk#(n,22)=-10
+      tk#(n,2)=tk#(n,2)+tk#(n,22)
+      if tk#(n,2)<hg# then tk#(n,2)=hg#:tk#(n,23)=1:rem is on ground
+      rem now setting to 0 the angle of rotation and turn object
+      rotate object n,0,0,0
+      rem controls flip dead cows
+      rem turning object
+      turn object right n,tk#(n,5)
+      pitch object up n,(tk#(n,4)+sin(tk#(n,12))*2)
+      roll object right n,flipcow#+tk#(n,6)+tk#(n,9)*3
+      rem then positioning object
+      position object n,tk#(n,1),slop#+tk#(n,2)+3.3,tk#(n,3)
+      rem placing shadow
+      rotate object n+200,0,0,0
+      turn object right n+200,tk#(n,5)
+      pitch object up n+200,tk#(n,4)
+      roll object right 200+n,tk#(n,6)
+      rem then positioning shadow object
+      position object 200+n,tk#(n,1),hg#+3.5-slop#*10,tk#(n,3)
+      rem barrier on/off flag and super bullet
+      hide limb 200+n,1
+      hide limb 200+n,2
+      rem reset sprite
+      endif
+   next n
+   rem ************************** clouds routine *********************************
+   for ob=1076 to 1076+gam(9)
+      o=ob-1075:rem rotate clound on center map
+      cl#(o,2)=wrapvalue(cl#(o,2)+cl#(o,4))
+      xc#=2500+cl#(o,1)*cos(cl#(o,2))
+      zc#=2500+cl#(o,1)*sin(cl#(o,2))
+      hc#=get ground height(1,xc#,zc#)+450+cl#(o,2)/50
+      rem limit map
+      if xc#<470 then xc#=470
+      if xc#>4530 then xc#=4530
+      if zc#<470 then zc#=470
+      if zc#>4530 then zc#=4530
+      rem positioning cloud
+      position object ob,xc#,hc#,zc#
+      yrotate object ob,wrapvalue(cl#(o,2)+90)
+   next ob
+endfunction
+
+function entra()
+   rem tile on entering program
+   load image "erm/logo.png",1,1
+   load image "erm/data1.bmp",2,1
+   load image "erm/data2.bmp",3,1
+   load sound "erm/logo.wav",1
+   et=0
+   repeat
+      cls 0
+      inc et
+      yu=300-et:if yu<0 then yu=0
+      dx=rnd(yu)/2-(yu/4):dy=rnd(yu)/2-(yu/4)
+      ddx=rnd(yu)/10-(yu/20):ddy=rnd(yu)/10-(yu/20)
+      paste image 1,120+dx,45+dy
+      paste image 2,2+ddx,400+ddy
+      if et=100 then play sound 1
+      if et>350 then paste image 3,258,360
+      sync
+      ff=0
+      ff=spacekey()+joystick fire a()+mouseclick()
+   until et>350 and ff=1
+   for t=255 to 1 step -3:set gamma t,t,t:sleep 15:next t
+   rem cleaning up screen
+   sleep 200
+   cls 0:sync:cls 0:sync
+   ink 0,0:box 0,0,640,480
+   sync
+   set gamma 256,256,256
+   delete image 1
+   delete image 2
+   delete image 3
+   sleep 15
+   delete sound 1
+endfunction
+
+function menu()
+
+   rem lock/unlock squads
+   gam(1)=0:esc=0:free=2
+   if gam(14)>12 then free=3
+   if gam(14)>15 then free=4
+   if gam(14)>18 then free=5
+   if gam(14)>23 then free=6
+   if gam(14)>27 then free=7
+   if gam(14)>35 then free=8
+   if gam(14)>43 then free=9
+   frep=free:if sav(1)=1 then frep=10:rem if game is completed, then unlock the 10th squad
+
+   for t=1 to 8:rem make tanks
+      tankloadermenu(t+10000,t,1)
+      hide object t+10000
+      tankloadermenu(t+10010,t,1)
+      hide object t+10010
+   next t
+
+   rem loading menu for game
+   load image "menu/up.bmp",10001,1
+   load image "menu/mouse.bmp",10002,1
+   load image "menu/slevel.bmp",10003,1
+   load image "menu/ssquad.bmp",10004,1
+   load image "menu/ar1.bmp",10005,1
+   load image "menu/ar2.bmp",10006,1
+   load image "menu/boxsel.bmp",10007,1
+   load image "menu/box.bmp",10008,1
+   load image "menu/boxs.bmp",10009,1
+
+   rem loading name tanks
+   for t=1 to 8
+   load image "menu/no"+str$(t)+".bmp",11000+t,1
+   next t
+   rem loading images for tank
+   rem for i=1 to 4:load image "tank/t"+str$(i)+".bmp",10100+i,1:next i
+   rem load digit
+   for t=10 to 19
+   load image "menu/dg"+str$(t-10)+".bmp",10000+t,1
+   next t
+   rem load squad
+   for t=21 to 30
+   load image "menu/sq"+str$(t-20)+".bmp",10000+t,1
+   next t
+   rem load buttons
+   for t=31 to 50
+   load image "menu/p"+str$(t-30)+".bmp",10000+t,1
+   next t
+   rem 1-next,2-back,3-battle,4-buytank (100x30)
+   rem 5-in box,6-shop,7-camera outbounds, 8 select tank, 9 sell tank
+   rem 10-buy, 11-cr, 12-aibar, 13 grensc ai,14 green ai, 15 black ai
+   rem 16-ai select, 17-make commander,18-pl mark,19 make your squad
+   rem 20-locked
+
+   rem intro sprites
+   sprite 1,800,800,10001:offset sprite 1,256,50:sprite 2,500,500,10002
+   rem centering cam
+   cam#(1)=2500:cam#(2)=1000:cam#(3)=2500
+   rem create random terrain
+   cls 0:sync
+   ms=1+rnd(199)/100:load music "menu/menu"+str$(ms)+".mid",1
+   tr=1+rnd(599)/100:maketerrain(tr):repotanks()
+   rem play music intro
+   play music 1:loop music 1:set music volume 1,95
+   rem make fake object 0 to track
+   tgx#=500+rnd(4000):tgz#=500+rnd(4000)
+   n=0:tk#(n,1)=500+rnd(4000):tk#(n,3)=500+rnd(4000)
+   mensel=1:rem start with level/squad
+
+   rem fading to screen view
+   cls 0:ink 0,0:box 0,0,640,480:sleep 15:sync
+   cls 0:ink 0,0:box 0,0,640,480:sleep 15:sync
+   ga=0
+
+   repeat
+   ga=ga+5:if ga>255 then ga=255
+   set gamma ga,ga,ga
+   rem camera traxk procedure
+   set current camera 0
+   dx#=tk#(n,1)-tgx#:dz#=tk#(n,3)-tgz#
+   r#=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+   if r#<110 or rnd(100)>97 then tgx#=500+rnd(4000):tgz#=500+rnd(4000):rem change target if range is close
+   rem heading point section
+   position object 65000,tk#(n,1),0,tk#(n,3)
+   point object 65000,tgx#,0,tgz#
+   ry#=wrapvalue(object angle y(65000))
+   tan#=wrapvalue(tk#(n,5)-ry#):flag=1:ta=abs(tan#)
+   if ta=>355 or ta<=5
+      xj#=0
+   else
+      if ta>180 then flag=0-flag
+      if tan#>0 then xj#=0-flag
+      if tan#<0 then xj#=flag
+   endif
+   if xj#<>0
+      tk#(n,9)=tk#(n,9)+(xj#*0.01)
+      if abs(tk#(n,9))>0.3
+         if tk#(n,9)<0 then tk#(n,9)=-0.3
+         if tk#(n,9)>0 then tk#(n,9)=0.3
+      endif
+   endif
+   if xj#=0 and abs(tk#(n,9))=>0.05 then tk#(n,9)=tk#(n,9)/1.15:if abs(tk#(n,9))<=0.06 then tk#(n,9)=0
+   rem turning tank
+   tk#(n,5)=wrapvalue(tk#(n,5)+tk#(n,9))
+   rem moving tank
+   f#=0.1+r#/1500
+   tk#(n,1)=newxvalue(tk#(n,1),tk#(n,5),f#)
+   tk#(n,3)=newzvalue(tk#(n,3),tk#(n,5),f#)
+   tk#(n,2)=get ground height(1,tk#(n,1),tk#(n,3))
+   rem limit map
+   if tk#(n,1)<370 then tk#(n,1)=370
+   if tk#(n,3)<370 then tk#(n,3)=370
+   if tk#(n,1)>4630 then tk#(n,1)=4630
+   if tk#(n,3)>4630 then tk#(n,3)=4630
+   track(0)
+
+   rem menu for all
+   ang#=wrapvalue(ang#+0.15):rem title rotating effect
+   ang2#=wrapvalue(ang2#+0.2):rem title zoom/unzoom
+   rem positioning images
+   sprite 1,320,95,10001
+   scale sprite 1,70+45*sin(ang2#)
+   rotate sprite 1,10*cos(ang#)
+   rem mouse pointer
+   xm=mousex():ym=mousey()
+   sprite 2,xm,ym,10002
+
+   if mensel=1
+      rem menu 1st step> level and squad
+      paste image 10003,0,200
+      paste image 10004,0,250
+      rem level number placed
+      dc=gam(15)/10:uni=gam(15)-dc*10
+      paste image 10010+dc,375,200
+      paste image 10010+uni,385,200
+      rem place arrow
+      paste image 10005,190,200:paste image 10005,190,250
+      paste image 10006,430,200:paste image 10006,430,250
+      rem place squad info
+      paste image 10020+gam(18),169,300
+      rem place button next
+      paste image 10031,270,440
+      rem sensitive for mouse
+      if mouseclick()=0 then mousehold=0
+      if mouseclick()=1 and mousehold=0
+         som=0
+         mousehold=1
+         inbx(xm,ym,190,200,210,220)
+         if gam(17)=1 then gam(15)=gam(15)-1:som=1:if gam(15)<1 then gam(15)=1:som=2
+         inbx(xm,ym,430,200,450,220)
+         if gam(17)=1 then gam(15)=gam(15)+1:som=1:if gam(15)>gam(14) then gam(15)=gam(14):som=2
+         inbx(xm,ym,190,250,210,270)
+         if gam(17)=1 then gam(18)=gam(18)-1:som=1:if gam(18)<1 then gam(18)=10
+         inbx(xm,ym,430,250,450,270)
+         if gam(17)=1 then gam(18)=gam(18)+1:som=1:if gam(18)>10 then gam(18)=1
+         inbx(xm,ym,270,440,370,470)
+         if gam(17)=1
+            som=2
+            if frep=>gam(18) then mensel=2:som=1:rem next
+         endif
+      endif
+      cord=500:if frep<gam(18) then cord=301
+      sprite 2000,170,cord,10050:set sprite alpha 2000,125
+      if som=1 then play sound 29:som=0
+      if som=2 then play sound 18:som=0
+   endif
+
+   if mensel=2:rem preparing tank
+      delete sprite 2000
+      for t=10001 to 10008
+      texture object t,100+gam(18)
+      position object t,45000,0,45000
+      set object specular t,0:set object t,1,0,1,0,0,0,0:set object texture t,0,0
+      hide object t
+      next t
+      for t=10011 to 10018
+      texture object t,100+gam(18)
+      position object t,45000,0,-45000
+      set object specular t,0:set object t,1,0,1,0,0,0,0:set object texture t,0,0
+      hide object t
+      next t
+      make camera 2
+      set camera view 2,30,300,210,420
+      color backdrop 2,rgb(0,0,0)
+      make camera 3
+      set camera view 3,430,300,610,420
+      color backdrop 3,rgb(0,0,0)
+      mensel=3
+      stt=1:boxsel=1
+      minai=1+spec(gam(15),1)/2.5
+      maxai=spec(gam(15),2)
+      crmax=lev(gam(15),0):crused=0
+   endif
+
+   if mensel=3:rem tank select routine
+      rem menu 2st step> box tank and lev ab
+      set current camera 2
+      tur#=wrapvalue(tur#+0.4)
+      for t=10001 to 10008:hide object t:next t
+      for t=10011 to 10018:hide object t:next t
+
+      rem this show tank selected
+      xc2#=46*cos(tur#)
+      zc2#=47*sin(tur#)
+      yc2#=4*sin(tur#)
+      position camera 2,45000+xc2#,60+yc2#,45000-zc2#
+      point camera 2,45000,10,45000
+      show object 10000+stt
+      paste image 10037,30,300,1
+      paste image 10036,32,302,1:paste image 11000+stt,98,302,1
+      rem cost in cr
+      dc=cost(stt)/10:uni=cost(stt)-dc*10
+      paste image 10010+dc,185,300,1
+      paste image 10010+uni,195,300,1
+      paste image 10041,165,302,1:rem cr vox
+      paste image 10038,32,398
+
+      rem this show tank in box
+      set current camera 3
+      position camera 3,45000+xc2#,60+yc2#,-45000+zc2#
+      point camera 3,45000,10,-45000
+      rem ai bar
+      paste image 10042,430,275
+      if player(boxsel,1)>0
+         show object 10010+player(boxsel,1)
+         paste image 11000+player(boxsel,1),498,302,1
+         paste image 10041,565,302,1:rem cr vox
+         rem cost in cr
+         dc=cost(player(boxsel,1))/10:uni=cost(player(boxsel,1))-dc*10
+         paste image 10010+dc,585,300,1
+         paste image 10010+uni,595,300,1
+      for t=1 to player(boxsel,3)
+         im=44
+         if t<=minai then im=43
+         paste image 10000+im,453+(t-1)*13,279,1
+      next t
+      if player(boxsel,3)<maxai
+         for t=player(boxsel,3)+1 to maxai
+         paste image 10045,453+(t-1)*13,279,1
+         next t
+      endif
+      endif
+      paste image 10037,430,300,1
+      paste image 10035,432,302,1
+      paste image 10039,432,398
+      paste image 10046,430,260
+      paste image 10047,430,421
+
+      for b=1 to 12:rem box draw
+      im=8:if boxsel=b then im=9
+      paste image 10000+im,5+(b-1)*53,222
+      if player(b,1)>0 then paste image 232+player(b,1)+(gam(18)-1)*10,6+(b-1)*53,223,1
+      if gam(1)=b then paste image 10048,16+(b-1)*53,223,1
+      next b
+      paste image 10049,220,165,1
+      paste image 10007,0,200:rem select box
+      rem box number placed
+      dc=boxsel/10:uni=boxsel-dc*10
+      paste image 10010+dc,337,200
+      paste image 10010+uni,347,200
+      rem enemy tanks show
+      va=spec(gam(15),6)+1
+      dc=va/10:uni=va-dc*10
+      paste image 10010+dc,605,200,1
+      paste image 10010+uni,615,200,1
+      rem place arrow
+      paste image 10005,190,200
+      paste image 10006,430,200
+      rem back icon/battle icon/buy
+      paste image 10032,70,435
+      paste image 10040,70,259
+      paste image 10033,470,435
+      rem place calculation credit
+      cet=crmax/100:dect=crmax-cet*100:de=dect/10:uni=dect-de*10
+      paste image 10010+cet,95,200
+      paste image 10010+de,105,200
+      paste image 10010+uni,115,200
+      cdisp=crmax-crused
+      cet=cdisp/100:dect=cdisp-cet*100:de=dect/10:uni=dect-de*10
+      paste image 10010+cet,55,200
+      paste image 10010+de,65,200
+      paste image 10010+uni,75,200
+
+      rem mouse controls
+      if mouseclick()=0 then mousehold=0
+      if mouseclick()=1 and mousehold=0
+         mousehold=1
+         som=0
+         rem box selection
+         inbx(xm,ym,190,200,210,220)
+         if gam(17)=1 then dec boxsel:som=1:if boxsel<1 then boxsel=1:som=2
+         inbx(xm,ym,430,200,450,220)
+         if gam(17)=1 then inc boxsel:som=1:if boxsel>12 then boxsel=12:som=2
+
+         rem intuition box selection
+         if ym>222 and ym<247 then boxsel=1+xm/54:som=1
+
+         rem tank selection
+         inbx(xm,ym,32,398,52,418)
+         if gam(17)=1 then dec stt:som=1:if stt<1 then stt=1:som=2
+         inbx(xm,ym,187,398,207,418)
+         if gam(17)=1 then inc stt:som=1:if stt>8 then stt=8:som=2
+
+         rem buy
+         inbx(xm,ym,70,259,170,289)
+         if gam(17)=1
+            som=2
+            if player(boxsel,1)=0
+            eval=crused+cost(stt)
+            if eval<=crmax:rem credit control
+               som=1:rem sound click
+               player(boxsel,1)=stt:player(boxsel,3)=minai
+               crused=crused+cost(stt)
+            endif
+            endif
+         endif
+
+         rem buy intuiton on tank
+         inbx(xm,ym,30,300,210,395)
+         if gam(17)=1
+            som=2
+            if player(boxsel,1)=0
+            eval=crused+cost(stt)
+            if eval<=crmax:rem credit control
+               som=1:rem sound click
+               player(boxsel,1)=stt:player(boxsel,3)=minai
+               crused=crused+cost(stt)
+            endif
+            endif
+         endif
+
+         rem ai decrase
+         inbx(xm,ym,430,275,450,295)
+         if gam(17)=1
+            som=2
+            if player(boxsel,1)>0 and player(boxsel,3)>minai
+            player(boxsel,3)=player(boxsel,3)-1
+            crused=crused-2
+            som=1
+            endif
+         endif
+
+         rem ai increase
+         inbx(xm,ym,590,275,610,295)
+         if gam(17)=1
+            som=2
+            if player(boxsel,1)>0 and player(boxsel,3)<maxai
+            eval=crused+2
+            if eval<=crmax:rem credit control
+               player(boxsel,3)=player(boxsel,3)+1
+               crused=crused+2
+               som=1:rem sound click
+            endif
+         endif
+         endif
+
+         rem sell
+         inbx(xm,ym,488,400,543,413)
+         if gam(17)=1
+            som=2
+            if player(boxsel,1)>0
+            crused=crused-cost(player(boxsel,1))
+            crused=crused-(player(boxsel,3)-minai)*2
+            player(boxsel,1)=0
+            player(bosxel,3)=0
+            if gam(1)=boxsel then gam(1)=0
+            som=1
+            endif
+         endif
+
+         rem back
+         inbx(xm,ym,70,435,170,465)
+         if gam(17)=1
+            mensel=1
+            delete camera 2
+            delete camera 3
+            for t=1 to 12:player(t,1)=0:player(t,3)=0:next t
+            som=1
+         endif
+
+         rem make commander
+         inbx(xm,ym,430,421,610,434)
+         if gam(17)=1
+         som=2
+         if player(boxsel,1)>0 then gam(1)=boxsel:som=1
+         endif
+
+         rem go battle
+         inbx(xm,ym,470,435,570,465)
+         if gam(17)=1
+         som=2
+         if crused>0 then esc=1:som=1
+         endif
+
+      endif
+      if som=1 then play sound 29:som=0
+      if som=2 then play sound 18:som=0
+      endif
+   sync
+   until esc=1
+
+   rem fading
+   for t=255 to 4 step -3
+   v=t/2.7:set music volume 1,v
+   set sprite alpha 1,t
+   set gamma t,t,t
+   sleep 15
+   next t
+   set gamma 1,1,1
+   delete sprite 1
+   delete sprite 2
+   delete music 1
+   rem resetting color 0 (1st attemp)
+   sleep 300
+   cls 0:sync:cls 0:sync
+   ink 0,0:box 0,0,640,480
+   sync
+   rem clean data
+
+   rem clean data matrix
+   for tre=1001 to 1100:rem deleting trees and clouds and sky
+   if object exist(tre) then delete object tre
+   next tre
+   for co=45 to 50:rem deleting cows
+   if object exist(co) then delete object co
+   if object exist(co+200) then delete object co+200
+   next co
+   for t=1 to 75:for z=0 to 3:tree(t,z)=0:next z:next t:rem reset tree
+   for ob=1 to 55:for v=0 to 52:tk#(ob,v)=0:next v:next ob:rem reset tank
+   for g=2 to 13:gam(g)=0:next g:rem reset game
+   for cl=1 to 10:for v=1 to 4:cl#(cl,v)=0:next v:next cl:rem reset cloud
+   for x=0 to 50:for z=0 to 50
+   ter(0,x,z)=0:ter(1,x,z)=0:ter(2,x,z)=0
+   next z:next x:rem reset ground
+   rem reset menu images
+   for im=10000 to 12000
+   if image exist(im) then delete image im
+   if object exist(im) then delete object im
+   next im
+   rem setting oppo and guest
+   oppn=((free-1)*100)+99
+   repeat:rem oppo squad (depending on free unlock value)
+      gam(19)=1+rnd(oppn)/100
+   until gam(19)<>gam(18)
+   repeat:rem guest all squad plays
+      gam(20)=1+rnd(899)/100
+   until gam(20)<>gam(19) and gam(20)<>gam(18)
+   delete camera 2
+   delete camera 3
+   set current camera 0
+endfunction
+
+function inbx(xm,ym,x1,y1,x2,y2)
+   rem function inbox for menu
+   gam(17)=0
+   if xm>x1 and xm<x2 and ym>y1 and ym<y2 then gam(17)=1
+endfunction
+
+function tankloadermenu(n,t,c)
+   rem n is object number(1-50) ,t is the tipe of tank ,c is colour
+   select t
+      case 1
+      clone object n,65200+t
+      scale object n,100,110,100
+      hide limb n,1
+      texture object n,100+c
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 2
+      clone object n,65200+t
+      scale object n,102,105,100
+      texture object n,100+c
+      hide limb n,3
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 3
+      clone object n,65200+t
+      scale object n,102,105,100
+      hide limb n,4
+      texture object n,100+c
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 4
+      clone object n,65200+t
+      texture object n,100+c
+      hide limb n,3
+      scale object n,100,98,100
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 5
+      clone object n,65200+t
+      hide limb n,1
+      texture object n,100+c
+      scale object n,100,95,100
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 6
+      clone object n,65200+t
+      hide limb n,3
+      texture object n,100+c
+      scale object n,100,99,101
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 7
+      clone object n,65200+t
+      hide limb n,1
+      texture object n,100+c
+      scale object n,100,101,101
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+
+      case 8
+      clone object n,65200+t
+      hide limb n,1
+      texture object n,100+c
+      scale object n,105,101,101
+      rem setting no light and no mipmapping for cartoon style
+      set object specular n,0:set object n,1,0,1,0,0,0,0:set object texture n,0,0
+      endcase
+   endselect
+endfunction
+
+function camending()
+   rem function for intro tank
+   msg=0:set sound volume 1,0:set sound volume 12,0
+   rem make fake object 0 to track = last palyer view
+   n=0:tk#(n,1)=tk#(gam(1),1):tk#(n,3)=tk#(gam(1),3)
+   gam(1)=0:gam(8)=-1:rem reset player(can't move anymore)
+
+   rem make first target
+   tgx#=500+rnd(4000):tgz#=500+rnd(4000)
+
+   pnt3:
+   dx#=tk#(n,1)-tgx#:dz#=tk#(n,3)-tgz#
+   r#=sqrt((dx#*dx#)+(dz#*dz#)):rem range tank on 2d plane
+   if r#<110 or rnd(100)>97 then tgx#=500+rnd(4000):tgz#=500+rnd(4000):rem change target if range is close
+   rem heading point intro
+   position object 65000,tk#(n,1),0,tk#(n,3)
+   point object 65000,tgx#,0,tgz#
+   ry#=wrapvalue(object angle y(65000))
+   tan#=wrapvalue(tk#(n,5)-ry#):flag=1:ta=abs(tan#)
+   if ta=>355 or ta<=5
+      xj#=0
+   else
+      if ta>180 then flag=0-flag
+      if tan#>0 then xj#=0-flag
+      if tan#<0 then xj#=flag
+   endif
+   if xj#<>0
+      tk#(n,9)=tk#(n,9)+(xj#*0.05)
+      if abs(tk#(n,9))>0.7
+         if tk#(n,9)<0 then tk#(n,9)=-0.7
+         if tk#(n,9)>0 then tk#(n,9)=0.7
+      endif
+   endif
+   if xj#=0 and abs(tk#(n,9))=>0.05 then tk#(n,9)=tk#(n,9)/1.15:if abs(tk#(n,9))<=0.06 then tk#(n,9)=0
+   rem turning tank
+   tk#(n,5)=wrapvalue(tk#(n,5)+tk#(n,9))
+   rem bounce tank
+   if rnd(1000)>997 and b#=0 then b#=0.001:ac#=10+rnd(30)
+   if b#>0 then b#=b#+ac#:ac#=ac#-0.5:if b#<0 then b#=0
+   rem moving tank
+   f#=0.5+r#/500
+   tk#(n,1)=newxvalue(tk#(n,1),tk#(n,5),f#)
+   tk#(n,3)=newzvalue(tk#(n,3),tk#(n,5),f#)
+   tk#(n,2)=get ground height(1,tk#(n,1),tk#(n,3))+b#/10
+   rem limit map
+   if tk#(n,1)<370 then tk#(n,1)=370
+   if tk#(n,3)<370 then tk#(n,3)=370
+   if tk#(n,1)>4630 then tk#(n,1)=4630
+   if tk#(n,3)>4630 then tk#(n,3)=4630
+   track(0)
+   rem animate text
+   ang#=wrapvalue(ang#+0.95)
+   ang2#=wrapvalue(ang2#+1.35)
+   msg=msg+2:if msg>510 then msg=510
+   rem calc image for victory/defeat
+   im=2001:if gam(22)=0 then im=2002
+   rem managing image
+   sprite 151,320,190,im
+   set sprite 151,0,1
+   offset sprite 151,165,35
+   set sprite alpha 151,msg/2
+   rotate sprite 151,cos(ang#)*12
+   scale sprite 151,100+sin(ang2#)*25
+   rem click mouse to continue
+   xof=10*cos(ang#)
+   yof=10*sin(ang#)
+   if msg>395 then paste image 2003,200+xof,380-yof,1
+
+   rem calling tank functions
+   tanks()
+   sync
+   rem go out if mousekey()
+   mv=0:mv=mouseclick()
+   if mv>0 and msg=>400 then goto out3
+   goto pnt3
+   out3:
+
+   rem fading out
+   alph=msg/2:vad#=255/alph:rem fading sprite 13 value
+   rem music fadin
+   vo=music volume(1)
+   musc=1
+   if vo=0 then musc=0
+   if vo=1 then vol#=255/vo:rem fading music
+   rem eliminate contourn sprite
+   for s=1 to 150:if sprite exist(s) then delete sprite s
+   next s
+
+   rem fading
+   for t=255 to 4 step -3
+   if musc=1 then set music volume 1,t/vol#
+   set sprite alpha 151,t/vad#
+   set gamma t,t,t
+   sleep 15
+   next t
+   set gamma 1,1,1
+   delete sprite 151
+   delete music 1
+   rem resetting color 0 (1st attemp)
+   sleep 15
+   cls 0:sync:cls 0:sync
+   ink 0,0:box 0,0,640,480
+   sync
+   rem reset player
+   for p=1 to 12:player(p,1)=0:player(p,3)=0:next p
+endfunction
+
