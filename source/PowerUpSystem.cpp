@@ -214,12 +214,9 @@ void PowerUpSystem::checkPickup(int n)
         // DBP: px=tk#(n,1)-tk#(50+pup,1)
         //      pz=tk#(n,3)-tk#(50+pup,3)
         //      rp=sqrt((px*px)+(pz*pz))
-        float px = tk.x - p.x;
-        float pz = tk.z - p.z;
-        float rp = sqrtf(px * px + pz * pz);
-
+        float distSq = Vector2LengthSqr({tk.x - p.x, tk.z - p.z});
         // DBP: if rp<35
-        if (rp >= 35.0f)
+        if (distSq >= 35.0f * 35.0f) // 1225.0f
             continue;
 
         // === PICKUP ===

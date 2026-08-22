@@ -1,6 +1,7 @@
 #include "Terrain.h"
 #include "Utils.h"
 #include "GameData.h"
+#include "raymath.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -852,10 +853,10 @@ float Terrain::getHeight(float x, float z) const
     float h01 = heights[z1][x0];
     float h11 = heights[z1][x1];
 
-    float h0 = h00 * (1.0f - fx) + h10 * fx;
-    float h1 = h01 * (1.0f - fx) + h11 * fx;
+    float h0 = Lerp(h00, h10, fx);
+    float h1 = Lerp(h01, h11, fx);
 
-    return h0 * (1.0f - fz) + h1 * fz;
+    return Lerp(h0, h1, fz);
 }
 
 // === ЦВЕТ НЕБА (аналог color backdrop rgb) ===

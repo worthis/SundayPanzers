@@ -1,5 +1,6 @@
 #include "AISystem.h"
 #include "Utils.h"
+#include "raymath.h"
 #include <cmath>
 
 void AISystem::init(EventSystem *eventSystem, TankSystem *tankSystem)
@@ -26,20 +27,14 @@ float AISystem::range2D(int a, int b) const
 {
     const TankData &ta = tankSystem->getTank(a);
     const TankData &tb = tankSystem->getTank(b);
-    float dx = ta.x - tb.x;
-    float dz = ta.z - tb.z;
-    return sqrtf(dx * dx + dz * dz);
+    return Vector2Distance({ta.x, ta.z}, {tb.x, tb.z});
 }
 
 float AISystem::range3D(int a, int b) const
 {
     const TankData &ta = tankSystem->getTank(a);
     const TankData &tb = tankSystem->getTank(b);
-    float dx = ta.x - tb.x;
-    float dz = ta.z - tb.z;
-    float dy = ta.y - tb.y;
-    float r2 = dx * dx + dz * dz;
-    return sqrtf(r2 + dy * dy);
+    return Vector3Distance({ta.x, ta.y, ta.z}, {tb.x, tb.y, tb.z});
 }
 
 // ============================================================
@@ -212,9 +207,7 @@ AIOutput AISystem::computeInput(int n)
                 const TankData &extraTarget = tankSystem->getTank(t);
                 if (extraTarget.type > 0)
                 {
-                    float dx = tk.x - extraTarget.x;
-                    float dz = tk.z - extraTarget.z;
-                    float r = sqrtf(dx * dx + dz * dz);
+                    float r = Vector2Length({tk.x - extraTarget.x, tk.z - extraTarget.z});
                     if (r < tgmin)
                     {
                         tgmin = r;

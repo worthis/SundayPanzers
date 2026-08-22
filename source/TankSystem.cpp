@@ -1142,10 +1142,9 @@ void TankSystem::updateCollisions()
             if (tkC.type == 0)
                 continue;
 
-            float dx = tkN.x - tkC.x;
-            float dz = tkN.z - tkC.z;
             float dy = tkN.y - tkC.y;
-            float r = sqrtf(dx * dx + dz * dz);
+            float r = Vector2Length({tkN.x - tkC.x, tkN.z - tkC.z});
+
             float rcol = tkN.collisionRange + tkC.collisionRange;
 
             // DBP: if r<rcol and abs(dy#)<rcol
@@ -1193,9 +1192,9 @@ void TankSystem::interpolate(float alpha)
         if (tk.type == 0)
             continue;
 
-        tk.interpX = tk.prevX + (tk.x - tk.prevX) * alpha;
-        tk.interpY = tk.prevY + (tk.y - tk.prevY) * alpha;
-        tk.interpZ = tk.prevZ + (tk.z - tk.prevZ) * alpha;
+        tk.interpX = Lerp(tk.prevX, tk.x, alpha);
+        tk.interpY = Lerp(tk.prevY, tk.y, alpha);
+        tk.interpZ = Lerp(tk.prevZ, tk.z, alpha);
 
         // Для углов нужна осторожность с wraparound (359° → 0°)
         // Используем кратчайшую дугу
@@ -1206,8 +1205,8 @@ void TankSystem::interpolate(float alpha)
             dYaw += 360.0f;
         tk.interpYaw = wrapValue(tk.prevYaw + dYaw * alpha);
 
-        tk.interpPitch = tk.prevPitch + (tk.pitch - tk.prevPitch) * alpha;
-        tk.interpRoll = tk.prevRoll + (tk.roll - tk.prevRoll) * alpha;
+        tk.interpPitch = Lerp(tk.prevPitch, tk.pitch, alpha);
+        tk.interpRoll = Lerp(tk.prevRoll, tk.roll, alpha);
     }
 }
 
@@ -1234,28 +1233,11 @@ void TankSystem::render() const
         if (sq >= 1 && sq <= 10 && squadTexLoaded[sq])
         {
             if (tk.type < 0)
-            {
                 tex = squadTexDestroyed[sq];
-            }
             else if (tk.damaged)
-            {
                 tex = squadTexDamaged[sq];
-            }
             else
-            {
                 tex = squadTexNormal[sq];
-            }
-        }
-
-        // Подменяем текстуру
-        Model &mdl = const_cast<Model &>(tankModels[tk.baseType]);
-        if (tex.id != 0)
-        {
-            for (int j = 0; j < mdl.materialCount; j++)
-            {
-                mdl.materials[j].maps[MATERIAL_MAP_DIFFUSE].texture = tex;
-                mdl.materials[j].maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-            }
         }
 
         // DBP: position object n, tk#(n,1), tk#(n,2)+3.3, tk#(n,3)
@@ -1304,7 +1286,7 @@ void TankSystem::render() const
         rlRotatef(finalYaw + 180.0f, 0.0f, 1.0f, 0.0f);
         rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
         rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
-        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 24, {200, 200, 200, 255});
+        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 16, {200, 200, 200, 255});
 
         // ============================================
         // СУПЕРПУЛЯ — красное кольцо
@@ -1312,7 +1294,6 @@ void TankSystem::render() const
         // ============================================
         if (tk.type > 0 && tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
         {
-            // BeginBlendMode(BLEND_ADDITIVE);
             //  Внешний радиус кольца (чуть больше тени)
             float outerR = shadowRadius * 2.6f;
             DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {220, 20, 20, 255});
@@ -1324,13 +1305,14 @@ void TankSystem::render() const
         // rlEnableDepthMask();
 
         // танк
-        rlPushMatrix();
-        rlTranslatef(posX, posY, posZ);
-        rlRotatef(finalYaw + 180.0, 0.0f, 1.0f, 0.0f);
-        rlRotatef(finalPitch, 1.0f, 0.0f, 0.0f);
-        rlRotatef(finalRoll, 0.0f, 0.0f, 1.0f);
-        rlScalef(tk.scaleX, tk.scaleY, tk.scaleZ);
+        Matrix transform = MatrixIdentity();
+        transform = MatrixMultiply(transform, MatrixScale(tk.scaleX, tk.scaleY, tk.scaleZ));
+        transform = MatrixMultiply(transform, MatrixRotateZ(finalRoll * DEG2RAD));
+        transform = MatrixMultiply(transform, MatrixRotateX(finalPitch * DEG2RAD));
+        transform = MatrixMultiply(transform, MatrixRotateY((finalYaw + 180.0) * DEG2RAD));
+        transform = MatrixMultiply(transform, MatrixTranslate(posX, posY, posZ));
 
+        const Model &mdl = tankModels[tk.baseType];
         for (int i = 0; i < mdl.meshCount; i++)
         {
             // DBP: hide limb n, fireLimb — меш дула невидим
@@ -1338,10 +1320,15 @@ void TankSystem::render() const
                 continue;
 
             int matIdx = mdl.meshMaterial[i];
-            DrawMesh(mdl.meshes[i], mdl.materials[matIdx], MatrixIdentity());
-        }
+            Material mat = mdl.materials[matIdx];
+            if (tex.id != 0)
+            {
+                mat.maps[MATERIAL_MAP_DIFFUSE].texture = tex;
+                mat.maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
+            }
 
-        rlPopMatrix();
+            DrawMesh(mdl.meshes[i], mat, transform);
+        }
     }
 }
 
@@ -1566,24 +1553,14 @@ void TankSystem::getMuzzleDirection(int n, float &dx, float &dy, float &dz) cons
 {
     const TankData &tk = getTank(n);
 
-    float yaw = tk.yaw;
     float pitch = tk.pitch + sinDeg(tk.walkSine) * 2.0f + tk.shotAngle;
-
     float pitchRad = pitch * DEG2RAD;
     float cosP = cosf(pitchRad);
-    float sinP = sinf(pitchRad);
 
-    dx = sinDeg(yaw) * cosP;
-    dy = sinP;
-    dz = cosDeg(yaw) * cosP;
-
-    float len = sqrtf(dx * dx + dy * dy + dz * dz);
-    if (len > 0.0001f)
-    {
-        dx /= len;
-        dy /= len;
-        dz /= len;
-    }
+    Vector3 norm = Vector3Normalize({sinDeg(tk.yaw) * cosP, sinf(pitchRad), cosDeg(tk.yaw) * cosP});
+    dx = norm.x;
+    dy = norm.y;
+    dz = norm.z;
 }
 
 void TankSystem::hitTank(int attackerId, int targetId, Vector3 bulletPos, float bulletPower, bool isSuperBullet)

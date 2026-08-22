@@ -150,10 +150,11 @@ bool InputSystem::isTurboPressed() const
     {
         c = IsKeyPressed(KEY_RIGHT_CONTROL);
         c = c || IsKeyPressed(KEY_LEFT_CONTROL);
+        c = c || IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
     }
     else
     {
-        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
     }
     return c;
 }
@@ -235,22 +236,21 @@ int InputSystem::getRequestedTank()
             }
         }
     }
-    else
+
+    if (isNextTankPressed())
     {
-        if (isNextTankPressed())
-        {
-            tankSelected++;
-            if (tankSelected > PLAYER_MAX)
-                tankSelected = PLAYER_MAX;
-            return tankSelected;
-        }
-        if (isPrevTankPressed())
-        {
-            tankSelected--;
-            if (tankSelected < PLAYER_MIN)
-                tankSelected = PLAYER_MIN;
-            return tankSelected;
-        }
+        tankSelected++;
+        if (tankSelected > PLAYER_MAX)
+            tankSelected = PLAYER_MAX;
+        return tankSelected;
+    }
+    
+    if (isPrevTankPressed())
+    {
+        tankSelected--;
+        if (tankSelected < PLAYER_MIN)
+            tankSelected = PLAYER_MIN;
+        return tankSelected;
     }
 
     return 0;
@@ -397,6 +397,21 @@ bool InputSystem::isMenuNextPressed() const
     else
     {
         c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT); // Start
+    }
+    return c;
+}
+
+bool InputSystem::isMenuFirePressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_SPACE);
+        c = c || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
     }
     return c;
 }

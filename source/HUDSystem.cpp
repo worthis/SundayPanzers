@@ -241,17 +241,17 @@ void HUDSystem::drawMinimap(const TankSystem &tankSystem, int playerCommander)
         if (tank.type <= 0 || tank.energy <= 0)
             continue;
 
-        float mapX = (GetScreenWidth() - HUDConstants::MINIMAP_X) + tank.x / HUDConstants::MINIMAP_SCALE;
+        float mapX = GetScreenWidth() - tank.x / HUDConstants::MINIMAP_SCALE;
         float mapY = 103.0f - tank.z / HUDConstants::MINIMAP_SCALE;
 
         if (n == playerCommander)
         {
-            float angle = tank.yaw + 90.0f;
+            float angle = -tank.yaw + 90.0f;
             float x2 = mapX - cosf(angle * DEG2RAD) * 7.0f;
             float y2 = mapY - sinf(angle * DEG2RAD) * 7.0f;
 
             Color lineColor = {40, 30, 20, 255};
-            DrawLine(mapX, mapY, x2, y2, lineColor);
+            DrawLine(mapX + 2, mapY + 2, x2, y2, lineColor);
         }
 
         int squadIndex = tank.squadId - 1;

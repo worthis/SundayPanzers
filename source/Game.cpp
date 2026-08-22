@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "GameData.h"
 #include "SortieSystem.h"
+#include "rlgl.h"
 #include <cmath>
 
 Game::Game()
@@ -163,7 +164,7 @@ void Game::UpdateLogoIntro(float dt)
     }
 
     bool skip = input.isMenuNextPressed() ||
-                input.isFirePressed() ||
+                input.isMenuFirePressed() ||
                 input.isTouchPressed();
 
     if (introTimer > 350.0f && skip)
@@ -251,7 +252,7 @@ void Game::UpdateGameIntro(float dt)
     // Камера следит за фейковым танком
     camera.track(introFakeTank, terrain, false);
 
-    bool skip = input.isFirePressed() ||
+    bool skip = input.isMenuFirePressed() ||
                 input.isMenuNextPressed() ||
                 input.isTouchPressed();
 
@@ -268,7 +269,6 @@ void Game::DrawGameIntro()
     ClearBackground(terrain.getBackdropColor());
     BeginMode3D(camera.getCamera());
 
-    camera.applyRange();
     skybox.render();
     terrain.render();
     treeSystem.render();
@@ -404,7 +404,6 @@ void Game::DrawBattleIntro()
     ClearBackground(terrain.getBackdropColor());
     BeginMode3D(camera.getCamera());
 
-    camera.applyRange();
     skybox.render();
     terrain.render();
     treeSystem.render();
@@ -521,19 +520,12 @@ void Game::UpdateBattleEnding(float dt)
     camera.track(introFakeTank, terrain, false);
 
     Camera3D cam = camera.getCamera();
-    Vector3 forward = Vector3Subtract(cam.target, cam.position);
-    float fwdLen = Vector3Length(forward);
-    if (fwdLen > 0.001f)
-    {
-        forward.x /= fwdLen;
-        forward.y /= fwdLen;
-        forward.z /= fwdLen;
-    }
-    audioSystem.setListenerOrientation(camera.getPosition(), forward, cam.up);
+    Vector3 forward = Vector3Normalize(Vector3Subtract(cam.target, cam.position));
+    audioSystem.setListenerOrientation(cam.position, forward, cam.up);
 
     // Выход: если mv>0 и msg>=400
     bool skip = input.isMenuNextPressed() ||
-                input.isFirePressed() ||
+                input.isMenuFirePressed() ||
                 input.isTouchPressed();
 
     if (introTimer >= 400.0f && skip)
@@ -559,7 +551,6 @@ void Game::DrawBattleEnding()
     ClearBackground(terrain.getBackdropColor());
     BeginMode3D(camera.getCamera());
 
-    camera.applyRange();
     skybox.render();
     terrain.render();
     treeSystem.render();
@@ -646,9 +637,8 @@ void Game::initFakeTank()
 void Game::UpdateFakeTankMovement()
 {
     // Расчёт дистанции до цели
-    float dx = introFakeTank.x - introTarget.x;
-    float dz = introFakeTank.z - introTarget.z;
-    float r = sqrtf(dx * dx + dz * dz);
+    float r = Vector2Length({introFakeTank.x - introTarget.x,
+                             introFakeTank.z - introTarget.z});
 
     // if r#<110 or rnd(100)>97 then новая цель
     if (r < 110.0f || GetRandomValue(0, 99) > 97)
@@ -712,7 +702,7 @@ void Game::UpdateFakeTankMovement()
     }
 
     // Движение: f#=0.5+r#/500
-    float f = 0.5f + r / 500.0f;
+    float f = 0.5f + r / 250.0f;
     introFakeTank.x = newXValue(introFakeTank.x, introFakeTank.yaw, f);
     introFakeTank.z = newZValue(introFakeTank.z, introFakeTank.yaw, f);
     introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z) + battleEndingBounce / 10.0f;
@@ -782,6 +772,11 @@ void Game::UpdateBattle(float dt)
     cloudSystem.update(dt);
 
     accumulator += dt;
+    if (accumulator > 0.25f)
+    {
+        accumulator = 0.25f;
+    }
+
     while (accumulator >= FIXED_DT)
     {
         aiSystem.update();
@@ -859,14 +854,7 @@ void Game::UpdateBattle(float dt)
     // ============================================================
     const TankData &playerTank = tankSystem.getTank(playerCommander);
     Camera3D cam = camera.getCamera();
-    Vector3 forward = Vector3Subtract(cam.target, cam.position);
-    float fwdLen = Vector3Length(forward);
-    if (fwdLen > 0.001f)
-    {
-        forward.x /= fwdLen;
-        forward.y /= fwdLen;
-        forward.z /= fwdLen;
-    }
+    Vector3 forward = Vector3Normalize(Vector3Subtract(cam.target, cam.position));
     audioSystem.setListenerOrientation(cam.position, forward, cam.up);
 
     if (!camera.isSlipCamActive())
@@ -920,7 +908,6 @@ void Game::DrawBattle()
     ClearBackground(terrain.getBackdropColor());
     BeginMode3D(camera.getCamera());
 
-    camera.applyRange();
     skybox.render();
     terrain.render();
     treeSystem.render();
@@ -937,7 +924,7 @@ void Game::DrawBattle()
     hudSystem.render(tankSystem, camera.getCamera(), playerCommander, playerPos, showEnemyIDs);
 
     if (battleEnded)
-        DrawTexture(texBattleOver, offsetX - texBattleOver.width * 0.5f, 20, WHITE);
+        DrawTexture(texBattleOver, GetScreenWidth() * 0.5f - texBattleOver.width * 0.5f, 20, WHITE);
 
     if (showDebug)
     {

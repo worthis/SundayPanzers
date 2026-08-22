@@ -379,9 +379,9 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
     };
     auto doAiReset = [&]()
     {
-        if (m_playerTanks[m_selectedBox].type > 0 && m_playerTanks[m_selectedBox].ai == m_maxAI)
+        if (m_playerTanks[m_selectedBox].type > 0)
         {
-            int diff = (m_maxAI - m_minAI) * 2;
+            int diff = (m_playerTanks[m_selectedBox].ai - m_minAI) * 2;
             m_playerTanks[m_selectedBox].ai = m_minAI;
             m_creditsUsed -= diff;
         }
@@ -635,11 +635,12 @@ void MenuSystem::drawBackground3D()
 {
     ClearBackground(m_terrain->getBackdropColor());
     BeginMode3D(m_camera->getCamera());
-    m_camera->applyRange();
+
     m_skybox->render();
     m_terrain->render();
     m_treeSystem->render();
     m_cloudSystem->render();
+    
     EndMode3D();
 }
 

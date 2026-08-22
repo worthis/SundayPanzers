@@ -11,6 +11,8 @@ TankCamera::~TankCamera()
 
 void TankCamera::init(float x, float y, float z)
 {
+    aspect = (float)GetScreenWidth() / GetScreenHeight();
+
     camPos = {x, y, z};
     camera = {};
     camera.fovy = 60.0f;
@@ -18,25 +20,8 @@ void TankCamera::init(float x, float y, float z)
     camera.up = {0.0f, 1.0f, 0.0f};
     camera.position = camPos;
     camera.target = {x, 0.0f, z + 100.0f};
-}
 
-// Устанавливаем дальность отрисовки через низкоуровневые функции rlgl
-// Аналог set camera range 6,7450 в DBP
-void TankCamera::applyRange()
-{
-    float nearPlane = CAMERA_NEAR;
-    float fovy = camera.fovy * DEG2RAD;
-    float aspect = (float)GetScreenWidth() / GetScreenHeight();
-
-    float top = nearPlane * tanf(fovy / 2.0f);
-    float bottom = -top;
-    float right = top * aspect;
-    float left = -right;
-
-    rlMatrixMode(RL_PROJECTION);
-    rlLoadIdentity();
-    rlFrustum(left, right, bottom, top, nearPlane, farPlane);
-    rlMatrixMode(RL_MODELVIEW);
+    rlSetClipPlanes(CAMERA_NEAR, CAMERA_FAR);
 }
 
 // DBP: track(n) — камера следует за танком
@@ -65,9 +50,9 @@ void TankCamera::track(const TankData &tk, const Terrain &terrain, bool rearView
 
     // DBP: инерция камеры
     // cam#(1)=cam#(1)+(tx#-cam#(1))/14
-    camPos.x += (tx - camPos.x) / 14.0f;
-    camPos.y += (ty - camPos.y) / 16.0f;
-    camPos.z += (tz - camPos.z) / 16.0f;
+    camPos.x = Lerp(camPos.x, tx, 1.0f / 14.0f);
+    camPos.y = Lerp(camPos.y, ty, 1.0f / 16.0f);
+    camPos.z = Lerp(camPos.z, tz, 1.0f / 16.0f);
 
     // DBP: position camera / point camera
     camera.position = camPos;
@@ -104,9 +89,8 @@ void TankCamera::updateSlipCam(float dt, const Terrain &terrain, const TankData 
     slipCamTarget = {targetTank.x, 0.0f, targetTank.z};
 
     // Расчёт дистанции до цели
-    float dx = slipCamFakeTank.x - slipCamTarget.x;
-    float dz = slipCamFakeTank.z - slipCamTarget.z;
-    float r = sqrtf(dx * dx + dz * dz);
+    float r = Vector2Length({slipCamFakeTank.x - slipCamTarget.x,
+                             slipCamFakeTank.z - slipCamTarget.z});
 
     if (r < 7.5f)
     {

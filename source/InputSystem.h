@@ -30,6 +30,7 @@ public:
     bool isMenuSpecial2Pressed() const; // Y, Y
     bool isMenuBackPressed() const;     // Esc / Select
     bool isMenuNextPressed() const;     // Enter / Start
+    bool isMenuFirePressed() const;     // MBL, Space / A
 
     // === Действия ===
     bool isToggleIdPressed() const; // T / Y

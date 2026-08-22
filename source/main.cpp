@@ -6,14 +6,15 @@
 
 int main()
 {
-    std::freopen("game_log.txt", "w", stdout);
-    std::freopen("game_log.txt", "a", stderr);
+    if (!std::freopen("game_log.txt", "w", stdout)) {}
+    if (!std::freopen("game_log.txt", "a", stderr)) {}
 
     // Загрузка конфигурации
     ConfigSystem &config = ConfigSystem::instance();
     config.loadSettings("settings.json");
 
     // SetConfigFlags(FLAG_MSAA_4X_HINT);
+    // SetConfigFlags(FLAG_WINDOW_HIGHDPI);
 
     const DisplayConfig &display = config.getDisplayConfig();
 

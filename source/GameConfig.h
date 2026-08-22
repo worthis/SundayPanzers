@@ -9,7 +9,7 @@ constexpr float FIXED_DT = 1.0f / 100.0f;
 #define MAP_SEGMENTS 50
 #define HEIGHTMAP_SIZE 51
 #define CELL_SIZE (MAP_SIZE / MAP_SEGMENTS) // 100.0f
-#define MAP_CENTER (MAP_SIZE / 2.0f)        // 2500.0f
+#define MAP_CENTER (MAP_SIZE * 0.5f)        // 2500.0f
 
 // === Лимиты карты (DBP) ===
 #define MAP_LIMIT_MIN 470.0f // облака

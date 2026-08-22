@@ -2,11 +2,12 @@
 #include <cmath>
 #include <cfloat>
 
+// DBP: rnd(n) → целое от 0 до n-1
 int rnd(int n)
 {
     if (n <= 0)
         return 0;
-    return GetRandomValue(0, n - 1);
+    return rand() % n;
 }
 
 float sinDeg(float ang)
