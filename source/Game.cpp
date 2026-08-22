@@ -163,7 +163,7 @@ void Game::UpdateLogoIntro(float dt)
     }
 
     bool skip = input.isMenuNextPressed() ||
-                input.isFirePressed() ||
+                input.isMenuFirePressed() ||
                 input.isTouchPressed();
 
     if (introTimer > 350.0f && skip)
@@ -251,7 +251,7 @@ void Game::UpdateGameIntro(float dt)
     // Камера следит за фейковым танком
     camera.track(introFakeTank, terrain, false);
 
-    bool skip = input.isFirePressed() ||
+    bool skip = input.isMenuFirePressed() ||
                 input.isMenuNextPressed() ||
                 input.isTouchPressed();
 
@@ -533,7 +533,7 @@ void Game::UpdateBattleEnding(float dt)
 
     // Выход: если mv>0 и msg>=400
     bool skip = input.isMenuNextPressed() ||
-                input.isFirePressed() ||
+                input.isMenuFirePressed() ||
                 input.isTouchPressed();
 
     if (introTimer >= 400.0f && skip)
@@ -712,7 +712,7 @@ void Game::UpdateFakeTankMovement()
     }
 
     // Движение: f#=0.5+r#/500
-    float f = 0.5f + r / 500.0f;
+    float f = 0.5f + r / 250.0f;
     introFakeTank.x = newXValue(introFakeTank.x, introFakeTank.yaw, f);
     introFakeTank.z = newZValue(introFakeTank.z, introFakeTank.yaw, f);
     introFakeTank.y = terrain.getHeight(introFakeTank.x, introFakeTank.z) + battleEndingBounce / 10.0f;
@@ -937,7 +937,7 @@ void Game::DrawBattle()
     hudSystem.render(tankSystem, camera.getCamera(), playerCommander, playerPos, showEnemyIDs);
 
     if (battleEnded)
-        DrawTexture(texBattleOver, offsetX - texBattleOver.width * 0.5f, 20, WHITE);
+        DrawTexture(texBattleOver, GetScreenWidth() * 0.5f - texBattleOver.width * 0.5f, 20, WHITE);
 
     if (showDebug)
     {

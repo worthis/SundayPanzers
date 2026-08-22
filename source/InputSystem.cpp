@@ -153,7 +153,7 @@ bool InputSystem::isTurboPressed() const
     }
     else
     {
-        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
     }
     return c;
 }
@@ -397,6 +397,21 @@ bool InputSystem::isMenuNextPressed() const
     else
     {
         c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT); // Start
+    }
+    return c;
+}
+
+bool InputSystem::isMenuFirePressed() const
+{
+    bool c = false;
+    if (m_mouseEnabled)
+    {
+        c = IsKeyPressed(KEY_SPACE);
+        c = c || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    }
+    else
+    {
+        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
     }
     return c;
 }

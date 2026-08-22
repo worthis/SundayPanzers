@@ -379,9 +379,9 @@ void MenuSystem::updateShop(float mx, float my, bool clicked)
     };
     auto doAiReset = [&]()
     {
-        if (m_playerTanks[m_selectedBox].type > 0 && m_playerTanks[m_selectedBox].ai == m_maxAI)
+        if (m_playerTanks[m_selectedBox].type > 0)
         {
-            int diff = (m_maxAI - m_minAI) * 2;
+            int diff = (m_playerTanks[m_selectedBox].ai - m_minAI) * 2;
             m_playerTanks[m_selectedBox].ai = m_minAI;
             m_creditsUsed -= diff;
         }

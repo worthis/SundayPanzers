@@ -96,7 +96,7 @@ void Skybox::load(int biome)
 
     // Размеры скайбокса (как в DBP)
     sizeX = MAP_SIZE;
-    sizeY = (biome == 6) ? 1680.0f : 1960.0f;
+    sizeY = MAP_CENTER;
     sizeZ = MAP_SIZE;
 
     wall = createPlane(sizeX, sizeY);
