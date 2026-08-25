@@ -1,10 +1,10 @@
 #pragma once
+#include "GameConfig.h"
+#include "GameData.h"
+#include "Terrain.h"
 #include "raylib.h"
 #include "rlgl.h"
 #include "raymath.h"
-#include "GameConfig.h"
-#include "TankSystem.h"
-#include "Terrain.h"
 
 class TankCamera
 {
@@ -17,6 +17,8 @@ public:
 
     Camera3D getCamera() const { return camera; }
     Vector3 getPosition() const { return camPos; }
+
+    bool isObjectVisible(Vector3 position, float radius) const;
 
     void startSlipCam(const TankData &fromTank, const TankData &toTank);
     void updateSlipCam(float dt, const Terrain &terrain, const TankData &targetTank);
@@ -33,6 +35,8 @@ private:
     Vector3 camPos = {MAP_CENTER, 1000, MAP_CENTER};
 
     float aspect;
+    float tanHalfDiagFov;
+    Vector3 camForward = Vector3Zero();
 
     // SlipCam state
     bool slipCamActive = false;

@@ -1210,124 +1210,20 @@ void TankSystem::interpolate(float alpha)
     }
 }
 
-void TankSystem::render() const
+void TankSystem::render(const TankCamera &camera) const
 {
-    for (int n = 1; n <= OBJECTS_MAX; n++)
+    for (int n = PLAYER_MIN; n <= COMBAT_MAX; n++)
     {
+        if (n <= TANKS_MAX)
+        {
+            renderTank(n, camera);
+            continue;
+        }
+
         if (n >= EXTRA_MIN && n <= EXTRA_MAX)
         {
-            renderExtra(n);
+            renderExtra(n, camera);
             continue;
-        }
-
-        const TankData &tk = tanks[n];
-        if (tk.type == 0)
-            continue;
-
-        if (!modelsLoaded[tk.baseType])
-            continue;
-
-        // Выбираем текстуру по состоянию
-        Texture2D tex = {};
-        int sq = tk.squadId;
-        if (sq >= 1 && sq <= 10 && squadTexLoaded[sq])
-        {
-            if (tk.type < 0)
-                tex = squadTexDestroyed[sq];
-            else if (tk.damaged)
-                tex = squadTexDamaged[sq];
-            else
-                tex = squadTexNormal[sq];
-        }
-
-        // DBP: position object n, tk#(n,1), tk#(n,2)+3.3, tk#(n,3)
-        float posX = tk.interpX;
-        float posY = tk.interpY + 3.3f;
-        float posZ = tk.interpZ;
-
-        // DBP: walk effect
-        float walkPitch = sinDeg(tk.walkSine) * 2.0f;
-        float spinRoll = tk.spin * 3.0f;
-
-        // DBP: bounce effects
-        float hg = terrain ? terrain->getHeight(posX, posZ) : 0.0f;
-        float rbounce = (hg - posY) * tk.bounceRoll / 1.5f;
-        float hbounce = (hg - posY) * tk.bouncePitch;
-
-        float finalPitch = tk.interpPitch + walkPitch - hbounce / 10.0f;
-        float finalRoll = tk.interpRoll + rbounce / 10.0f + spinRoll;
-        float finalYaw = tk.interpYaw;
-
-        // ============================================
-        // ТЕНЬ — используем ТЕ ЖЕ интерполированные координаты
-        // DBP: position object 200+n, tk#(n,1), hg#+3.5, tk#(n,3)
-        // turn/pitch/roll такие же как у танка
-        // ============================================
-        float shadowY = hg + 3.5f;
-
-        // Уменьшение тени с высотой (для летающих танков)
-        float height = tk.interpY - hg;
-        float shScale = 1.0f;
-        if (height > 1.0f)
-        {
-            shScale = 1.0f / (1.0f + height / 200.0f);
-            if (shScale < 0.2f)
-                shScale = 0.2f;
-        }
-        float shadowRadius = tk.collisionRange * shScale * 1.25f;
-        if (shadowRadius < 10.0f)
-            shadowRadius = 10.0f;
-
-        // rlDisableDepthMask();
-        // rlDisableDepthTest();
-        BeginBlendMode(BLEND_MULTIPLIED);
-        rlPushMatrix();
-        rlTranslatef(tk.interpX, shadowY, tk.interpZ);
-        rlRotatef(finalYaw + 180.0f, 0.0f, 1.0f, 0.0f);
-        rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
-        rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
-        DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 16, {200, 200, 200, 255});
-
-        // ============================================
-        // СУПЕРПУЛЯ — красное кольцо
-        // DBP: show limb 200+n,1 if tk#(n,51)>0
-        // ============================================
-        if (tk.type > 0 && tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
-        {
-            //  Внешний радиус кольца (чуть больше тени)
-            float outerR = shadowRadius * 2.6f;
-            DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {220, 20, 20, 255});
-        }
-
-        rlPopMatrix();
-        EndBlendMode();
-        // rlEnableDepthTest();
-        // rlEnableDepthMask();
-
-        // танк
-        Matrix transform = MatrixIdentity();
-        transform = MatrixMultiply(transform, MatrixScale(tk.scaleX, tk.scaleY, tk.scaleZ));
-        transform = MatrixMultiply(transform, MatrixRotateZ(finalRoll * DEG2RAD));
-        transform = MatrixMultiply(transform, MatrixRotateX(finalPitch * DEG2RAD));
-        transform = MatrixMultiply(transform, MatrixRotateY((finalYaw + 180.0) * DEG2RAD));
-        transform = MatrixMultiply(transform, MatrixTranslate(posX, posY, posZ));
-
-        const Model &mdl = tankModels[tk.baseType];
-        for (int i = 0; i < mdl.meshCount; i++)
-        {
-            // DBP: hide limb n, fireLimb — меш дула невидим
-            if (i == mdl.meshCount - tk.fireLimb)
-                continue;
-
-            int matIdx = mdl.meshMaterial[i];
-            Material mat = mdl.materials[matIdx];
-            if (tex.id != 0)
-            {
-                mat.maps[MATERIAL_MAP_DIFFUSE].texture = tex;
-                mat.maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-            }
-
-            DrawMesh(mdl.meshes[i], mat, transform);
         }
     }
 }
@@ -1338,34 +1234,150 @@ void TankSystem::render() const
 // Сфера симметрична, рисуется в мировых координатах
 // (pitch/roll тени не применяются — сфера вокруг корпуса танка)
 // ============================================
-void TankSystem::renderShields() const
+void TankSystem::renderShields(const TankCamera &camera) const
 {
     for (int n = PLAYER_MIN; n <= TANKS_MAX; n++)
     {
         const TankData &tk = tanks[n];
-        if (tk.type <= 0)
+        if (tk.type <= 0 ||
+            tk.barrierCounter <= 0)
             continue;
 
-        if (tk.barrierCounter > 0)
+        // Центр сферы — центр корпуса танка
+        Vector3 center = {tk.interpX,
+                          tk.interpY + tk.collisionHeight,
+                          tk.interpZ};
+
+        if (!camera.isObjectVisible(center, tk.collisionRange))
+            return;
+
+        // Радиус: чуть больше collisionRange танка
+        float sphereR = tk.collisionRange * 1.8f;
+        if (sphereR < 20.0f)
+            sphereR = 20.0f;
+
+        BeginBlendMode(BLEND_ALPHA);
+        rlDisableDepthMask();
+        DrawSphere(center, sphereR, {100, 200, 255, 60});
+        // DrawSphereWires(center, sphereR + 0.125f, 12, 12, {150, 220, 255, 150});
+        rlEnableDepthMask();
+        EndBlendMode();
+    }
+}
+
+void TankSystem::renderTank(int n, const TankCamera &camera) const
+{
+    const TankData &tk = tanks[n];
+    if (tk.type == 0)
+        return;
+
+    if (!modelsLoaded[tk.baseType])
+        return;
+
+    // DBP: position object n, tk#(n,1), tk#(n,2)+3.3, tk#(n,3)
+    float posX = tk.interpX;
+    float posY = tk.interpY + 3.3f;
+    float posZ = tk.interpZ;
+
+    if (!camera.isObjectVisible({posX, posY + tk.collisionHeight, posZ}, tk.collisionRange))
+        return;
+
+    // DBP: walk effect
+    float walkPitch = sinDeg(tk.walkSine) * 2.0f;
+    float spinRoll = tk.spin * 3.0f;
+
+    // DBP: bounce effects
+    float hg = terrain ? terrain->getHeight(posX, posZ) : 0.0f;
+    float rbounce = (hg - posY) * tk.bounceRoll / 1.5f;
+    float hbounce = (hg - posY) * tk.bouncePitch;
+
+    float finalPitch = tk.interpPitch + walkPitch - hbounce / 10.0f;
+    float finalRoll = tk.interpRoll + rbounce / 10.0f + spinRoll;
+    float finalYaw = tk.interpYaw;
+
+    // ============================================
+    // ТЕНЬ — используем ТЕ ЖЕ интерполированные координаты
+    // DBP: position object 200+n, tk#(n,1), hg#+3.5, tk#(n,3)
+    // turn/pitch/roll такие же как у танка
+    // ============================================
+    float shadowY = hg + 3.5f;
+
+    // Уменьшение тени с высотой (для летающих танков)
+    float height = tk.interpY - hg;
+    float shScale = 1.0f;
+    if (height > 1.0f)
+    {
+        shScale = 1.0f / (1.0f + height / 200.0f);
+        if (shScale < 0.2f)
+            shScale = 0.2f;
+    }
+    float shadowRadius = tk.collisionRange * shScale * 1.25f;
+    if (shadowRadius < 10.0f)
+        shadowRadius = 10.0f;
+
+    // rlDisableDepthMask();
+    // rlDisableDepthTest();
+    BeginBlendMode(BLEND_MULTIPLIED);
+    rlPushMatrix();
+    rlTranslatef(tk.interpX, shadowY, tk.interpZ);
+    rlRotatef(finalYaw + 180.0f, 0.0f, 1.0f, 0.0f);
+    rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
+    rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);
+    DrawCylinder({0, 0, 0}, shadowRadius, shadowRadius, 0.1f, 16, {200, 200, 200, 255});
+
+    // ============================================
+    // СУПЕРПУЛЯ — красное кольцо
+    // DBP: show limb 200+n,1 if tk#(n,51)>0
+    // ============================================
+    if (tk.type > 0 && tk.superBulletCounter > 0 && superBulletPUPModelLoaded)
+    {
+        //  Внешний радиус кольца (чуть больше тени)
+        float outerR = shadowRadius * 2.6f;
+        DrawModelEx(superBulletPUPModel, {0, 0, 0}, {1, 0, 0}, -90.0f, {outerR, outerR, 0.1f}, {220, 20, 20, 255});
+    }
+
+    rlPopMatrix();
+    EndBlendMode();
+    // rlEnableDepthTest();
+    // rlEnableDepthMask();
+
+    // танк
+    Matrix transform = MatrixIdentity();
+    transform = MatrixMultiply(transform, MatrixScale(tk.scaleX, tk.scaleY, tk.scaleZ));
+    transform = MatrixMultiply(transform, MatrixRotateZ(finalRoll * DEG2RAD));
+    transform = MatrixMultiply(transform, MatrixRotateX(finalPitch * DEG2RAD));
+    transform = MatrixMultiply(transform, MatrixRotateY((finalYaw + 180.0) * DEG2RAD));
+    transform = MatrixMultiply(transform, MatrixTranslate(posX, posY, posZ));
+
+    // Выбираем текстуру по состоянию
+    Texture2D tex = {};
+    int sq = tk.squadId;
+    if (sq >= 1 && sq <= 10 && squadTexLoaded[sq])
+    {
+        if (tk.type < 0)
+            tex = squadTexDestroyed[sq];
+        else if (tk.damaged)
+            tex = squadTexDamaged[sq];
+        else
+            tex = squadTexNormal[sq];
+    }
+
+    const Model &mdl = tankModels[tk.baseType];
+    for (int i = 0; i < mdl.meshCount; i++)
+    {
+        // DBP: hide limb n, fireLimb — меш дула невидим
+        if (i == mdl.meshCount - tk.fireLimb)
+            continue;
+
+        int matIdx = mdl.meshMaterial[i];
+        Material mat = mdl.materials[matIdx];
+        if (tex.id != 0)
         {
-            // Радиус: чуть больше collisionRange танка
-            float sphereR = tk.collisionRange * 1.8f;
-            if (sphereR < 20.0f)
-                sphereR = 20.0f;
-
-            // Центр сферы — центр корпуса танка
-            Vector3 center = {
-                tk.interpX,
-                tk.interpY + tk.collisionHeight,
-                tk.interpZ};
-
-            BeginBlendMode(BLEND_ALPHA);
-            rlDisableDepthMask();
-            DrawSphere(center, sphereR, {100, 200, 255, 60});
-            // DrawSphereWires(center, sphereR + 0.125f, 12, 12, {150, 220, 255, 150});
-            rlEnableDepthMask();
-            EndBlendMode();
+            mat.maps[MATERIAL_MAP_DIFFUSE].texture = tex;
+            mat.maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
         }
+
+        DrawMesh(mdl.meshes[i], mat, transform);
     }
 }
 
@@ -1373,7 +1385,7 @@ void TankSystem::renderShields() const
 // Рендер extra: тень + модель с анимацией + переворот мёртвых
 // Вызывать в main.cpp ПОСЛЕ tankSystem.render()
 // ============================================================
-void TankSystem::renderExtra(int n) const
+void TankSystem::renderExtra(int n, const TankCamera &camera) const
 {
     if (n < EXTRA_MIN || n > EXTRA_MAX)
         return;
@@ -1388,12 +1400,16 @@ void TankSystem::renderExtra(int n) const
         return;
 
     float groundH = terrain ? terrain->getHeight(tk.interpX, tk.interpZ) : tk.interpY;
+    groundH += 1.0f;
 
     // DBP: flipcow#=0:slop#=0
     //      if n>45 and tk#(n,0)<0 then flipcow#=180:slop#=20
     bool dead = (tk.type < 0);
     float flipRoll = dead ? 180.0f : 0.0f;
     float slop = dead ? 24.0f : 0.0f;
+
+    if (!camera.isObjectVisible({tk.interpX, tk.interpY + slop + 1.0f, tk.interpZ}, tk.collisionRange))
+        return;
 
     if (!dead)
     {
@@ -1405,7 +1421,7 @@ void TankSystem::renderExtra(int n) const
         // rlDisableDepthMask();
         BeginBlendMode(BLEND_MULTIPLIED);
         rlPushMatrix();
-        rlTranslatef(tk.interpX, groundH + 1.0f, tk.interpZ);
+        rlTranslatef(tk.interpX, groundH, tk.interpZ);
         rlRotatef(tk.interpYaw + 180.0f, 0.0f, 1.0f, 0.0f);
         rlRotatef(tk.interpPitch, 1.0f, 0.0f, 0.0f);
         rlRotatef(tk.interpRoll, 0.0f, 0.0f, 1.0f);

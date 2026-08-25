@@ -408,7 +408,7 @@ void Game::DrawBattleIntro()
     terrain.render();
     treeSystem.render();
     cloudSystem.render();
-    tankSystem.render();
+    tankSystem.render(camera);
 
     EndMode3D();
 
@@ -555,10 +555,10 @@ void Game::DrawBattleEnding()
     terrain.render();
     treeSystem.render();
     cloudSystem.render();
-    tankSystem.render();
+    tankSystem.render(camera);
     powerUpSystem.render();
     bulletSystem.render();
-    tankSystem.renderShields();
+    tankSystem.renderShields(camera);
 
     EndMode3D();
 
@@ -912,10 +912,10 @@ void Game::DrawBattle()
     terrain.render();
     treeSystem.render();
     cloudSystem.render();
-    tankSystem.render();
+    tankSystem.render(camera);
     powerUpSystem.render();
     bulletSystem.render();
-    tankSystem.renderShields();
+    tankSystem.renderShields(camera);
 
     EndMode3D();
 

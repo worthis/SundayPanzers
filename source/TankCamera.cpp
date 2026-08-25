@@ -22,6 +22,8 @@ void TankCamera::init(float x, float y, float z)
     camera.target = {x, 0.0f, z + 100.0f};
 
     rlSetClipPlanes(CAMERA_NEAR, CAMERA_FAR);
+
+    tanHalfDiagFov = tanf(camera.fovy * DEG2RAD * 0.5f) * sqrtf(1.0f + aspect * aspect);
 }
 
 // DBP: track(n) — камера следует за танком
@@ -57,6 +59,8 @@ void TankCamera::track(const TankData &tk, const Terrain &terrain, bool rearView
     // DBP: position camera / point camera
     camera.position = camPos;
     camera.target = {tk.interpX, tk.interpY + 30.0f, tk.interpZ};
+
+    camForward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
 }
 
 void TankCamera::startSlipCam(const TankData &fromTank, const TankData &toTank)
@@ -136,4 +140,32 @@ void TankCamera::updateSlipCam(float dt, const Terrain &terrain, const TankData 
 
     // Камера следует за фейковым танком
     track(slipCamFakeTank, terrain, false);
+}
+
+bool TankCamera::isObjectVisible(Vector3 position, float radius) const
+{
+    Vector3 toTank = Vector3Subtract(position, camera.position);
+    float dist = Vector3Length(toTank);
+
+    if (dist > 0.001f)
+    {
+        // Расстояние вдоль оси камеры (проекция)
+        float projDist = Vector3DotProduct(toTank, camForward);
+
+        // Танк позади камеры — отсечь сразу
+        if (projDist <= 0.0f)
+            return false;
+
+        // Перпендикулярное расстояние от центра танка до оси камеры
+        // Используем теорему Пифагора: dist² = projDist² + perpDist²
+        float perpDistSq = dist * dist - projDist * projDist;
+        float coneRadius = projDist * tanHalfDiagFov; // Радиус конуса обзора на расстоянии танка
+        float expandedRadius = coneRadius + radius;   // Расширяем радиус конуса на радиус танка
+
+        // Если танк полностью вне конуса — отсечь
+        if (perpDistSq > expandedRadius * expandedRadius)
+            return false;
+    }
+
+    return true;
 }
