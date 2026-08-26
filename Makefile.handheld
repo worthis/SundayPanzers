@@ -1,0 +1,68 @@
+# =============================================================
+# Makefile.handheld — сборка и упаковка PortMaster для Linux-консолей
+#
+# Внутри контейнера : make -f Makefile.handheld
+# С хоста           : make -f Makefile.handheld image
+#                     make -f Makefile.handheld docker
+# =============================================================
+
+CXX    := g++
+RAYLIB := /opt/raylib/linux
+
+BUILD_DIR := build/handheld
+DIST_DIR  := dist
+PORT_NAME := sundaypanzers
+BIN_NAME  := sunday_panzers
+
+CPP_SOURCES := $(shell find source -name '*.cpp')
+C_SOURCES   := $(shell find source -name '*.c')
+
+CXXFLAGS := -std=c++17 -O2 -Wall -Isource -Isource/third_party -I$(RAYLIB)/include
+LDFLAGS  := -L$(RAYLIB)/lib -lraylib \
+            -lSDL2 -lGLESv2 -lEGL \
+            -lm -lpthread -ldl \
+            -static-libstdc++ -static-libgcc
+
+IMAGE := sundaypanzers-handheld
+
+.PHONY: all build pack portmaster clean image docker
+
+all: build pack portmaster
+
+# === Сборка ===
+build:
+	@echo "==> Building for Linux handhelds (aarch64)..."
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(CPP_SOURCES) $(C_SOURCES) -o $(BUILD_DIR)/$(BIN_NAME) $(LDFLAGS)
+	@echo "==> Done: $(BUILD_DIR)/$(BIN_NAME)"
+
+# === Копирование ассетов ===
+pack:
+	@echo "==> Copying assets to $(BUILD_DIR)/data..."
+	@rm -rf $(BUILD_DIR)/data
+	@cp -r data $(BUILD_DIR)/data
+	@echo "    [OK] data copied"
+
+# === Пакет PortMaster ===
+portmaster:
+	@echo "==> Packaging PortMaster bundle..."
+	@test -f scripts/$(PORT_NAME).sh || { echo "    [!] scripts/$(PORT_NAME).sh not found"; exit 1; }
+	@rm -rf $(DIST_DIR)/$(PORT_NAME)
+	@mkdir -p $(DIST_DIR)/$(PORT_NAME)/$(PORT_NAME)
+	@cp $(BUILD_DIR)/$(BIN_NAME) $(DIST_DIR)/$(PORT_NAME)/$(PORT_NAME)/
+	@[ -d libs ] && cp -r libs $(DIST_DIR)/$(PORT_NAME)/$(PORT_NAME)/libs || true
+	@[ -f $(BUILD_DIR)/data.zip ] && cp $(BUILD_DIR)/data.zip $(DIST_DIR)/$(PORT_NAME)/$(PORT_NAME)/ || true
+	@cp scripts/$(PORT_NAME).sh $(DIST_DIR)/$(PORT_NAME)/$(PORT_NAME).sh
+	@chmod +x $(DIST_DIR)/$(PORT_NAME)/$(PORT_NAME).sh
+	@cd $(DIST_DIR) && zip -qr $(PORT_NAME).portmaster.zip $(PORT_NAME)
+	@echo "==> Ready: $(DIST_DIR)/$(PORT_NAME).portmaster.zip"
+
+# === Docker ===
+image:
+	docker build -t $(IMAGE) -f Dockerfile.handheld .
+
+docker:
+	docker run --rm -v $(CURDIR):/work -w /work $(IMAGE) make -f Makefile.handheld
+
+clean:
+	@rm -rf $(BUILD_DIR) $(DIST_DIR)/$(PORT_NAME) $(DIST_DIR)/$(PORT_NAME).portmaster.zip

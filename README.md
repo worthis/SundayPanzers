@@ -66,6 +66,27 @@ make switch
 # copy contents of build/switch/ to sdmc:/switch/SundayPanzers/
 ```
 
+### Linux Handhelds (not finished)
+
+```bash
+# build docker image
+docker build --platform linux/arm64 -t sundaypanzers-handheld -f Dockerfile.handheld .
+
+# build and pack
+docker run --platform linux/arm64 --rm -v ${pwd}:/workspace -w /workspace sundaypanzers-handheld make -f makefile.handheld build pack
+
+# build portmaster pack
+docker run --platform linux/arm64 --rm -v ${pwd}:/workspace -w /workspace sundaypanzers-handheld make -f makefile.handheld portmaster
+
+# build all
+docker run --platform linux/arm64 --rm -v ${pwd}:/workspace -w /workspace sundaypanzers-handheld make -f makefile.handheld
+
+# clean
+docker run --platform linux/arm64 --rm -v ${pwd}:/workspace -w /workspace sundaypanzers-handheld make -f makefile.handheld clean
+
+# copy contents of build/handheld/ to your SDCARD, maintaining the folder structure of your CFW
+```
+
 ## License
 
 - **Port source code** (`source/`) is licensed under the [MIT License](LICENSE).

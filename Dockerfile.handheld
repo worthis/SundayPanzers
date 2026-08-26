@@ -1,0 +1,43 @@
+FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1. Базовые инструменты + SDL2/GLES (нативные ARM64-пакеты под --platform linux/arm64)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        cmake \
+        wget \
+        zip \
+        python3 \
+        pkg-config \
+        ca-certificates \
+        libsdl2-dev \
+        libgles2-mesa-dev \
+        libegl1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. CMake 3.28 — raylib master требует CMake >= 3.22
+RUN wget -q https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-aarch64.tar.gz -O /tmp/cmake.tar.gz && \
+    tar -xzf /tmp/cmake.tar.gz -C /opt && \
+    ln -sf /opt/cmake-3.28.3-linux-aarch64/bin/cmake /usr/local/bin/cmake && \
+    ln -sf /opt/cmake-3.28.3-linux-aarch64/bin/ctest /usr/local/bin/ctest && \
+    rm -f /tmp/cmake.tar.gz && \
+    cmake --version
+
+# 3. Raylib (SDL + OpenGL ES 2.0) — нативная сборка под ARM64
+RUN git clone https://github.com/raysan5/raylib.git /tmp/raylib && \
+    cd /tmp/raylib && \
+    git checkout caadb48e259028233515777a3e6402040c497309 && \
+    mkdir build && cd build && \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DUSE_AUDIO=ON \
+        -DPLATFORM=SDL \
+        -DOPENGL_VERSION="ES 2.0" \
+        -DCMAKE_INSTALL_PREFIX=/opt/raylib/linux && \
+    cmake --build . -j"$(nproc)" && \
+    cmake --install . && \
+    rm -rf /tmp/raylib
+
+WORKDIR /workspace
