@@ -65,7 +65,6 @@ private:
     void drawImage(Texture2D tex, float x, float y) const;
     void drawImageAlpha(Texture2D tex, float x, float y, unsigned char alpha) const;
     void drawDigits(int value, float x, float y) const;
-    bool gamepadPressed(std::initializer_list<int> buttons) const;
 
     // Assets
     void loadAssets();

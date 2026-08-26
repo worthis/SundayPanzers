@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "GameConfig.h"
+#include "ConfigSystem.h"
 #include <initializer_list>
 
 class InputSystem
@@ -44,20 +45,14 @@ public:
     Vector2 getMousePosition() const { return m_mousePos; }
     bool isMouseLeftPressed() const { return m_mouseLeftPressed; }
 
-    // === Геймпад ===
-    bool isGamepadAvailable() const;
-    bool isGamepadConnected() const;
-    bool isGamepadButtonDown(int button) const;
-    bool isGamepadButtonJustPressed(int button) const;
-    bool isGamepadAnyPressed(std::initializer_list<int> buttons) const;
-
     // === Тач ===
     bool isTouchPressed() const { return m_touchPressed; }
     Vector2 getTouchPosition() const { return m_touchPos; }
 
 private:
     static constexpr float DEADZONE = 0.15f;
-    static constexpr int MAX_GAMEPAD_BUTTONS = 32;
+
+    ConfigSystem &config = ConfigSystem::instance();
 
     float tankX = 0.0f, tankY = 0.0f;
     int tankSelected = 0;
@@ -80,9 +75,4 @@ private:
     };
     StickDirection m_prevLStickDir = StickDirection::None;
     StickDirection m_currLStickDir = StickDirection::None;
-
-    bool m_gamepadDown[MAX_GAMEPAD_BUTTONS] = {};     // текущее состояние
-    bool m_gamepadPrevDown[MAX_GAMEPAD_BUTTONS] = {}; // предыдущий кадр
-
-    void updateGamepadState();
 };

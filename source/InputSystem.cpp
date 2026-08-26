@@ -1,5 +1,79 @@
 #include "InputSystem.h"
+#include "InputMappings.h"
 #include <cmath>
+
+// Вспомогательные функции для проверки нажатия клавиш
+static bool isAnyKeyDown(const std::vector<int> &keys)
+{
+    for (int key : keys)
+    {
+        if (IsKeyDown(key))
+            return true;
+    }
+
+    return false;
+}
+
+static bool isAnyKeyPressed(const std::vector<int> &keys)
+{
+    for (int key : keys)
+    {
+        if (IsKeyPressed(key))
+            return true;
+    }
+
+    return false;
+}
+
+static bool isAnyMouseButtonDown(const std::vector<int> &buttons)
+{
+    for (int btn : buttons)
+    {
+        if (IsMouseButtonDown(btn))
+            return true;
+    }
+
+    return false;
+}
+
+static bool isAnyMouseButtonPressed(const std::vector<int> &buttons)
+{
+    for (int btn : buttons)
+    {
+        if (IsMouseButtonPressed(btn))
+            return true;
+    }
+
+    return false;
+}
+
+static bool isAnyGamepadButtonDown(const std::vector<int> &buttons)
+{
+    if (!IsGamepadAvailable(0))
+        return false;
+
+    for (int btn : buttons)
+    {
+        if (IsGamepadButtonDown(0, btn))
+            return true;
+    }
+
+    return false;
+}
+
+static bool isAnyGamepadButtonPressed(const std::vector<int> &buttons)
+{
+    if (!IsGamepadAvailable(0))
+        return false;
+
+    for (int btn : buttons)
+    {
+        if (IsGamepadButtonPressed(0, btn))
+            return true;
+    }
+
+    return false;
+}
 
 InputSystem::InputSystem()
 {
@@ -10,19 +84,14 @@ void InputSystem::update()
     tankX = 0.0f;
     tankY = 0.0f;
 
+    const InputConfig &keys = config.getInputConfig();
+
     // Приналичии геймпада отключаем ввод клавиатурой/мышью
     if (IsGamepadAvailable(0))
     {
         m_mouseEnabled = false;
         m_mousePos = {0.0f, 0.0f};
         m_mouseLeftPressed = false;
-
-        // Сохраняем предыдущее состояние
-        for (int i = 0; i < MAX_GAMEPAD_BUTTONS; i++)
-            m_gamepadPrevDown[i] = m_gamepadDown[i];
-
-        // Читаем текущее состояние всех кнопок геймпада
-        updateGamepadState();
 
         // Тач
         int touchCount = GetTouchPointCount();
@@ -60,13 +129,13 @@ void InputSystem::update()
         }
 
         // D-pad
-        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_LEFT))
+        if (isAnyGamepadButtonDown(keys.tankLeft.gamepad))
             tankX += 1.0f;
-        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_RIGHT))
+        if (isAnyGamepadButtonDown(keys.tankRight.gamepad))
             tankX -= 1.0f;
-        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_UP))
+        if (isAnyGamepadButtonDown(keys.tankForward.gamepad))
             tankY -= 1.0f;
-        if (isGamepadButtonDown(GAMEPAD_BUTTON_LEFT_FACE_DOWN))
+        if (isAnyGamepadButtonDown(keys.tankBackward.gamepad))
             tankY += 1.0f;
     }
     else
@@ -75,22 +144,13 @@ void InputSystem::update()
         m_mousePos = GetMousePosition();
         m_mouseLeftPressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 
-        if (IsKeyDown(KEY_A))
+        if (isAnyKeyDown(keys.tankLeft.keyboard))
             tankX += 1.0f;
-        if (IsKeyDown(KEY_D))
+        if (isAnyKeyDown(keys.tankRight.keyboard))
             tankX -= 1.0f;
-        if (IsKeyDown(KEY_W))
+        if (isAnyKeyDown(keys.tankForward.keyboard))
             tankY -= 1.0f;
-        if (IsKeyDown(KEY_S))
-            tankY += 1.0f;
-
-        if (IsKeyDown(KEY_LEFT))
-            tankX += 1.0f;
-        if (IsKeyDown(KEY_RIGHT))
-            tankX -= 1.0f;
-        if (IsKeyDown(KEY_UP))
-            tankY -= 1.0f;
-        if (IsKeyDown(KEY_DOWN))
+        if (isAnyKeyDown(keys.tankBackward.keyboard))
             tankY += 1.0f;
     }
 
@@ -115,104 +175,107 @@ bool InputSystem::isTankMoved() const
 
 bool InputSystem::isFirePressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyDown(KEY_SPACE);
-        c = c || IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+        return isAnyKeyDown(keys.fire.keyboard) ||
+               isAnyMouseButtonDown(keys.fire.mouse);
     }
     else
     {
-        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
+        return isAnyGamepadButtonDown(keys.fire.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isRearViewPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyDown(KEY_RIGHT_ALT);
-        c = c || IsKeyDown(KEY_LEFT_ALT);
+        return isAnyKeyDown(keys.rearView.keyboard) ||
+               isAnyMouseButtonDown(keys.rearView.mouse);
     }
     else
     {
-        c = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_UP); // X
+        return isAnyGamepadButtonDown(keys.rearView.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isTurboPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_RIGHT_CONTROL);
-        c = c || IsKeyPressed(KEY_LEFT_CONTROL);
-        c = c || IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
+        return isAnyKeyPressed(keys.turbo.keyboard) ||
+               isAnyMouseButtonPressed(keys.turbo.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
+        return isAnyGamepadButtonPressed(keys.turbo.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isToggleIdPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_T);
+        return isAnyKeyPressed(keys.toggleId.keyboard) ||
+               isAnyMouseButtonPressed(keys.toggleId.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // Y
+        return isAnyGamepadButtonPressed(keys.toggleId.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isNextTankPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_E);
+        return isAnyKeyPressed(keys.nextTank.keyboard) ||
+               isAnyMouseButtonPressed(keys.nextTank.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1); // R1
+        return isAnyGamepadButtonPressed(keys.nextTank.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isPrevTankPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_Q);
+        return isAnyKeyPressed(keys.prevTank.keyboard) ||
+               isAnyMouseButtonPressed(keys.prevTank.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1); // L1
+        return isAnyGamepadButtonPressed(keys.prevTank.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isQuitPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_ESCAPE);
+        return isAnyKeyPressed(keys.quit.keyboard) ||
+               isAnyMouseButtonPressed(keys.quit.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_MIDDLE_LEFT); // Select
+        return isAnyGamepadButtonPressed(keys.quit.gamepad);
     }
-    return c;
 }
 
 void InputSystem::setTankSelected(int t)
@@ -244,7 +307,7 @@ int InputSystem::getRequestedTank()
             tankSelected = PLAYER_MAX;
         return tankSelected;
     }
-    
+
     if (isPrevTankPressed())
     {
         tankSelected--;
@@ -259,127 +322,126 @@ int InputSystem::getRequestedTank()
 // === Меню ===
 bool InputSystem::isMenuLeftPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_LEFT);
-        c = c || IsKeyPressed(KEY_A);
+        return isAnyKeyPressed(keys.menuLeft.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuLeft.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_2);                            // L2
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_LEFT);                       // D-pad left
-        c = c || (m_currLStickDir == StickDirection::Left && m_prevLStickDir != m_currLStickDir); // LS left
+        return isAnyGamepadButtonPressed(keys.menuLeft.gamepad) ||
+               (m_currLStickDir == StickDirection::Left && m_prevLStickDir != m_currLStickDir); // LS left
     }
-    return c;
 }
 
 bool InputSystem::isMenuRightPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_RIGHT);
-        c = c || IsKeyPressed(KEY_D);
+        return isAnyKeyPressed(keys.menuRight.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuRight.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_2);                            // R2
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_RIGHT);                       // D-pad right
-        c = c || (m_currLStickDir == StickDirection::Right && m_prevLStickDir != m_currLStickDir); // LS right
+        return isAnyGamepadButtonPressed(keys.menuRight.gamepad) ||
+               (m_currLStickDir == StickDirection::Right && m_prevLStickDir != m_currLStickDir); // LS right
     }
-    return c;
 }
 
 bool InputSystem::isMenuUpPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_UP);
-        c = c || IsKeyPressed(KEY_W);
+        return isAnyKeyPressed(keys.menuUp.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuUp.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_TRIGGER_1);                          // L1
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_UP);                       // D-pad up
-        c = c || (m_currLStickDir == StickDirection::Up && m_prevLStickDir != m_currLStickDir); // LS up
+        return isAnyGamepadButtonPressed(keys.menuUp.gamepad) ||
+               (m_currLStickDir == StickDirection::Up && m_prevLStickDir != m_currLStickDir); // LS up
     }
-    return c;
 }
 
 bool InputSystem::isMenuDownPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_DOWN);
-        c = c || IsKeyPressed(KEY_S);
+        return isAnyKeyPressed(keys.menuDown.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuDown.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_TRIGGER_1);                           // R1
-        c = c || isGamepadButtonJustPressed(GAMEPAD_BUTTON_LEFT_FACE_DOWN);                       // D-pad down
-        c = c || (m_currLStickDir == StickDirection::Down && m_prevLStickDir != m_currLStickDir); // LS down
+        return isAnyGamepadButtonPressed(keys.menuDown.gamepad) ||
+               (m_currLStickDir == StickDirection::Down && m_prevLStickDir != m_currLStickDir); // LS down
     }
-    return c;
 }
 
 bool InputSystem::isMenuConfirmPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_ENTER);
-        c = c || IsKeyPressed(KEY_SPACE);
+        return isAnyKeyPressed(keys.menuConfirm.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuConfirm.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
+        return isAnyGamepadButtonPressed(keys.menuConfirm.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isMenuCancelPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_BACKSPACE);
+        return isAnyKeyPressed(keys.menuCancel.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuCancel.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_DOWN); // B
+        return isAnyGamepadButtonPressed(keys.menuCancel.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isMenuSpecial1Pressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_X);
+        return isAnyKeyPressed(keys.menuSpecial1.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuSpecial1.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_UP); // X
+        return isAnyGamepadButtonPressed(keys.menuSpecial1.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isMenuSpecial2Pressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_Y);
+        return isAnyKeyPressed(keys.menuSpecial2.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuSpecial2.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_LEFT); // Y
+        return isAnyGamepadButtonPressed(keys.menuSpecial2.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isMenuBackPressed() const
@@ -389,72 +451,30 @@ bool InputSystem::isMenuBackPressed() const
 
 bool InputSystem::isMenuNextPressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_ENTER);
+        return isAnyKeyPressed(keys.menuNext.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuNext.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_MIDDLE_RIGHT); // Start
+        return isAnyGamepadButtonPressed(keys.menuNext.gamepad);
     }
-    return c;
 }
 
 bool InputSystem::isMenuFirePressed() const
 {
-    bool c = false;
+    const InputConfig &keys = config.getInputConfig();
+
     if (m_mouseEnabled)
     {
-        c = IsKeyPressed(KEY_SPACE);
-        c = c || IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        return isAnyKeyPressed(keys.menuFire.keyboard) ||
+               isAnyMouseButtonPressed(keys.menuFire.mouse);
     }
     else
     {
-        c = isGamepadButtonJustPressed(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT); // A
+        return isAnyGamepadButtonPressed(keys.menuFire.gamepad);
     }
-    return c;
-}
-
-// === Геймпад ===
-bool InputSystem::isGamepadConnected() const
-{
-    return IsGamepadAvailable(0);
-}
-
-bool InputSystem::isGamepadAvailable() const
-{
-    return IsGamepadAvailable(0);
-}
-
-void InputSystem::updateGamepadState()
-{
-    for (int i = 0; i < MAX_GAMEPAD_BUTTONS; i++)
-    {
-        m_gamepadDown[i] = IsGamepadButtonDown(0, i);
-    }
-}
-
-bool InputSystem::isGamepadButtonDown(int button) const
-{
-    if (button < 0 || button >= MAX_GAMEPAD_BUTTONS)
-        return false;
-    return m_gamepadDown[button];
-}
-
-bool InputSystem::isGamepadButtonJustPressed(int button) const
-{
-    if (button < 0 || button >= MAX_GAMEPAD_BUTTONS)
-        return false;
-    return m_gamepadDown[button] && !m_gamepadPrevDown[button];
-}
-
-bool InputSystem::isGamepadAnyPressed(std::initializer_list<int> buttons) const
-{
-    for (int btn : buttons)
-    {
-        if (isGamepadButtonJustPressed(btn))
-            return true;
-    }
-    return false;
 }

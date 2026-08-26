@@ -640,7 +640,7 @@ void MenuSystem::drawBackground3D()
     m_terrain->render();
     m_treeSystem->render();
     m_cloudSystem->render();
-    
+
     EndMode3D();
 }
 
@@ -1021,11 +1021,4 @@ void MenuSystem::unloadPreviewModels()
             m_previewModelsLoaded[i] = false;
         }
     }
-}
-
-bool MenuSystem::gamepadPressed(std::initializer_list<int> buttons) const
-{
-    if (!m_input || !m_input->isGamepadAvailable())
-        return false;
-    return m_input->isGamepadAnyPressed(buttons);
 }
