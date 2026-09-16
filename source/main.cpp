@@ -14,7 +14,6 @@ int main()
     config.loadSettings("settings.json");
 
     // SetConfigFlags(FLAG_MSAA_4X_HINT);
-    // SetConfigFlags(FLAG_WINDOW_HIGHDPI);
 
     const DisplayConfig &display = config.getDisplayConfig();
 

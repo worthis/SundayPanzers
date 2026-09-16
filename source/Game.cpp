@@ -35,6 +35,7 @@ void Game::Update(float dt)
         if (!assetsLoaded && loadingTimer > 0.5f)
         {
             loadAssets();
+            DrawLoading(); // reset delta time
             assetsLoaded = true;
             StartLogoIntro();
         }
@@ -200,6 +201,10 @@ void Game::DrawLogoIntro()
     if (introTimer > 350.0f)
     {
         DrawTexture(texData2, (int)(258 + offsetX), (int)(360 + offsetY), WHITE);
+
+        const char *porter = "Ported by Worthis, 2026";
+        const int porterWidth = MeasureText(porter, 20);
+        DrawText(porter, (int)((GetScreenWidth() - porterWidth) * 0.5f), (int)(GetScreenHeight() * 0.9f), 20, WHITE);
     }
 
     // Fade-in overlay (аналог set gamma ga,ga,ga)

@@ -28,6 +28,9 @@ bool ConfigSystem::loadSettings(const std::string &path)
         displayConfig.fullscreen = disp.value("fullscreen", false);
         displayConfig.vsync = disp.value("vsync", false);
         displayConfig.targetFPS = disp.value("targetFPS", 60);
+
+        if (displayConfig.width < 640) displayConfig.width = 640;
+        if (displayConfig.height < 480) displayConfig.height = 480;
     }
 
     // Gameplay settings
