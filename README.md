@@ -7,6 +7,11 @@ This repository contains a modern open-source reimplementation of the original
 freeware game *Sunday Panzers* (2004) by **Bertone Ermes (Ermesdesign)**,
 originally written in DarkBASIC Pro.
 
+### ☕ Like this port? You can support the author!
+
+[![Boosty](https://img.shields.io/badge/Boosty-Donate-F15F2C?style=for-the-badge&logo=boosty&logoColor=white)](https://boosty.to/worthis)
+[![Hipolink](https://img.shields.io/badge/Hipolink-Donate-FF1493?style=for-the-badge)](https://hipolink.net/worthis)
+
 ## Original game
 
 |                     |                                                       |
@@ -93,3 +98,9 @@ docker run --platform linux/arm64 --rm -v ${pwd}:/workspace -w /workspace sunday
 - **Original game** (concept, design, graphics, sounds) © 2004 Bertone Ermes
   (Ermesdesign), originally released as freeware. 
 - **This project** is a fan-made reimplementation made for educational purposes; all rights to the original intellectual property remain with the author.
+
+## Thanks
+
+- Bertone Ermes (Ermesdesign) for original game of my childhood.
+- [raysan5](https://www.raylib.com/) for raylib - simple and easy-to-use library for game development.
+- [Luiz Pestana](https://github.com/luizpestana/raylib-nx) for Nintendo Switch port of the raylib.
